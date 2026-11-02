@@ -17,7 +17,7 @@ Clients, in priority order: CLI and iOS now; a Mac app next; web later.
 |---|---|
 | `core/` | `qot_core` (Rust): the note model and its sync primitives. Shared by every client. |
 | `client_cli/` | `qot` binary (Rust), uses `qot_core` directly. |
-| `server_web/` | Phoenix server: accounts, magic-link auth, note sync. |
+| `server_web/` | Phoenix server: accounts, device sign-in, note sync. |
 
 `core/` and `client_cli/` form one Cargo workspace (root `Cargo.toml`, one
 committed `Cargo.lock`, one `target/`). The iOS app will reach `qot_core`
@@ -91,11 +91,24 @@ must be an explicit opt-in and must not weaken this default.
 
 ## Server (`server_web`)
 
-- **Auth**: passwordless magic links (15 min) issue a JWT access token (1 h,
-  `user_id` claim) and a refresh token (30 days, hashed in the database).
+- **Auth is a device sign-in** (like `gh auth login`), for every client:
+  1. The device calls `POST /api/auth/device {email}` and gets a
+     `device_code` (secret, kept on the device) and a `user_code`
+     (`XXXX-XXXX`, shown to the person).
+  2. The server emails a link to `/auth/device?token=…`, a small HTML page
+     where the person **types the user code**. Opening the link approves
+     nothing, so mail scanners that prefetch links are harmless, and someone
+     who starts a sign-in with your address can't get in by you clicking an
+     email you didn't expect. The code is never in the email. Five wrong codes
+     deny the sign-in; it expires after 15 minutes.
+  3. The device polls `POST /api/auth/device/token {device_code}` (400
+     `authorization_pending` until approved) and receives, once, a JWT access
+     token (1 h, `user_id` claim) and a refresh token (30 days, stored
+     hashed). `POST /api/auth/refresh` renews the access token.
   `RequireAuth` checks Bearer tokens for HTTP; WebSocket connect params carry
-  the JWT, verified before channel join.
-- **Contexts**: `Qot.Accounts` (users, magic links, tokens), `Qot.Sync`
+  the JWT, verified before channel join. The pure rules live in
+  `Qot.Accounts.DeviceLogin` (status, code checks).
+- **Contexts**: `Qot.Accounts` (users, device sign-in, tokens), `Qot.Sync`
   (the change log, always scoped by `user_id`).
 - **Per-user isolation**: every sync call takes `user_id` from the token;
   channels are `notes:user:#{user_id}`, joinable only by that user.
@@ -106,5 +119,6 @@ must be an explicit opt-in and must not weaken this default.
   `AuthHelpers`). `mix test` creates and migrates the test database.
 - CI (`.github/workflows/ci.yml`) runs Rust and server checks on every PR,
   reading tool versions from `mise.toml`.
-- Env (in `mise.local.toml`): `DATABASE_URL`, `FRONTEND_URL`,
-  `JWT_SECRET_KEY`, `RESEND_API_KEY`.
+- Production env: `DATABASE_URL`, `JWT_SECRET_KEY`, `RESEND_API_KEY`,
+  `SECRET_KEY_BASE`, `PHX_HOST` (sign-in links are built from it). Dev and
+  test need none.

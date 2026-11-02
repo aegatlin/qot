@@ -4,61 +4,55 @@ defmodule QotWeb.AuthController do
   alias Qot.Accounts
 
   @doc """
-  POST /api/auth/magic-link
-  Request a magic link to be sent to the given email.
-  Body: {"email": "user@example.com"}
+  POST /api/auth/device {"email": "..."}
+  Starts a device sign-in and emails the link. The device shows `user_code`
+  and polls `/api/auth/device/token` every `interval` seconds.
   """
-  def request_magic_link(conn, %{"email" => email}) do
-    case Accounts.create_magic_link(email) do
-      :ok ->
-        json(conn, %{message: "Magic link sent to #{email}"})
+  def start_device_login(conn, %{"email" => email}) when is_binary(email) do
+    case Accounts.start_device_login(email) do
+      {:ok, started} ->
+        json(conn, started)
+
+      {:error, :invalid_email} ->
+        conn |> put_status(:bad_request) |> json(%{error: "Email is invalid"})
 
       {:error, _reason} ->
-        conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Failed to send magic link"})
+        conn |> put_status(:internal_server_error) |> json(%{error: "Failed to start sign-in"})
     end
   end
 
-  def request_magic_link(conn, _params) do
-    conn
-    |> put_status(:bad_request)
-    |> json(%{error: "Email is required"})
+  def start_device_login(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "Email is required"})
   end
 
   @doc """
-  GET /api/auth/verify?token=xyz
-  Verify a magic link token and return access + refresh tokens.
+  POST /api/auth/device/token {"device_code": "..."}
+  Tokens once the sign-in is approved; otherwise a 400 whose `error` is
+  `authorization_pending` (keep polling) or why it will never succeed.
   """
-  def verify_magic_link(conn, %{"token" => token}) do
-    case Accounts.verify_magic_link(token) do
+  def poll_device_login(conn, %{"device_code" => device_code}) when is_binary(device_code) do
+    case Accounts.poll_device_login(device_code) do
       {:ok, %{access_token: access_token, refresh_token: refresh_token, user: user}} ->
         json(conn, %{
           access_token: access_token,
           refresh_token: refresh_token,
-          user: %{
-            id: user.id,
-            email: user.email
-          }
+          user: %{id: user.id, email: user.email}
         })
 
-      {:error, :invalid_or_expired_token} ->
-        conn
-        |> put_status(:unauthorized)
-        |> json(%{error: "Invalid or expired token"})
-
-      {:error, _reason} ->
-        conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Failed to verify token"})
+      {:error, reason} ->
+        conn |> put_status(:bad_request) |> json(%{error: poll_error(reason)})
     end
   end
 
-  def verify_magic_link(conn, _params) do
-    conn
-    |> put_status(:bad_request)
-    |> json(%{error: "Token is required"})
+  def poll_device_login(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "invalid_device_code"})
   end
+
+  defp poll_error(:authorization_pending), do: "authorization_pending"
+  defp poll_error(:expired), do: "expired_token"
+  defp poll_error(:denied), do: "access_denied"
+  defp poll_error(:consumed), do: "already_used"
+  defp poll_error(_), do: "invalid_device_code"
 
   @doc """
   POST /api/auth/refresh

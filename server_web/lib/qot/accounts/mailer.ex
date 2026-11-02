@@ -1,56 +1,43 @@
 defmodule Qot.Accounts.Mailer do
   @moduledoc """
-  Email functionality for authentication (magic links).
+  Email for authentication (device sign-in links).
   """
 
   use Swoosh.Mailer, otp_app: :qot
   import Swoosh.Email
 
   @doc """
-  Sends a magic link email to the given email address.
+  Emails the link that opens the device sign-in page. The code to type there
+  is shown only on the device, never in the email.
   """
-  def send_magic_link(email, token) do
-    magic_link_url = build_magic_link_url(token)
+  def send_device_login(email, link_token) do
+    url = QotWeb.Endpoint.url() <> "/auth/device?token=" <> link_token
 
-    email_content =
-      new()
-      |> to(email)
-      |> from({"Quantum of Thought", "noreply@quantumofthought.com"})
-      |> subject("Your login link for Quantum of Thought")
-      |> html_body("""
-      <html>
-        <body>
-          <h2>Login to Quantum of Thought</h2>
-          <p>Click the link below to log in to your account:</p>
-          <p><a href="#{magic_link_url}">Log in to Quantum of Thought</a></p>
-          <p>This link will expire in 15 minutes.</p>
-          <p>If you didn't request this email, you can safely ignore it.</p>
-        </body>
-      </html>
-      """)
-      |> text_body("""
-      Login to Quantum of Thought
+    new()
+    |> to(email)
+    |> from({"Quantum of Thought", "noreply@quantumofthought.com"})
+    |> subject("Sign in to Quantum of Thought")
+    |> html_body("""
+    <html>
+      <body>
+        <h2>Sign in to Quantum of Thought</h2>
+        <p>Open this link, then enter the code shown on the device you are signing in:</p>
+        <p><a href="#{url}">Continue signing in</a></p>
+        <p>The link expires in 15 minutes. If you didn't just try to sign in, ignore this email.</p>
+      </body>
+    </html>
+    """)
+    |> text_body("""
+    Sign in to Quantum of Thought
 
-      Click the link below to log in to your account:
-      #{magic_link_url}
+    Open this link, then enter the code shown on the device you are signing in:
+    #{url}
 
-      This link will expire in 15 minutes.
-
-      If you didn't request this email, you can safely ignore it.
-      """)
-
-    deliver_email(email_content)
+    The link expires in 15 minutes. If you didn't just try to sign in, ignore this email.
+    """)
+    |> deliver_email()
   end
 
-  defp build_magic_link_url(token) do
-    frontend_url = System.get_env("FRONTEND_URL") || "http://localhost:5173"
-    "#{frontend_url}/auth/verify?token=#{token}"
-  end
-
-  defp deliver_email(email) do
-    # In development, Swoosh.Adapters.Local will capture emails
-    # You can view them at http://localhost:4000/dev/mailbox (if you add the route)
-    # In production, this will use the configured adapter (e.g., Resend)
-    deliver(email)
-  end
+  # Dev uses Swoosh.Adapters.Local (emails are logged), prod uses Resend.
+  defp deliver_email(email), do: deliver(email)
 end

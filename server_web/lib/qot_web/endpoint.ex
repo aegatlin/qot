@@ -10,7 +10,7 @@ defmodule QotWeb.Endpoint do
   plug(CORSPlug, origin: Application.compile_env(:qot, :cors_origins, []))
 
   plug(Plug.Parsers,
-    parsers: [:json],
+    parsers: [:urlencoded, :json],
     pass: ["*/*"],
     json_decoder: Jason
   )

@@ -1,25 +1,38 @@
 defmodule QotWeb.AuthControllerTest do
   use QotWeb.ConnCase, async: true
 
-  describe "POST /api/auth/magic-link" do
-    test "requests a magic link with valid email", %{conn: conn} do
-      conn = post(conn, "/api/auth/magic-link", %{email: "test@example.com"})
+  describe "POST /api/auth/device" do
+    test "starts a device login", %{conn: conn} do
+      body = conn |> post("/api/auth/device", %{email: "cli@example.com"}) |> json_response(200)
 
-      assert json_response(conn, 200) == %{"message" => "Magic link sent to test@example.com"}
+      assert %{"device_code" => _, "user_code" => code, "expires_in" => _, "interval" => _} =
+               body
+
+      assert code =~ ~r/^[A-Z]{4}-[A-Z]{4}$/
     end
 
-    test "returns error without email", %{conn: conn} do
-      conn = post(conn, "/api/auth/magic-link", %{})
+    test "rejects a missing or invalid email", %{conn: conn} do
+      assert %{"error" => _} = conn |> post("/api/auth/device", %{}) |> json_response(400)
 
-      assert json_response(conn, 400) == %{"error" => "Email is required"}
+      assert %{"error" => _} =
+               conn |> post("/api/auth/device", %{email: "nope"}) |> json_response(400)
     end
   end
 
-  describe "GET /api/auth/verify" do
-    test "returns error with invalid token", %{conn: conn} do
-      conn = get(conn, "/api/auth/verify", %{token: "invalid_token"})
+  describe "POST /api/auth/device/token" do
+    test "is pending until approved", %{conn: conn} do
+      %{"device_code" => device_code} =
+        conn |> post("/api/auth/device", %{email: "cli@example.com"}) |> json_response(200)
 
-      assert json_response(conn, 401) == %{"error" => "Invalid or expired token"}
+      assert %{"error" => "authorization_pending"} =
+               conn
+               |> post("/api/auth/device/token", %{device_code: device_code})
+               |> json_response(400)
+    end
+
+    test "refuses an unknown device code", %{conn: conn} do
+      assert %{"error" => "invalid_device_code"} =
+               conn |> post("/api/auth/device/token", %{device_code: "x"}) |> json_response(400)
     end
   end
 

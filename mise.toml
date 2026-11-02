@@ -1,8 +1,9 @@
 # Every tool and task for the repo. Tasks are named <action>:<component>, and
 # the bare action runs all of them.
 #
-# The server reads DATABASE_URL, FRONTEND_URL, JWT_SECRET_KEY and
-# RESEND_API_KEY from the environment: put them in a gitignored
+# In production the server reads DATABASE_URL, JWT_SECRET_KEY,
+# RESEND_API_KEY, SECRET_KEY_BASE and PHX_HOST from the environment. Dev and
+# test need none of them; to override one locally put it in a gitignored
 # mise.local.toml, e.g.
 #   [env]
 #   DATABASE_URL = "postgresql://localhost/qot_dev"
