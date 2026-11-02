@@ -31,3 +31,4 @@ was considered and turned down.
 | Date | Record | Status |
 |---|---|---|
 | 2026-11-02 | [Hosting platform for the sync server](2026-11-02-hosting-platform.md) | decided |
+| 2026-11-02 | [Secrets management for a solo developer](2026-11-02-secrets-management.md) | decided |
