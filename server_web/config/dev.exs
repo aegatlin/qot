@@ -26,3 +26,5 @@ config :swoosh, :api_client, Swoosh.ApiClient.Req
 config :logger, :console, format: "[$level] $message\n"
 config :phoenix, :stacktrace_depth, 20
 config :phoenix, :plug_init_mode, :runtime
+
+config :joken, default_signer: System.get_env("JWT_SECRET_KEY", "dev-only-jwt-signing-key")

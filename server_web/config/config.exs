@@ -10,6 +10,4 @@ config :qot, QotWeb.Endpoint,
   render_errors: [formats: [json: QotWeb.ErrorJSON], layout: false],
   pubsub_server: Qot.PubSub
 
-config :joken, default_signer: System.get_env("JWT_SECRET_KEY")
-
 import_config "#{config_env()}.exs"

@@ -19,3 +19,6 @@ config :swoosh, :api_client, false
 
 config :logger, level: :warning
 config :phoenix, :plug_init_mode, :runtime
+
+# A fixed signer so tests never depend on the environment.
+config :joken, default_signer: "test-only-jwt-signing-key"
