@@ -173,6 +173,13 @@ the rules the CLI is tested with:
   is a reference to the private-network Postgres (`DATABASE_SSL=false`,
   `ECTO_IPV6=true`). The config lives in Railway, not in the repo: read it with
   the Railway MCP or `railway environment config --json`.
+- **Releasing**: staging deploys every green push to `main` that touches
+  `server_web/` (watch pattern). Production deploys the `production` branch,
+  which `.github/workflows/release-server.yml` moves to a `server-v*` tag
+  after CI passes. Production has **no watch pattern** on purpose: Railway
+  checks only the files the pushed commit changed, so a tag on a docs-only
+  commit would be skipped. Agents can't deploy production; a person pushes
+  the tag.
 - CI (`.github/workflows/ci.yml`) runs Rust and server checks on every PR,
   reading tool versions from `mise.toml`.
 - Dev logs every email (sign-in links included) to the server's console.

@@ -8,6 +8,10 @@ name: Release server
 #   git tag server-v0.1.0 && git push origin server-v0.1.0
 #
 # Tagging an older commit and pushing it rolls production back to it.
+#
+# Railway's production environment must not have a watch pattern: Railway
+# checks only the files the pushed commit changed, so a tag on a commit that
+# didn't touch server_web/ would be skipped.
 
 on:
   push:
