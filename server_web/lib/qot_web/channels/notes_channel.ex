@@ -1,13 +1,18 @@
 defmodule QotWeb.NotesChannel do
+  @moduledoc """
+  Tells a user's connected clients that new changes exist. It carries only
+  the new cursor; clients fetch the changes with `GET /api/sync/pull`, so
+  there is one way data moves.
+  """
+
   use Phoenix.Channel
-  alias Qot.Notes
+
+  alias Qot.Sync
 
   @impl true
-  def join("notes:user:" <> user_id, _message, socket) do
+  def join("notes:user:" <> user_id, _params, socket) do
     if socket.assigns.user_id == user_id do
-      Phoenix.PubSub.subscribe(Qot.PubSub, "notes:user:#{user_id}")
-
-      send(self(), :after_join)
+      Phoenix.PubSub.subscribe(Qot.PubSub, Sync.topic(user_id))
       {:ok, socket}
     else
       {:error, %{reason: "unauthorized"}}
@@ -15,63 +20,8 @@ defmodule QotWeb.NotesChannel do
   end
 
   @impl true
-  def handle_info(:after_join, socket) do
-    user_id = socket.assigns.user_id
-    {:ok, notes} = Notes.list(user_id)
-
-    notes_payload = %{
-      type: "notes",
-      notes:
-        Enum.map(notes, fn note ->
-          %{id: note.id, data: Base.encode64(note.data)}
-        end)
-    }
-
-    push(socket, "message", notes_payload)
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info({:note_created, note}, socket) do
-    push(socket, "message", %{
-      type: "note",
-      id: note.id,
-      data: Base.encode64(note.data)
-    })
-
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info({:note_deleted, id}, socket) do
-    push(socket, "message", %{
-      type: "delete",
-      id: id
-    })
-
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_in("message", %{"type" => "note", "id" => id, "data" => data}, socket) do
-    user_id = socket.assigns.user_id
-
-    case Base.decode64(data) do
-      {:ok, binary_data} ->
-        # This will trigger PubSub broadcast to all user's clients
-        {:ok, _note} = Notes.set(user_id, id, binary_data)
-        {:noreply, socket}
-
-      :error ->
-        {:reply, {:error, %{reason: "Invalid base64"}}, socket}
-    end
-  end
-
-  @impl true
-  def handle_in("message", %{"type" => "delete", "id" => id}, socket) do
-    user_id = socket.assigns.user_id
-    # This will trigger PubSub broadcast to all user's clients
-    :ok = Notes.delete(user_id, id)
+  def handle_info({:changes, cursor}, socket) do
+    push(socket, "changed", %{cursor: cursor})
     {:noreply, socket}
   end
 end

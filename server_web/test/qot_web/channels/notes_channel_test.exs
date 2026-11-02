@@ -1,42 +1,31 @@
 defmodule QotWeb.NotesChannelTest do
-  use QotWeb.ChannelCase, async: false
+  use QotWeb.ChannelCase, async: true
 
-  import QotWeb.AuthHelpers
+  alias Qot.Sync
+  alias QotWeb.AuthHelpers
 
   setup do
-    # ETS cleanup (not transactional)
-    :ets.delete_all_objects(:qot_notes)
-
-    # Create authenticated user
-    auth = create_authenticated_user()
-
-    # Connect to user socket with JWT
+    auth = AuthHelpers.create_authenticated_user()
     {:ok, socket} = connect(QotWeb.UserSocket, %{"token" => auth.access_token})
-
-    {:ok, socket: socket, auth: auth}
+    %{socket: socket, auth: auth}
   end
 
-  describe "join notes:user:USER_ID" do
-    test "joins channel with valid user_id", %{socket: socket, auth: auth} do
-      {:ok, _, socket} = subscribe_and_join(socket, "notes:user:#{auth.user_id}", %{})
-
-      assert socket.assigns.user_id == auth.user_id
-    end
-
-    test "rejects join with mismatched user_id", %{socket: socket} do
-      assert {:error, %{reason: "unauthorized"}} =
-               subscribe_and_join(socket, "notes:user:wrong-user-id", %{})
-    end
+  test "a socket without a valid token is refused" do
+    assert :error = connect(QotWeb.UserSocket, %{"token" => "bad"})
+    assert :error = connect(QotWeb.UserSocket, %{})
   end
 
-  describe "message event with type=note" do
-    test "broadcasts note update to channel", %{socket: socket, auth: auth} do
-      {:ok, _, joined_socket} = subscribe_and_join(socket, "notes:user:#{auth.user_id}", %{})
+  test "a user cannot join another user's topic", %{socket: socket} do
+    assert {:error, %{reason: "unauthorized"}} =
+             subscribe_and_join(socket, "notes:user:#{Ecto.UUID.generate()}", %{})
+  end
 
-      note_data = Base.encode64("test note content")
-      push(joined_socket, "message", %{"type" => "note", "id" => "test-note-id", "data" => note_data})
+  test "a push from any client nudges joined clients with the new cursor",
+       %{socket: socket, auth: auth} do
+    {:ok, _, _} = subscribe_and_join(socket, "notes:user:#{auth.user_id}", %{})
 
-      assert_push "message", %{type: "note", id: "test-note-id", data: ^note_data}
-    end
+    {:ok, 1} = Sync.push(auth.user_id, [%{note_id: Ecto.UUID.generate(), data: "x"}])
+
+    assert_push "changed", %{cursor: 1}
   end
 end

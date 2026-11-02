@@ -64,9 +64,30 @@ mise run cli-install   # alias: ci; installs `qot`
   would report different heads on every call and incremental sync would break.
 - Sync primitives: `heads()`, `changes_since(heads)` (empty heads = the whole
   note; unknown heads are an error, not "send everything") and
-  `apply_changes(bytes)` (idempotent). The protocol on top of these is the
-  server's job; the automerge-repo sync stack is deliberately not used while
-  it is being rebuilt around Subduction.
+  `apply_changes(bytes)` (idempotent). The automerge-repo sync stack is
+  deliberately not used while it is being rebuilt around Subduction.
+
+## Sync and end-to-end encryption
+
+End-to-end encryption is the intended default, so **the server never reads
+note content**. It keeps a per-user, append-only log of opaque change blobs
+and relays them; clients do all merging with `qot_core`. Encryption is then a
+client-only addition (encrypt each blob before pushing), with no server
+change. Key management (how a new device gets the key) is not designed yet.
+Anything that needs the server to read notes (e.g. future note pipelines)
+must be an explicit opt-in and must not weaken this default.
+
+- `POST /api/sync/push` `{changes: [{note_id, data}]}` (data base64) appends
+  and returns `{cursor}`.
+- `GET /api/sync/pull?since=N&limit=M` returns `{changes: [{seq, note_id,
+  data}], cursor, more}`. A client stores `cursor` and pulls from it next.
+- The `notes:user:#{user_id}` channel only nudges (`"changed"` with the new
+  cursor); data always moves through pull, so there is one path.
+- **Seqs are per user and gap-free**: a push reserves its range by
+  incrementing `users.change_seq` under that row's lock. A global sequence
+  would let a reader at cursor N miss a slower transaction that commits a seq
+  below N later. `Qot.SyncConcurrencyTest` pins this.
+- Request parsing is pure (`Qot.Sync.Batch`); `Qot.Sync` is the I/O shell.
 
 ## Server (`server_web`)
 
@@ -74,16 +95,16 @@ mise run cli-install   # alias: ci; installs `qot`
   `user_id` claim) and a refresh token (30 days, hashed in the database).
   `RequireAuth` checks Bearer tokens for HTTP; WebSocket connect params carry
   the JWT, verified before channel join.
-- **Contexts**: `Qot.Accounts` (users, magic links, tokens), `Qot.Notes`
-  (notes, always scoped by `user_id`).
-- **Per-user isolation**: every storage call takes `user_id`; PubSub topics
-  and channels are `notes:user:#{user_id}`, joinable only by that user.
-- **Storage**: `Qot.Storage.Adapter` behaviour, currently `EtsAdapter`
-  (in memory, keys `{user_id, note_id}`). **Notes are lost on restart** until
-  this moves to Postgres, which is the next server task.
-- Note payloads are Automerge binary, base64 over the wire.
+- **Contexts**: `Qot.Accounts` (users, magic links, tokens), `Qot.Sync`
+  (the change log, always scoped by `user_id`).
+- **Per-user isolation**: every sync call takes `user_id` from the token;
+  channels are `notes:user:#{user_id}`, joinable only by that user.
+- Mail: Swoosh's own Resend adapter with the Req client (no `resend`,
+  `tesla` or `hackney`).
 - Tests: `Ecto.Adapters.SQL.Sandbox`; Swoosh test adapter for emails;
   helpers in `test/support/` (`DataCase`, `ConnCase`, `ChannelCase`,
-  `AuthHelpers`). ETS needs manual cleanup: `:ets.delete_all_objects(:qot_notes)`.
+  `AuthHelpers`). `mix test` creates and migrates the test database.
+- CI (`.github/workflows/ci.yml`) runs Rust and server checks on every PR,
+  reading tool versions from `mise.toml`.
 - Env (in `mise.local.toml`): `DATABASE_URL`, `FRONTEND_URL`,
   `JWT_SECRET_KEY`, `RESEND_API_KEY`.

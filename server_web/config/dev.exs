@@ -21,7 +21,7 @@ config :qot, QotWeb.Endpoint,
 
 config :qot, Qot.Accounts.Mailer, adapter: Swoosh.Adapters.Local
 
-config :swoosh, :api_client, Swoosh.ApiClient.Hackney
+config :swoosh, :api_client, Swoosh.ApiClient.Req
 
 config :logger, :console, format: "[$level] $message\n"
 config :phoenix, :stacktrace_depth, 20

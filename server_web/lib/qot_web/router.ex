@@ -21,8 +21,7 @@ defmodule QotWeb.Router do
   scope "/api", QotWeb do
     pipe_through([:api, :authenticated])
 
-    get("/notes", NoteController, :index)
-    put("/notes/:id", NoteController, :upsert)
-    delete("/notes/:id", NoteController, :delete)
+    post("/sync/push", SyncController, :push)
+    get("/sync/pull", SyncController, :pull)
   end
 end

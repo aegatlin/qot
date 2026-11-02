@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Tool versions are read from mise.toml so it stays the single source of truth.
+  versions:
+    runs-on: ubuntu-24.04
+    outputs:
+      rust: ${{ steps.read.outputs.rust }}
+      erlang: ${{ steps.read.outputs.erlang }}
+      elixir: ${{ steps.read.outputs.elixir }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: read
+        run: |
+          rust=$(sed -nE 's/^rust = \{ version = "([^"]+)".*/\1/p' mise.toml)
+          erlang=$(sed -nE 's/^erlang = "([^"]+)"/\1/p' mise.toml)
+          elixir=$(sed -nE 's/^elixir = "([^"-]+)(-otp-[0-9]+)?"/\1/p' mise.toml)
+          test -n "$rust" && test -n "$erlang" && test -n "$elixir"
+          echo "rust=$rust erlang=$erlang elixir=$elixir"
+          {
+            echo "rust=$rust"
+            echo "erlang=$erlang"
+            echo "elixir=$elixir"
+          } >> "$GITHUB_OUTPUT"
+
+  rust:
+    needs: versions
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ needs.versions.outputs.rust }}
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+
+  server:
+    needs: versions
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: server_web
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      MIX_ENV: test
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGHOST: localhost
+    steps:
+      - uses: actions/checkout@v5
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ needs.versions.outputs.erlang }}
+          elixir-version: ${{ needs.versions.outputs.elixir }}
+          version-type: strict
+      - uses: actions/cache@v4
+        with:
+          path: |
+            server_web/deps
+            server_web/_build
+          key: mix-${{ needs.versions.outputs.erlang }}-${{ needs.versions.outputs.elixir }}-${{ hashFiles('server_web/mix.lock') }}
+          restore-keys: mix-${{ needs.versions.outputs.erlang }}-${{ needs.versions.outputs.elixir }}-
+      - run: mix deps.get --check-locked
+      - run: mix format --check-formatted
+      - run: mix compile --warnings-as-errors
+      - run: mix test

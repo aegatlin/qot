@@ -5,9 +5,12 @@ defmodule Qot.Accounts.Token do
 
   use Joken.Config
 
-  @access_token_ttl 60 * 60 # 1 hour in seconds
-  @refresh_token_ttl 60 * 60 * 24 * 30 # 30 days in seconds
-  @magic_link_ttl 60 * 15 # 15 minutes in seconds
+  # 1 hour in seconds
+  @access_token_ttl 60 * 60
+  # 30 days in seconds
+  @refresh_token_ttl 60 * 60 * 24 * 30
+  # 15 minutes in seconds
+  @magic_link_ttl 60 * 15
 
   @doc """
   Generates a JWT access token for the given user_id.
@@ -16,7 +19,8 @@ defmodule Qot.Accounts.Token do
   def generate_jwt(user_id) do
     extra_claims = %{
       "user_id" => user_id,
-      "exp" => DateTime.utc_now() |> DateTime.add(@access_token_ttl, :second) |> DateTime.to_unix()
+      "exp" =>
+        DateTime.utc_now() |> DateTime.add(@access_token_ttl, :second) |> DateTime.to_unix()
     }
 
     generate_and_sign(extra_claims)

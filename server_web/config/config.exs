@@ -1,8 +1,6 @@
 import Config
 
-config :qot,
-  storage_adapter: Qot.Storage.ETSAdapter,
-  ecto_repos: [Qot.Repo]
+config :qot, ecto_repos: [Qot.Repo]
 
 config :qot, Qot.Repo, migration_timestamps: [type: :utc_datetime]
 
