@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Release workflows run the same checks on the tagged commit first.
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -84,3 +86,17 @@ jobs:
       - run: mix format --check-formatted
       - run: mix compile --warnings-as-errors
       - run: mix test
+
+  # The image Railway builds; catches a broken Dockerfile or release before
+  # it reaches staging.
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: server_web
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

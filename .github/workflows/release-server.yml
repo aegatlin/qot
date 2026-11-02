@@ -1,0 +1,43 @@
+name: Release server
+
+# Production deploys from tags: push a `server-v<version>` tag on a commit
+# that is on main. This runs CI on it, then moves the `production` branch to
+# it; Railway's production environment deploys that branch. Staging deploys
+# every green push to main on its own.
+#
+#   git tag server-v0.1.0 && git push origin server-v0.1.0
+#
+# Tagging an older commit and pushing it rolls production back to it.
+
+on:
+  push:
+    tags: ["server-v*"]
+
+concurrency:
+  group: release-server
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  promote:
+    needs: ci
+    runs-on: ubuntu-24.04
+    environment:
+      name: production
+      url: https://server-production-0969.up.railway.app
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: The tagged commit must be on main
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not on main"
+            exit 1
+          }
+      - name: Move production to the tag
+        run: git push --force origin "$GITHUB_SHA:refs/heads/production"
