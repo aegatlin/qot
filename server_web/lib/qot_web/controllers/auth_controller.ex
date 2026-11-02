@@ -1,6 +1,8 @@
 defmodule QotWeb.AuthController do
   use QotWeb, :controller
 
+  require Logger
+
   alias Qot.Accounts
 
   @doc """
@@ -16,7 +18,8 @@ defmodule QotWeb.AuthController do
       {:error, :invalid_email} ->
         conn |> put_status(:bad_request) |> json(%{error: "Email is invalid"})
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.error("device sign-in failed to start: #{inspect(reason)}")
         conn |> put_status(:internal_server_error) |> json(%{error: "Failed to start sign-in"})
     end
   end

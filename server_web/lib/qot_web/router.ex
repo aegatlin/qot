@@ -17,6 +17,10 @@ defmodule QotWeb.Router do
     plug(QotWeb.Plugs.RequireAuth)
   end
 
+  scope "/", QotWeb do
+    get("/health", HealthController, :show)
+  end
+
   scope "/api", QotWeb do
     pipe_through(:api)
 

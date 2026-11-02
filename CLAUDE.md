@@ -153,5 +153,12 @@ the rules the CLI is tested with:
   reading tool versions from `mise.toml`.
 - Dev logs every email (sign-in links included) to the server's console.
 - Production env: `DATABASE_URL`, `JWT_SECRET_KEY`, `RESEND_API_KEY`,
-  `SECRET_KEY_BASE`, `PHX_HOST` (sign-in links are built from it). Dev and
-  test need none.
+  `SECRET_KEY_BASE`, `PHX_HOST` (sign-in links are built from it). Optional:
+  `DATABASE_SSL=false` (a database on the host's private network; TLS with
+  certificate verification is the default), `ECTO_IPV6=true`, `POOL_SIZE`,
+  `PORT`. Dev and test need none.
+- **Release**: `server_web/Dockerfile` builds a `mix release` (Elixir and
+  Erlang versions match `mise.toml`; bump them together). `bin/server` starts
+  it; `bin/migrate` runs migrations and is the platform's pre-deploy step, so
+  a failed migration fails the deploy instead of crash-looping the app.
+  `GET /health` is 200 when the database answers, else 503.

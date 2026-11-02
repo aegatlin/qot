@@ -1,5 +1,11 @@
 import Config
 
+# bin/server sets PHX_SERVER so the release starts the endpoint; `bin/qot eval`
+# tasks such as migrations don't.
+if System.get_env("PHX_SERVER") do
+  config :qot, QotWeb.Endpoint, server: true
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -8,10 +14,17 @@ if config_env() == :prod do
       For example: ecto://USER:PASS@HOST/DATABASE
       """
 
+  # TLS with certificate verification by default. DATABASE_SSL=false is for a
+  # database on the host's private network (e.g. postgres.railway.internal),
+  # which isn't reachable from outside and whose certificate is self-signed.
+  ssl? = System.get_env("DATABASE_SSL", "true") != "false"
+  socket_options = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
+
   config :qot, Qot.Repo,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    ssl: true
+    ssl: ssl?,
+    socket_options: socket_options
 
   jwt_secret_key =
     System.get_env("JWT_SECRET_KEY") ||

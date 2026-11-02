@@ -18,9 +18,10 @@ when priorities change.
 ## Launch v1: CLI + sync server
 
 ### Server: make it deployable
-- [ ] Release build: `mix release` config and a `Dockerfile` (multi-stage,
-      runs migrations on boot via a `Qot.Release.migrate/0` task).
-- [ ] `GET /health` (DB reachable) for the platform's health checks.
+- [x] Release build: `mix release` and a multi-stage `Dockerfile`;
+      migrations run as a pre-deploy step (`bin/migrate`, i.e.
+      `Qot.Release.migrate/0`) rather than on boot.
+- [x] `GET /health` (DB reachable) for the platform's health checks.
 - [ ] Rate-limit `POST /api/auth/device` per IP and per email. Today anyone
       can make the server send unlimited sign-in emails to any address, which
       burns the Resend quota and the sending domain's reputation.
