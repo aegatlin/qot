@@ -1,6 +1,10 @@
 defmodule Qot.Accounts.Mailer do
   @moduledoc """
   Email for authentication (device sign-in links).
+
+  Sent through Resend from `mail.quantumofthought.com`, the only verified
+  sending domain; `quantumofthought.com` itself receives no mail, so replies go
+  to Abstract Syntax's contact address.
   """
 
   use Swoosh.Mailer, otp_app: :qot
@@ -15,7 +19,8 @@ defmodule Qot.Accounts.Mailer do
 
     new()
     |> to(email)
-    |> from({"Quantum of Thought", "noreply@quantumofthought.com"})
+    |> from({"Quantum of Thought", "noreply@mail.quantumofthought.com"})
+    |> reply_to({"Abstract Syntax", "contact@abstractsyntax.llc"})
     |> subject("Sign in to Quantum of Thought")
     |> html_body("""
     <html>

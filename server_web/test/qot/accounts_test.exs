@@ -92,6 +92,16 @@ defmodule Qot.AccountsTest do
       assert {:error, :consumed} = Accounts.poll_device_login(started.device_code)
     end
 
+    test "the email comes from the verified sending subdomain, and replies go to a person" do
+      {:ok, _} = Accounts.start_device_login("someone@example.com")
+
+      assert_email_sent(fn email ->
+        assert email.from == {"Quantum of Thought", "noreply@mail.quantumofthought.com"}
+        assert email.reply_to == {"Abstract Syntax", "contact@abstractsyntax.llc"}
+        true
+      end)
+    end
+
     test "the email never contains the code from the terminal" do
       {:ok, started} = Accounts.start_device_login("someone@example.com")
 
