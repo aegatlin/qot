@@ -2,7 +2,9 @@
 # the bare action runs all of them.
 #
 # In production the server reads DATABASE_URL, JWT_SECRET_KEY,
-# RESEND_API_KEY, SECRET_KEY_BASE and PHX_HOST from the environment. Dev and
+# RESEND_API_KEY, SECRET_KEY_BASE and PHX_HOST from the environment. Deployed
+# secrets live age-encrypted in fnox.toml (profiles staging and production)
+# and are copied to Railway with the secrets:push:* tasks. Dev and
 # test need none of them; to override one locally put it in a gitignored
 # mise.local.toml, e.g.
 #   [env]
@@ -44,6 +46,14 @@ alias = "s"
 description = "Start the Phoenix server in IEx"
 dir = "server_web"
 run = "iex -S mix phx.server"
+
+[tasks."secrets:push:staging"]
+description = "Copy fnox's staging secrets to Railway and redeploy staging"
+run = "scripts/secrets-push staging"
+
+[tasks."secrets:push:production"]
+description = "Copy fnox's production secrets to Railway and redeploy production"
+run = "scripts/secrets-push production"
 
 [tasks.cli-install]
 alias = "ci"

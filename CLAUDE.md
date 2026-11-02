@@ -29,9 +29,16 @@ was removed on 2026-11-02 while CLI and iOS come first; it is in git history.
 
 One root `mise.toml` pins every tool (Rust, Erlang, Elixir) and holds every
 task, named `<action>:<component>` with the bare action running all of them.
-A new component adds its tools and tasks there. Server secrets go in a
-gitignored `mise.local.toml`; they are deliberately not `required` in
-`mise.toml`, which would stop CLI tasks from running without them.
+A new component adds its tools and tasks there. Server env vars are
+deliberately not `required` in `mise.toml`, which would stop CLI tasks from
+running without them; local overrides go in a gitignored `mise.local.toml`.
+
+**Secrets** for deployed environments live in `fnox.toml`, age-encrypted and
+committed, one profile per environment (`staging`, `production`). Decrypting
+needs the age key at `~/.config/fnox/age.txt`, which cloud sessions don't
+have, by design. fnox is the source of truth; `mise run
+secrets:push:<env>` copies a profile to Railway and redeploys. To add or rotate
+one: `fnox -P <env> set KEY` (reads stdin), then push. Never print values.
 
 ```sh
 mise run test          # everything; or test:rust, test:server
