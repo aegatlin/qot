@@ -18,6 +18,7 @@ Clients, in priority order: CLI and iOS now; a Mac app next; web later.
 | `core/` | `qot_core` (Rust): the note model and its sync primitives. Shared by every client. |
 | `client_cli/` | `qot` binary (Rust), uses `qot_core` directly. |
 | `server_web/` | Phoenix server: accounts, device sign-in, note sync. |
+| `docs/` | `ROADMAP.md`, `go-to-market.md`, and `records/`: dated research and decision records (see its README). |
 
 `core/` and `client_cli/` form one Cargo workspace (root `Cargo.toml`, one
 committed `Cargo.lock`, one `target/`). The iOS app will reach `qot_core`
