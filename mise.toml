@@ -1,22 +1,50 @@
-# Tools and tasks for the whole repo. Each component that needs more (the
-# server's Erlang/Elixir and its environment) has its own mise.toml, which
-# mise layers on top of this one inside that directory.
+# Every tool and task for the repo. Tasks are named <action>:<component>, and
+# the bare action runs all of them.
+#
+# The server reads DATABASE_URL, FRONTEND_URL, JWT_SECRET_KEY and
+# RESEND_API_KEY from the environment: put them in a gitignored
+# mise.local.toml, e.g.
+#   [env]
+#   DATABASE_URL = "postgresql://localhost/qot_dev"
+# They are not marked `required` here, because that would make every task,
+# CLI ones included, refuse to run without the server's secrets.
 
 [tools]
 rust = { version = "1.98.1", components = "clippy,rustfmt" }
+erlang = "28.1.1"
+elixir = "1.19.1-otp-28"
 
-[tasks.test]
+[tasks."test:rust"]
 description = "Test the Rust workspace (core + CLI)"
 run = "cargo test --workspace"
 
-[tasks.lint]
-description = "Format check and clippy, warnings as errors"
+[tasks."test:server"]
+description = "Test the Phoenix server"
+dir = "server_web"
+run = "mix test"
+
+[tasks.test]
+description = "Test everything"
+depends = ["test:rust", "test:server"]
+
+[tasks."lint:rust"]
+description = "rustfmt check and clippy, warnings as errors"
 run = [
   "cargo fmt --all --check",
   "cargo clippy --workspace --all-targets -- -D warnings",
 ]
 
+[tasks.lint]
+description = "Lint everything"
+depends = ["lint:rust"]
+
+[tasks.server]
+alias = "s"
+description = "Start the Phoenix server in IEx"
+dir = "server_web"
+run = "iex -S mix phx.server"
+
 [tasks.cli-install]
 alias = "ci"
-description = "Install the qot binary from client_cli"
+description = "Install the qot binary"
 run = "cargo install --path client_cli"

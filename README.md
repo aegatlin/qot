@@ -10,6 +10,7 @@ other devices by the time you look, even if you took it offline.
 | `client_cli/` | `qot`, the command-line client (`qot get milk`) | Rust |
 | `server_web/` | Accounts, auth and note sync | Elixir, Phoenix, Postgres |
 
-Tools are pinned with [mise](https://mise.jdx.dev): run `mise install` at the
-root, then `mise run test`. The server has its own `mise.toml` with its
-toolchain, environment and tasks (`cd server_web && mise run test`).
+Tools and tasks are pinned in one root `mise.toml`
+([mise](https://mise.jdx.dev)): run `mise install`, then `mise run test`.
+Server secrets go in a gitignored `mise.local.toml` (see the comment at the
+top of `mise.toml`).

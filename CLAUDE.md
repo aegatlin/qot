@@ -26,18 +26,17 @@ was removed on 2026-11-02 while CLI and iOS come first; it is in git history.
 
 ## Tooling
 
-Tools are pinned with mise. The root `mise.toml` pins Rust and holds the
-workspace tasks; `server_web/mise.toml` pins Erlang/Elixir and declares the
-server's environment, and mise layers it on top of the root config inside
-that directory. Secrets go in a gitignored `mise.local.toml`. A new component
-in another language gets its own `mise.toml` the same way, so working on one
-component never requires another's toolchain or secrets.
+One root `mise.toml` pins every tool (Rust, Erlang, Elixir) and holds every
+task, named `<action>:<component>` with the bare action running all of them.
+A new component adds its tools and tasks there. Server secrets go in a
+gitignored `mise.local.toml`; they are deliberately not `required` in
+`mise.toml`, which would stop CLI tasks from running without them.
 
 ```sh
-mise run test          # Rust workspace tests
-mise run lint          # rustfmt check + clippy -D warnings
+mise run test          # everything; or test:rust, test:server
+mise run lint          # lint:rust (rustfmt check + clippy -D warnings)
+mise run server        # alias: s
 mise run cli-install   # alias: ci; installs `qot`
-cd server_web && mise run test
 ```
 
 ## Conventions
@@ -86,5 +85,5 @@ cd server_web && mise run test
 - Tests: `Ecto.Adapters.SQL.Sandbox`; Swoosh test adapter for emails;
   helpers in `test/support/` (`DataCase`, `ConnCase`, `ChannelCase`,
   `AuthHelpers`). ETS needs manual cleanup: `:ets.delete_all_objects(:qot_notes)`.
-- Env (see `server_web/mise.toml`): `DATABASE_URL`, `FRONTEND_URL`,
+- Env (in `mise.local.toml`): `DATABASE_URL`, `FRONTEND_URL`,
   `JWT_SECRET_KEY`, `RESEND_API_KEY`.
