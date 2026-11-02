@@ -11,6 +11,14 @@ time you look, without opening the app.
 
 Clients, in priority order: CLI and iOS now; a Mac app next; web later.
 
+## Where the work is
+
+Todos are **GitHub issues**: code, ops and human-only tasks alike (`gh issue
+list`; issues for a person say "Who: a person"). `docs/ROADMAP.md` orders
+them into steps; `docs/records/` keeps research and decisions. When a PR
+finishes an issue, say `Fixes #N`. When work reveals a new todo, open an
+issue rather than leaving a TODO comment or a note in a doc.
+
 ## Repo layout
 
 | Directory | What |
