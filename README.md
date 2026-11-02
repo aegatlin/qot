@@ -23,3 +23,8 @@ cd server_web && mix setup && mix phx.server   # emails are printed here
 cargo run -p qot_cli -- login you@example.com   # open the printed link, type the code
 cargo run -p qot_cli -- get milk
 ```
+
+## Roadmap
+
+Launch todos and what comes after: [docs/ROADMAP.md](docs/ROADMAP.md).
+Pricing and the free/paid line: [docs/go-to-market.md](docs/go-to-market.md).
