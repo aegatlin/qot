@@ -30,4 +30,4 @@ was considered and turned down.
 
 | Date | Record | Status |
 |---|---|---|
-| 2026-11-02 | [Hosting platform for the sync server](2026-11-02-hosting-platform.md) | proposed |
+| 2026-11-02 | [Hosting platform for the sync server](2026-11-02-hosting-platform.md) | decided |

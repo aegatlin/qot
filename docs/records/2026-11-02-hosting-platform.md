@@ -1,6 +1,6 @@
 # Hosting platform for the sync server
 
-Status: proposed
+Status: decided
 Date: 2026-11-02
 Question: Where should `server_web` (Phoenix + Postgres) run in staging and
 production?

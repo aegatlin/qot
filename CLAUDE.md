@@ -149,6 +149,15 @@ the rules the CLI is tested with:
 - Tests: `Ecto.Adapters.SQL.Sandbox`; Swoosh test adapter for emails;
   helpers in `test/support/` (`DataCase`, `ConnCase`, `ChannelCase`,
   `AuthHelpers`). `mix test` creates and migrates the test database.
+- **Deploys: Railway**, project `qot` in the Abstract Syntax workspace (why:
+  `docs/records/2026-11-02-hosting-platform.md`). Services `server` (built
+  from `server_web/Dockerfile`) and `Postgres`; environments `production`
+  (`https://server-production-0969.up.railway.app`) and `staging`
+  (`https://server-staging-b1ea.up.railway.app`), each with its own database
+  and secrets. Pre-deploy `bin/migrate`, health check `/health`, `DATABASE_URL`
+  is a reference to the private-network Postgres (`DATABASE_SSL=false`,
+  `ECTO_IPV6=true`). The config lives in Railway, not in the repo: read it with
+  the Railway MCP or `railway environment config --json`.
 - CI (`.github/workflows/ci.yml`) runs Rust and server checks on every PR,
   reading tool versions from `mise.toml`.
 - Dev logs every email (sign-in links included) to the server's console.

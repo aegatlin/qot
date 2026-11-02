@@ -30,10 +30,10 @@ when priorities change.
 - [ ] Postgres backups, and one tested restore.
 
 ### Deploy pipeline: staging and prod, auto-deploy
-- [ ] Pick a host. Proposed: Railway, in an Abstract Syntax workspace, with
+- [x] Pick a host. Railway, in an Abstract Syntax workspace, with
       Railway Postgres; Fly.io is the runner-up. See
       [records/2026-11-02-hosting-platform.md](records/2026-11-02-hosting-platform.md).
-- [ ] Two apps, two databases, two secret sets: `staging` and `prod`.
+- [x] Two environments, two databases, two secret sets: `staging` and `production`.
 - [ ] GitHub Actions: on green CI for `main` → deploy staging
       automatically; on a `v*` tag (or a manual approval in a `production`
       environment) → deploy prod. Start with both automatic if that's
