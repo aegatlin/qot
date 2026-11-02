@@ -6,7 +6,6 @@ pub type StorageResult<T> = Result<T, StorageError>;
 #[derive(Debug)]
 pub enum StorageError {
     IoError(std::io::Error),
-    SerializationError(String),
 }
 
 impl From<std::io::Error> for StorageError {
@@ -15,28 +14,21 @@ impl From<std::io::Error> for StorageError {
     }
 }
 
-impl From<serde_json::Error> for StorageError {
-    fn from(e: serde_json::Error) -> Self {
-        StorageError::SerializationError(e.to_string())
-    }
-}
-
 impl std::fmt::Display for StorageError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             StorageError::IoError(e) => write!(f, "I/O error: {}", e),
-            StorageError::SerializationError(e) => write!(f, "Serialization error: {}", e),
         }
     }
 }
 
 impl std::error::Error for StorageError {}
 
-/// Universal storage interface
+/// Universal storage interface. There is no delete: a deleted note is a
+/// tombstone inside the note itself, so the delete can sync.
 pub trait Storage {
     fn get(&self, key: &str) -> StorageResult<Option<Vec<u8>>>;
     fn set(&self, key: &str, value: &[u8]) -> StorageResult<()>;
-    fn delete(&self, key: &str) -> StorageResult<()>;
     fn list(&self) -> StorageResult<Vec<String>>;
 }
 
@@ -73,14 +65,6 @@ impl Storage for FileSystemStorage {
         Ok(())
     }
 
-    fn delete(&self, key: &str) -> StorageResult<()> {
-        let path = self.note_path(key);
-        if path.exists() {
-            fs::remove_file(path)?;
-        }
-        Ok(())
-    }
-
     fn list(&self) -> StorageResult<Vec<String>> {
         let entries = fs::read_dir(&self.notes_dir)?;
         let mut uuids = Vec::new();
@@ -90,12 +74,11 @@ impl Storage for FileSystemStorage {
             let path = entry.path();
 
             // Only include .note files
-            if let Some(extension) = path.extension() {
-                if extension == "note" {
-                    if let Some(stem) = path.file_stem() {
-                        uuids.push(stem.to_string_lossy().to_string());
-                    }
-                }
+            if let Some(extension) = path.extension()
+                && extension == "note"
+                && let Some(stem) = path.file_stem()
+            {
+                uuids.push(stem.to_string_lossy().to_string());
             }
         }
 

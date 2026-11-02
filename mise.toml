@@ -1,9 +1,22 @@
-[tools]
-elixir = "1.19.1-otp-28"
-erlang = "28.1.1"
+# Tools and tasks for the whole repo. Each component that needs more (the
+# server's Erlang/Elixir and its environment) has its own mise.toml, which
+# mise layers on top of this one inside that directory.
 
-[env]
-DATABASE_URL = { required = "For local development update mise.local.toml, e.g., postgresql://localhost/qot_dev" }
-FRONTEND_URL = { required = "For local env update mise.local.toml, e.g., http://localhost:5173" }
-JWT_SECRET_KEY = { required = "Secret key for signing JWT tokens" }
-RESEND_API_KEY = { required = "API key from resend.com" }
+[tools]
+rust = { version = "1.98.1", components = "clippy,rustfmt" }
+
+[tasks.test]
+description = "Test the Rust workspace (core + CLI)"
+run = "cargo test --workspace"
+
+[tasks.lint]
+description = "Format check and clippy, warnings as errors"
+run = [
+  "cargo fmt --all --check",
+  "cargo clippy --workspace --all-targets -- -D warnings",
+]
+
+[tasks.cli-install]
+alias = "ci"
+description = "Install the qot binary from client_cli"
+run = "cargo install --path client_cli"
