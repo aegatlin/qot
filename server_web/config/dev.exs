@@ -19,10 +19,13 @@ config :qot, QotWeb.Endpoint,
   secret_key_base: "dev_secret_key_base_at_least_64_bytes_long_for_development_only_use",
   watchers: []
 
-config :qot, Qot.Accounts.Mailer, adapter: Swoosh.Adapters.Local
+# Dev prints emails (sign-in links included) to the server log.
+config :qot, Qot.Accounts.Mailer, adapter: Swoosh.Adapters.Logger, log_full_email: true
 
-config :swoosh, :api_client, Swoosh.ApiClient.Hackney
+config :swoosh, :api_client, false
 
 config :logger, :console, format: "[$level] $message\n"
 config :phoenix, :stacktrace_depth, 20
 config :phoenix, :plug_init_mode, :runtime
+
+config :joken, default_signer: System.get_env("JWT_SECRET_KEY", "dev-only-jwt-signing-key")

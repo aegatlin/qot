@@ -1,9 +1,51 @@
-[tools]
-elixir = "1.19.1-otp-28"
-erlang = "28.1.1"
+# Every tool and task for the repo. Tasks are named <action>:<component>, and
+# the bare action runs all of them.
+#
+# In production the server reads DATABASE_URL, JWT_SECRET_KEY,
+# RESEND_API_KEY, SECRET_KEY_BASE and PHX_HOST from the environment. Dev and
+# test need none of them; to override one locally put it in a gitignored
+# mise.local.toml, e.g.
+#   [env]
+#   DATABASE_URL = "postgresql://localhost/qot_dev"
+# They are not marked `required` here, because that would make every task,
+# CLI ones included, refuse to run without the server's secrets.
 
-[env]
-DATABASE_URL = { required = "For local development update mise.local.toml, e.g., postgresql://localhost/qot_dev" }
-FRONTEND_URL = { required = "For local env update mise.local.toml, e.g., http://localhost:5173" }
-JWT_SECRET_KEY = { required = "Secret key for signing JWT tokens" }
-RESEND_API_KEY = { required = "API key from resend.com" }
+[tools]
+rust = { version = "1.98.1", components = "clippy,rustfmt" }
+erlang = "29.1.2"
+elixir = "1.20.5-otp-29"
+
+[tasks."test:rust"]
+description = "Test the Rust workspace (core + CLI)"
+run = "cargo test --workspace"
+
+[tasks."test:server"]
+description = "Test the Phoenix server"
+dir = "server_web"
+run = "mix test"
+
+[tasks.test]
+description = "Test everything"
+depends = ["test:rust", "test:server"]
+
+[tasks."lint:rust"]
+description = "rustfmt check and clippy, warnings as errors"
+run = [
+  "cargo fmt --all --check",
+  "cargo clippy --workspace --all-targets -- -D warnings",
+]
+
+[tasks.lint]
+description = "Lint everything"
+depends = ["lint:rust"]
+
+[tasks.server]
+alias = "s"
+description = "Start the Phoenix server in IEx"
+dir = "server_web"
+run = "iex -S mix phx.server"
+
+[tasks.cli-install]
+alias = "ci"
+description = "Install the qot binary"
+run = "cargo install --path client_cli"

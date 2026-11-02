@@ -6,7 +6,7 @@ defmodule Qot.Accounts.User do
   @foreign_key_type :binary_id
 
   schema "users" do
-    field :email, :string
+    field(:email, :string)
 
     timestamps(type: :utc_datetime)
   end

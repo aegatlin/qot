@@ -15,6 +15,10 @@ config :qot, QotWeb.Endpoint,
 
 # Use test adapter for emails (doesn't actually send)
 config :qot, Qot.Accounts.Mailer, adapter: Swoosh.Adapters.Test
+config :swoosh, :api_client, false
 
 config :logger, level: :warning
 config :phoenix, :plug_init_mode, :runtime
+
+# A fixed signer so tests never depend on the environment.
+config :joken, default_signer: "test-only-jwt-signing-key"

@@ -5,7 +5,7 @@ defmodule Qot.Accounts do
 
   import Ecto.Query, warn: false
   alias Qot.Repo
-  alias Qot.Accounts.{User, Token, Mailer}
+  alias Qot.Accounts.{DeviceLogin, Mailer, Token, User}
 
   ## User functions
 
@@ -52,68 +52,128 @@ defmodule Qot.Accounts do
     end
   end
 
-  ## Magic Link functions
+  ## Device login
+
+  @device_login_ttl 15 * 60
+  @poll_interval 3
 
   @doc """
-  Creates a magic link token and sends it via email.
-  Returns :ok or {:error, reason}
+  Starts a device sign-in: emails a link to `email` and returns the codes
+  the device needs. The user code is shown on the device only.
   """
-  def create_magic_link(email) do
-    # Generate token
-    token = Token.generate_magic_link_token()
-    hashed_token = Token.hash_token(token)
-    expires_at = Token.magic_link_expires_at()
+  def start_device_login(email) when is_binary(email) do
+    email = String.trim(email)
 
-    # Store hashed token in database
-    query = """
-    INSERT INTO magic_link_tokens (token, email, expires_at, inserted_at)
-    VALUES ($1, $2, $3, $4)
-    """
+    if User.changeset(%User{}, %{email: email}).valid? do
+      device_code = Token.generate_refresh_token()
+      link_token = Token.generate_refresh_token()
+      user_code = DeviceLogin.user_code_from_bytes(:crypto.strong_rand_bytes(8))
 
-    case Repo.query(query, [hashed_token, email, expires_at, DateTime.utc_now()]) do
-      {:ok, _} ->
-        # Send email with the unhashed token
-        Mailer.send_magic_link(email, token)
-        :ok
+      login = %DeviceLogin{
+        email: email,
+        device_code: Token.hash_token(device_code),
+        link_token: Token.hash_token(link_token),
+        user_code: user_code,
+        expires_at:
+          DateTime.utc_now() |> DateTime.add(@device_login_ttl) |> DateTime.truncate(:second)
+      }
 
-      {:error, reason} ->
-        {:error, reason}
+      with {:ok, _} <- Repo.insert(login),
+           {:ok, _} <- Mailer.send_device_login(email, link_token) do
+        {:ok,
+         %{
+           device_code: device_code,
+           user_code: user_code,
+           expires_in: @device_login_ttl,
+           interval: @poll_interval
+         }}
+      end
+    else
+      {:error, :invalid_email}
+    end
+  end
+
+  @doc "The login an emailed link refers to, if it can still be approved."
+  def get_device_login_by_link(link_token) do
+    case Repo.get_by(DeviceLogin, link_token: Token.hash_token(link_token)) do
+      nil ->
+        {:error, :not_found}
+
+      login ->
+        case DeviceLogin.status(login, DateTime.utc_now()) do
+          :pending -> {:ok, login}
+          other -> {:error, other}
+        end
     end
   end
 
   @doc """
-  Verifies a magic link token and returns JWT + refresh token.
-  Returns {:ok, %{access_token: jwt, refresh_token: token, user: user}} or {:error, reason}
+  Approves the login behind `link_token` if `user_code` matches. A wrong code
+  is counted (and committed), so guessing runs out after a few tries.
   """
-  def verify_magic_link(token) do
-    hashed_token = Token.hash_token(token)
+  def approve_device_login(link_token, user_code) do
+    {:ok, result} =
+      Repo.transaction(fn ->
+        with {:ok, login} <- lock_device_login(link_token: Token.hash_token(link_token)) do
+          now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-    # Find and delete the magic link token (one-time use)
-    query = """
-    DELETE FROM magic_link_tokens
-    WHERE token = $1 AND expires_at > $2
-    RETURNING email
-    """
+          case DeviceLogin.check_code(login, user_code, now) do
+            :ok ->
+              {:ok, Repo.update!(Ecto.Changeset.change(login, approved_at: now))}
 
-    case Repo.query(query, [hashed_token, DateTime.utc_now()]) do
-      {:ok, %{rows: [[email]]}} ->
-        # Token is valid, get or create user
-        {:ok, user} = get_or_create_user(email)
+            {:error, :mismatch} ->
+              Repo.update!(Ecto.Changeset.change(login, attempts: login.attempts + 1))
+              {:error, :mismatch}
 
-        # Generate tokens
-        {:ok, access_token} = Token.generate_jwt(user.id)
-        refresh_token = Token.generate_refresh_token()
+            {:error, reason} ->
+              {:error, reason}
+          end
+        end
+      end)
 
-        # Store refresh token
-        {:ok, _} = create_refresh_token(user.id, refresh_token)
+    result
+  end
 
-        {:ok, %{access_token: access_token, refresh_token: refresh_token, user: user}}
+  @doc """
+  What a polling device gets: tokens exactly once after approval, otherwise
+  `:authorization_pending` or why it will never succeed.
+  """
+  def poll_device_login(device_code) do
+    Repo.transaction(fn ->
+      with {:ok, login} <- lock_device_login(device_code: Token.hash_token(device_code)) do
+        case DeviceLogin.status(login, DateTime.utc_now()) do
+          :approved ->
+            {:ok, user} = get_or_create_user(login.email)
+            {:ok, tokens} = issue_tokens(user)
+            now = DateTime.utc_now() |> DateTime.truncate(:second)
+            Repo.update!(Ecto.Changeset.change(login, consumed_at: now))
+            tokens
 
-      {:ok, %{rows: []}} ->
-        {:error, :invalid_or_expired_token}
+          :pending ->
+            Repo.rollback(:authorization_pending)
 
-      {:error, reason} ->
-        {:error, reason}
+          other ->
+            Repo.rollback(other)
+        end
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  defp lock_device_login(by) do
+    case Repo.one(from(d in DeviceLogin, where: ^by, lock: "FOR UPDATE")) do
+      nil -> {:error, :not_found}
+      login -> {:ok, login}
+    end
+  end
+
+  defp issue_tokens(user) do
+    {:ok, access_token, _claims} = Token.generate_jwt(user.id)
+    refresh_token = Token.generate_refresh_token()
+
+    with {:ok, _} <- create_refresh_token(user.id, refresh_token) do
+      {:ok, %{access_token: access_token, refresh_token: refresh_token, user: user}}
     end
   end
 
@@ -130,7 +190,9 @@ defmodule Qot.Accounts do
     VALUES ($1, $2, $3, $4)
     """
 
-    case Repo.query(query, [hashed_token, user_id, expires_at, DateTime.utc_now()]) do
+    params = [hashed_token, Ecto.UUID.dump!(user_id), expires_at, DateTime.utc_now()]
+
+    case Repo.query(query, params) do
       {:ok, _} -> {:ok, token}
       {:error, reason} -> {:error, reason}
     end
@@ -151,7 +213,7 @@ defmodule Qot.Accounts do
 
     case Repo.query(query, [hashed_token, DateTime.utc_now()]) do
       {:ok, %{rows: [[user_id]]}} ->
-        {:ok, access_token} = Token.generate_jwt(user_id)
+        {:ok, access_token, _claims} = Token.generate_jwt(Ecto.UUID.load!(user_id))
         {:ok, %{access_token: access_token}}
 
       {:ok, %{rows: []}} ->
@@ -180,13 +242,13 @@ defmodule Qot.Accounts do
   end
 
   @doc """
-  Cleans up expired tokens (magic links and refresh tokens).
+  Cleans up expired device logins and refresh tokens.
   Should be run periodically.
   """
   def cleanup_expired_tokens do
     now = DateTime.utc_now()
 
-    Repo.query("DELETE FROM magic_link_tokens WHERE expires_at < $1", [now])
+    Repo.query("DELETE FROM device_logins WHERE expires_at < $1", [now])
     Repo.query("DELETE FROM refresh_tokens WHERE expires_at < $1", [now])
 
     :ok

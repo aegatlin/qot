@@ -1,108 +1,201 @@
+use crate::api::{Api, ApiError};
+use crate::credentials::{self, Credentials};
 use crate::storage::{FileSystemStorage, Storage};
 use directories::ProjectDirs;
-use std::collections::HashMap;
+use qot_core::sync::{SyncState, apply_pulled, mark_pushed, plan_push};
+use std::collections::BTreeMap;
+use std::path::PathBuf;
 
-// Simple view struct for Note data
+/// The most changes one push may carry (the server's limit).
+const PUSH_CHUNK: usize = 500;
+
+/// Overrides where notes are stored. Tests use it so they never touch a real
+/// note store; it also lets a second store be pointed at by hand.
+pub const DATA_DIR_ENV: &str = "QOT_DATA_DIR";
+
+/// What the CLI shows of a note.
 #[derive(Clone, Debug)]
 pub struct Note {
+    #[cfg_attr(not(test), allow(dead_code))]
     pub id: String,
     pub content: String,
 }
 
 pub struct NoteService {
-    notes: HashMap<String, crdt_note::Note>,
     storage: FileSystemStorage,
+    dir: PathBuf,
+}
+
+/// What a sync moved.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct SyncReport {
+    pub pushed: usize,
+    pub pulled: usize,
+}
+
+pub fn data_dir() -> Result<PathBuf, String> {
+    if let Some(dir) = std::env::var_os(DATA_DIR_ENV).filter(|d| !d.is_empty()) {
+        return Ok(PathBuf::from(dir));
+    }
+    let proj_dirs =
+        ProjectDirs::from("", "", "qot").ok_or("Failed to determine storage directory")?;
+    Ok(proj_dirs.data_dir().to_path_buf())
 }
 
 impl NoteService {
     pub fn new() -> Result<Self, String> {
-        // Determine storage path using ProjectDirs
-        let proj_dirs =
-            ProjectDirs::from("", "", "qot").ok_or("Failed to determine storage directory")?;
-        let base_path = proj_dirs.data_dir().to_path_buf();
-
-        let storage = FileSystemStorage::new(base_path).map_err(|e| format!("{}", e))?;
-
-        Ok(Self {
-            notes: HashMap::new(),
-            storage,
-        })
+        Self::at(data_dir()?)
     }
 
-    pub fn create(&mut self, content: &str) -> Result<Note, String> {
-        // Create note using crdt_note
-        let crdt_note = crdt_note::Note::new(content);
-        let note_id = crdt_note.id();
-        let note_content = crdt_note.content();
+    pub fn at(dir: PathBuf) -> Result<Self, String> {
+        let storage = FileSystemStorage::new(dir.clone()).map_err(|e| e.to_string())?;
+        Ok(Self { storage, dir })
+    }
 
-        // Validate the note was created successfully
-        if note_id.is_empty() {
-            return Err("Failed to create note".to_string());
+    pub fn dir(&self) -> &std::path::Path {
+        &self.dir
+    }
+
+    /// Pushes local changes, then pulls until caught up. The sync state is
+    /// saved after every step, so an interrupted sync resumes where it
+    /// stopped and anything repeated is harmless.
+    pub fn sync(&mut self, api: &Api, creds: &mut Credentials) -> Result<SyncReport, String> {
+        let mut report = SyncReport::default();
+        let mut state = self.load_state()?;
+
+        let notes = self.load_all()?;
+        for chunk in plan_push(&notes, &state).chunks(PUSH_CHUNK) {
+            authed(api, creds, &self.dir, |token| api.push(token, chunk))?;
+            state = mark_pushed(&state, chunk);
+            self.save_state(&state)?;
+            report.pushed += chunk.len();
         }
 
-        // Persist to storage
-        let bytes = crdt_note::Note::into(&crdt_note);
-        self.storage
-            .set(&note_id, &bytes)
-            .map_err(|e| format!("{}", e))?;
-
-        // Store in memory
-        let crdt_note_copy = crdt_note::Note::from(&bytes);
-        self.notes.insert(note_id.clone(), crdt_note_copy);
-
-        Ok(Note {
-            id: note_id,
-            content: note_content,
-        })
-    }
-
-    pub fn list(&mut self) -> Result<Vec<Note>, String> {
-        let mut uuids = self.storage.list().map_err(|e| format!("{}", e))?;
-
-        // Sort by UUIDv7 timestamp (oldest first)
-        uuids.sort();
-
-        let mut note_list = Vec::new();
-        for uuid in uuids {
-            if let Some(bytes) = self.storage.get(&uuid).map_err(|e| format!("{}", e))? {
-                // Deserialize from storage
-                let crdt_note = crdt_note::Note::from(&bytes);
-                let note_id = crdt_note.id();
-                let note_content = crdt_note.content();
-
-                // Store in memory cache
-                self.notes.insert(note_id.clone(), crdt_note);
-
-                note_list.push(Note {
-                    id: note_id,
-                    content: note_content,
-                });
+        loop {
+            let page = authed(api, creds, &self.dir, |token| api.pull(token, state.cursor))?;
+            let notes: BTreeMap<String, qot_core::Note> =
+                self.load_all()?.into_iter().map(|n| (n.id(), n)).collect();
+            let (changed, next) =
+                apply_pulled(&notes, &state, &page.changes).map_err(|e| e.to_string())?;
+            for note in changed.values() {
+                self.save(note)?;
+            }
+            state = next;
+            self.save_state(&state)?;
+            report.pulled += page.changes.len();
+            if !page.more {
+                break;
             }
         }
 
-        Ok(note_list)
+        Ok(report)
+    }
+
+    /// Forgets what has been synced, so the next sign-in starts afresh.
+    /// Notes stay.
+    pub fn forget_sync_state(&self) -> Result<(), String> {
+        match std::fs::remove_file(self.state_path()) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
+            _ => Ok(()),
+        }
+    }
+
+    fn state_path(&self) -> PathBuf {
+        self.dir.join("sync.json")
+    }
+
+    fn load_state(&self) -> Result<SyncState, String> {
+        match std::fs::read(self.state_path()) {
+            Ok(bytes) => serde_json::from_slice(&bytes).map_err(|e| e.to_string()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(SyncState::default()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    fn save_state(&self, state: &SyncState) -> Result<(), String> {
+        let json = serde_json::to_vec(state).map_err(|e| e.to_string())?;
+        std::fs::write(self.state_path(), json).map_err(|e| e.to_string())
+    }
+
+    pub fn create(&mut self, content: &str) -> Result<Note, String> {
+        let note = qot_core::Note::new(content);
+        self.save(&note)?;
+        Ok(view(&note))
+    }
+
+    /// Live notes, oldest first. Deleted notes stay in storage as tombstones
+    /// so the delete can sync, but are not listed.
+    pub fn list(&mut self) -> Result<Vec<Note>, String> {
+        Ok(self
+            .load_all()?
+            .iter()
+            .filter(|n| !n.is_deleted())
+            .map(view)
+            .collect())
     }
 
     pub fn delete_by_index(&mut self, index: usize) -> Result<String, String> {
-        // Get current sorted list
-        let notes = self.list()?;
+        let live: Vec<qot_core::Note> = self
+            .load_all()?
+            .into_iter()
+            .filter(|n| !n.is_deleted())
+            .collect();
 
-        // Check if index is valid (1-based)
-        if index == 0 || index > notes.len() {
-            return Err(format!("Index {} out of range (1-{})", index, notes.len()));
+        if index == 0 || index > live.len() {
+            return Err(format!("Index {} out of range (1-{})", index, live.len()));
         }
 
-        // Get the note at the given index (convert to 0-based)
-        let note = &notes[index - 1];
-        let note_id = note.id.clone();
-        let note_content = note.content.clone();
+        let note = &live[index - 1];
+        let deleted = note.delete().map_err(|e| e.to_string())?;
+        self.save(&deleted)?;
+        Ok(note.content())
+    }
 
-        // Delete from storage
+    fn save(&self, note: &qot_core::Note) -> Result<(), String> {
         self.storage
-            .delete(&note_id)
-            .map_err(|e| format!("{}", e))?;
+            .set(&note.id(), &note.to_bytes())
+            .map_err(|e| e.to_string())
+    }
 
-        Ok(note_content)
+    /// Every stored note, tombstones included, sorted by UUIDv7 (creation time).
+    fn load_all(&self) -> Result<Vec<qot_core::Note>, String> {
+        let mut ids = self.storage.list().map_err(|e| e.to_string())?;
+        ids.sort();
+        let mut notes = Vec::with_capacity(ids.len());
+        for id in ids {
+            if let Some(bytes) = self.storage.get(&id).map_err(|e| e.to_string())? {
+                let note = qot_core::Note::from_bytes(&bytes)
+                    .map_err(|e| format!("note {id} is unreadable: {e}"))?;
+                notes.push(note);
+            }
+        }
+        Ok(notes)
+    }
+}
+
+/// Runs `call` with the access token, refreshing it once if it was refused.
+fn authed<T>(
+    api: &Api,
+    creds: &mut Credentials,
+    dir: &std::path::Path,
+    call: impl Fn(&str) -> Result<T, ApiError>,
+) -> Result<T, String> {
+    match call(&creds.tokens.access_token) {
+        Err(ApiError::Unauthorized) => {
+            creds.tokens.access_token = api
+                .refresh(&creds.tokens.refresh_token)
+                .map_err(|e| e.to_string())?;
+            credentials::save(dir, creds)?;
+            call(&creds.tokens.access_token).map_err(|e| e.to_string())
+        }
+        other => other.map_err(|e| e.to_string()),
+    }
+}
+
+fn view(note: &qot_core::Note) -> Note {
+    Note {
+        id: note.id(),
+        content: note.content(),
     }
 }
 
@@ -115,12 +208,7 @@ mod tests {
     #[test]
     fn test_list_returns_notes_sorted_by_creation_time() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = FileSystemStorage::new(temp_dir.path().to_path_buf()).unwrap();
-
-        let mut service = NoteService {
-            notes: HashMap::new(),
-            storage,
-        };
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
 
         // Create first note
         let note1 = service.create("First note").unwrap();
@@ -157,12 +245,7 @@ mod tests {
     #[test]
     fn test_delete_by_index() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = FileSystemStorage::new(temp_dir.path().to_path_buf()).unwrap();
-
-        let mut service = NoteService {
-            notes: HashMap::new(),
-            storage,
-        };
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
 
         // Create three notes
         service.create("First note").unwrap();
@@ -188,12 +271,7 @@ mod tests {
     #[test]
     fn test_delete_by_index_out_of_range() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = FileSystemStorage::new(temp_dir.path().to_path_buf()).unwrap();
-
-        let mut service = NoteService {
-            notes: HashMap::new(),
-            storage,
-        };
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
 
         // Create one note
         service.create("Only note").unwrap();
@@ -210,5 +288,47 @@ mod tests {
 
         // Verify note is still there
         assert_eq!(service.list().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn delete_keeps_a_tombstone_in_storage_so_it_can_sync() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
+
+        let note = service.create("buy milk").unwrap();
+        service.delete_by_index(1).unwrap();
+
+        assert!(service.list().unwrap().is_empty());
+        let bytes = service.storage.get(&note.id).unwrap().unwrap();
+        assert!(qot_core::Note::from_bytes(&bytes).unwrap().is_deleted());
+    }
+
+    #[test]
+    fn delete_index_counts_only_live_notes() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
+
+        service.create("first").unwrap();
+        sleep(Duration::from_millis(2));
+        service.create("second").unwrap();
+        sleep(Duration::from_millis(2));
+        service.create("third").unwrap();
+
+        assert_eq!(service.delete_by_index(1).unwrap(), "first");
+        assert_eq!(service.delete_by_index(1).unwrap(), "second");
+        let notes = service.list().unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].content, "third");
+    }
+
+    #[test]
+    fn an_unreadable_note_is_reported_not_silently_emptied() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let storage = FileSystemStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        storage.set("broken", b"not automerge").unwrap();
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
+
+        let err = service.list().unwrap_err();
+        assert!(err.contains("broken"), "{err}");
     }
 }

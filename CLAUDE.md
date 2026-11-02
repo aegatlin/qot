@@ -1,234 +1,156 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Product
 
-## Project Overview
+Quantum of Thought (qot) is a quick note capture tool. The feature set is
+deliberately thin (capture, list, delete, sync); the surface area is wide:
+anywhere you are, capturing a note should be one natural gesture (`qot get
+milk` in a terminal; the Action button, a Control Center control, Siri or a
+voice memo on iOS). Notes taken offline must be on your other devices by the
+time you look, without opening the app.
 
-Quantum of Thought is a note capture tool with real-time synchronization across multiple clients. The architecture uses CRDT (Conflict-free Replicated Data Types) via Automerge for distributed note editing without conflicts.
+Clients, in priority order: CLI and iOS now; a Mac app next; web later.
 
-## Architecture
+## Repo layout
 
-The system consists of four main components:
+| Directory | What |
+|---|---|
+| `core/` | `qot_core` (Rust): the note model and its sync primitives. Shared by every client. |
+| `client_cli/` | `qot` binary (Rust), uses `qot_core` directly. |
+| `server_web/` | Phoenix server: accounts, device sign-in, note sync. |
 
-1. **crdt_note** (Rust/WASM): Core CRDT note implementation
-   - Uses Automerge for conflict-free merging
-   - Compiled to WASM for web client usage
-   - Also used directly by CLI client
-   - Each note has a UUIDv7 id and text content
+`core/` and `client_cli/` form one Cargo workspace (root `Cargo.toml`, one
+committed `Cargo.lock`, one `target/`). The iOS app will reach `qot_core`
+through UniFFI. A web client existed (React + the core compiled to WASM) and
+was removed on 2026-11-02 while CLI and iOS come first; it is in git history.
 
-2. **client_web** (React + TypeScript + Vite): Web interface
-   - Uses the CRDT WASM module via `crdt_note` package
-   - Three-layer data architecture:
-     - **NoteService**: Synchronizes notes across storage and networks (HTTP + WebSocket)
-     - **NoteStore**: React-aware external store using useSyncExternalStore API
-     - **React Components**: UI layer consuming NoteStore
-   - All public APIs are synchronous; async operations notify listeners when complete
-   - Uses localForage for client-side persistence
-   - Supports multiple network transports simultaneously
+## Tooling
 
-3. **client_cli** (Rust): Command-line interface
-   - Binary name: `qot`
-   - Uses the crdt_note library directly (not WASM)
-   - Provides local note management
+One root `mise.toml` pins every tool (Rust, Erlang, Elixir) and holds every
+task, named `<action>:<component>` with the bare action running all of them.
+A new component adds its tools and tasks there. Server secrets go in a
+gitignored `mise.local.toml`; they are deliberately not `required` in
+`mise.toml`, which would stop CLI tasks from running without them.
 
-4. **server_web** (Elixir/Phoenix): Backend server
-   - **Authentication**: Passwordless magic links with JWT access tokens (1hr) and refresh tokens (30 days)
-   - **Main contexts**:
-     - `Qot.Accounts` - user management, magic link auth, token operations
-     - `Qot.Notes` - note operations with per-user isolation
-   - **Per-user note isolation**: All notes scoped by user_id, WebSocket channels are `notes:user:#{user_id}`
-   - **Storage adapter pattern**: `Qot.Storage.Adapter` behavior (currently ETS with composite keys `{user_id, note_id}`)
-   - **PubSub architecture**: All note operations broadcast to per-user topics `notes:user:#{user_id}`
-   - **WebSocket authentication**: JWT token required in socket connect params, verified before channel join
-
-## Development Commands
-
-### crdt_note (Rust WASM)
-
-Build WASM package (required before web client can use it):
 ```sh
-cd crdt_note
-wasm-pack build .
+mise run test          # everything; or test:rust, test:server
+mise run lint          # lint:rust (rustfmt check + clippy -D warnings)
+mise run server        # alias: s
+mise run cli-install   # alias: ci; installs `qot`
 ```
 
-This creates `crdt_note/pkg/` directory which is consumed by `client_web` as a file dependency.
+## Conventions
 
-Run Rust tests:
-```sh
-cd crdt_note
-cargo test
-```
+- **TDD.** Write the failing test first, then the code.
+- **Functional core, imperative shell.** Logic lives in pure functions over
+  immutable values that are tested without I/O; storage, network and UI are a
+  thin shell around them. In `qot_core` every operation on a `Note` returns a
+  new `Note` rather than mutating one.
+- Errors are values. Never turn a failure into an empty or default note; that
+  silently loses a user's data.
+- Rust: unit tests beside the code (`#[cfg(test)]`), CLI integration tests in
+  `client_cli/tests/`. CLI tests run against a temporary store through
+  `QOT_DATA_DIR` and must never touch the real one.
 
-### client_web (React)
+## The note model (`qot_core`)
 
-Install dependencies (includes the WASM package from `../crdt_note/pkg`):
-```sh
-cd client_web
-npm install
-```
+- One note is one small Automerge document: `id` (UUIDv7, so ids sort by
+  creation time), `content` (Automerge text) and `deleted`.
+- **Delete is a tombstone**, never removing the document: a removed note
+  would be resurrected by the next sync from a device that still has it.
+  Clients hide tombstones.
+- **Every `Note` holds a fully committed document.** An uncommitted edit gets
+  committed with a fresh timestamp whenever heads are read, so the same note
+  would report different heads on every call and incremental sync would break.
+- Sync primitives: `heads()`, `changes_since(heads)` (empty heads = the whole
+  note; unknown heads are an error, not "send everything") and
+  `apply_changes(bytes)` (idempotent). The automerge-repo sync stack is
+  deliberately not used while it is being rebuilt around Subduction.
 
-Development server:
-```sh
-cd client_web
-npm run dev
-```
+## Sync and end-to-end encryption
 
-Build:
-```sh
-cd client_web
-npm run build
-```
+End-to-end encryption is the intended default, so **the server never reads
+note content**. It keeps a per-user, append-only log of opaque change blobs
+and relays them; clients do all merging with `qot_core`. Encryption is then a
+client-only addition (encrypt each blob before pushing), with no server
+change. Key management (how a new device gets the key) is not designed yet.
+Anything that needs the server to read notes (e.g. future note pipelines)
+must be an explicit opt-in and must not weaken this default.
 
-Lint:
-```sh
-cd client_web
-npm run lint
-```
+- `POST /api/sync/push` `{changes: [{note_id, data}]}` (data base64) appends
+  and returns `{cursor}`.
+- `GET /api/sync/pull?since=N&limit=M` returns `{changes: [{seq, note_id,
+  data}], cursor, more}`. A client stores `cursor` and pulls from it next.
+- The `notes:user:#{user_id}` channel only nudges (`"changed"` with the new
+  cursor); data always moves through pull, so there is one path.
+- **Seqs are per user and gap-free**: a push reserves its range by
+  incrementing `users.change_seq` under that row's lock. A global sequence
+  would let a reader at cursor N miss a slower transaction that commits a seq
+  below N later. `Qot.SyncConcurrencyTest` pins this.
+- Request parsing is pure (`Qot.Sync.Batch`); `Qot.Sync` is the I/O shell.
 
-Run unit tests (Vitest):
-```sh
-cd client_web
-npm test
-```
+## Client sync (`qot_core::sync`)
 
-Run e2e tests (Playwright):
-```sh
-cd client_web
-npm run test:e2e
-```
+Every client syncs with the same pure functions, so iOS and the PWA inherit
+the rules the CLI is tested with:
 
-Run e2e tests with UI:
-```sh
-cd client_web
-npm run test:e2e:ui
-```
+- `SyncState` (persisted per device): `cursor`, the last server seq applied,
+  and per note the heads last pushed.
+- A sync is **push, then pull**: `plan_push` (what moved since last pushed;
+  the whole note if never pushed or if the saved heads are unknown) →
+  send → `mark_pushed`; then pull pages from `cursor` and `apply_pulled`
+  until `more` is false. Save state after every step: an interrupted sync
+  resumes, and anything repeated is harmless.
+- `apply_pulled` moves a note's "pushed" heads only if nothing local was
+  waiting, so local edits made before a pull still go up next time.
+- A device pulls back its own pushes; applying them is a no-op.
 
-Debug e2e tests:
-```sh
-cd client_web
-npm run test:e2e:debug
-```
+## CLI (`client_cli`)
 
-### client_cli (Rust)
+- `qot login <email> [--server URL]` runs the device sign-in (server from
+  `--server`, else `$QOT_SERVER`, else `http://localhost:4000`), then syncs.
+  `qot logout` revokes and forgets credentials and sync state; notes stay.
+  `qot sync` syncs and reports errors.
+- Capture never waits on the network: `add`/`get …`, `delete` and `list`
+  run a best-effort sync with a 3 s timeout when signed in, and print
+  `(not synced: …)` to stderr when offline. The note is saved first.
+- Store layout under the data dir: `notes/<id>.note` (Automerge bytes),
+  `sync.json` (`SyncState`), `credentials.json` (tokens, mode 0600).
+- Sync rules live in `qot_core::sync`; `service.rs` and `api.rs` are the
+  I/O shell. Integration tests run the binary against `httpmock`
+  (`tests/sync_test.rs`).
 
-Install locally:
-```sh
-cd client_cli
-cargo install --path .
-```
+## Server (`server_web`)
 
-This installs the `qot` binary.
-
-Run tests:
-```sh
-cd client_cli
-cargo test
-```
-
-### server_web (Elixir/Phoenix)
-
-**Environment Setup:**
-Uses `mise` for tool and environment management. Required environment variables in `mise.local.toml`:
-- `DATABASE_URL` - PostgreSQL connection (e.g., postgresql://localhost/qot_dev)
-- `FRONTEND_URL` - Frontend URL for magic links (e.g., http://localhost:5173)
-- `JWT_SECRET_KEY` - Secret key for signing JWT tokens
-- `RESEND_API_KEY` - API key from resend.com for sending emails
-
-Get dependencies:
-```sh
-cd server_web
-mix deps.get
-```
-
-Run database migrations:
-```sh
-cd server_web
-mix ecto.migrate
-```
-
-Start server in interactive mode:
-```sh
-cd server_web
-iex -S mix phx.server
-```
-
-Run all tests:
-```sh
-cd server_web
-mix test
-```
-
-Run specific test file:
-```sh
-cd server_web
-mix test test/path/to/test_file.exs
-```
-
-Run specific test at line:
-```sh
-cd server_web
-mix test test/path/to/test_file.exs:42
-```
-
-## Key Implementation Details
-
-### WASM Integration
-- The web client uses `vite-plugin-wasm` and `vite-plugin-top-level-await` for WASM support
-- WASM boundary: Pass primitives and use non-mutable borrows to avoid gotchas
-- The WASM package is linked as a file dependency in `client_web/package.json`: `"crdt_note": "file:../crdt_note/pkg"`
-
-### Network Synchronization
-- Web client supports multiple simultaneous network transports (HTTP + WebSocket)
-- NoteService handles incoming messages from all networks and deduplicates
-- All CRUD operations broadcast to all configured networks
-- Server uses Phoenix PubSub to broadcast changes to all connected WebSocket clients
-- Note data is serialized as Automerge binary format and transmitted as base64 over WebSocket
-
-### Data Flow (Web Client)
-1. User action → Component
-2. Component calls NoteStore method
-3. NoteStore calls NoteService method
-4. NoteService:
-   - Updates in-memory WASM note
-   - Persists to localForage
-   - Broadcasts to all networks (HTTP + WebSocket)
-   - Notifies listeners
-5. NoteStore updates snapshot and notifies React
-6. React re-renders components
-
-### Authentication System (Server)
-- **Passwordless authentication**: Magic links sent via email (15 min expiry)
-- **Token architecture**:
-  - Access tokens: JWT, 1 hour expiry, contain user_id claim
-  - Refresh tokens: Random, 30 days expiry, hashed in database
-  - Magic link tokens: Random, 15 min expiry, hashed in database
-- **Auth flow**:
-  1. User requests magic link → stored in `magic_link_tokens` table
-  2. User clicks link → creates/finds user, issues JWT + refresh token
-  3. JWT used for API/WebSocket auth, refresh token for renewal
-- **WebSocket auth**: JWT passed in socket connect params, user_id extracted and assigned to socket
-- **HTTP auth**: `RequireAuth` plug checks Bearer token, assigns user_id to conn
-
-### Per-User Note Isolation (Server)
-- All storage operations require `user_id` parameter
-- ETS keys are composite: `{user_id, note_id}`
-- PubSub topics are per-user: `"notes:user:#{user_id}"`
-- WebSocket channels enforce user matching: `"notes:user:#{user_id}"` only joinable by that user
-- Notes context filters all queries by user_id
-
-### Storage Adapter Pattern (Server)
-- `Qot.Storage.Adapter` defines the behavior with user_id in all callbacks
-- Current implementation: `Qot.Storage.EtsAdapter` (in-memory with composite keys)
-- Configured via `config/config.exs`: `config :qot, :storage_adapter, Qot.Storage.EtsAdapter`
-- All storage operations return `{:ok, result}` or `{:error, reason}` tuples
-
-### Testing (Server)
-- Uses Ecto.Adapters.SQL.Sandbox for test database isolation
-- Test email adapter: `Swoosh.Adapters.Test` for magic link emails
-- Test helpers in `test/support/`:
-  - `DataCase` - sets up SQL Sandbox for all database tests
-  - `ConnCase` - HTTP request testing with SQL Sandbox
-  - `ChannelCase` - WebSocket channel testing with SQL Sandbox
-  - `AuthHelpers` - creates authenticated users with JWT tokens
-- ETS table requires manual cleanup in tests: `:ets.delete_all_objects(:qot_notes)`
-- Mix automatically sets `MIX_ENV=test` when running `mix test`
+- **Auth is a device sign-in** (like `gh auth login`), for every client:
+  1. The device calls `POST /api/auth/device {email}` and gets a
+     `device_code` (secret, kept on the device) and a `user_code`
+     (`XXXX-XXXX`, shown to the person).
+  2. The server emails a link to `/auth/device?token=…`, a small HTML page
+     where the person **types the user code**. Opening the link approves
+     nothing, so mail scanners that prefetch links are harmless, and someone
+     who starts a sign-in with your address can't get in by you clicking an
+     email you didn't expect. The code is never in the email. Five wrong codes
+     deny the sign-in; it expires after 15 minutes.
+  3. The device polls `POST /api/auth/device/token {device_code}` (400
+     `authorization_pending` until approved) and receives, once, a JWT access
+     token (1 h, `user_id` claim) and a refresh token (30 days, stored
+     hashed). `POST /api/auth/refresh` renews the access token.
+  `RequireAuth` checks Bearer tokens for HTTP; WebSocket connect params carry
+  the JWT, verified before channel join. The pure rules live in
+  `Qot.Accounts.DeviceLogin` (status, code checks).
+- **Contexts**: `Qot.Accounts` (users, device sign-in, tokens), `Qot.Sync`
+  (the change log, always scoped by `user_id`).
+- **Per-user isolation**: every sync call takes `user_id` from the token;
+  channels are `notes:user:#{user_id}`, joinable only by that user.
+- Mail: Swoosh's own Resend adapter with the Req client (no `resend`,
+  `tesla` or `hackney`).
+- Tests: `Ecto.Adapters.SQL.Sandbox`; Swoosh test adapter for emails;
+  helpers in `test/support/` (`DataCase`, `ConnCase`, `ChannelCase`,
+  `AuthHelpers`). `mix test` creates and migrates the test database.
+- CI (`.github/workflows/ci.yml`) runs Rust and server checks on every PR,
+  reading tool versions from `mise.toml`.
+- Dev logs every email (sign-in links included) to the server's console.
+- Production env: `DATABASE_URL`, `JWT_SECRET_KEY`, `RESEND_API_KEY`,
+  `SECRET_KEY_BASE`, `PHX_HOST` (sign-in links are built from it). Dev and
+  test need none.

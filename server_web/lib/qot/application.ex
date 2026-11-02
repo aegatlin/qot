@@ -3,10 +3,6 @@ defmodule Qot.Application do
 
   @impl true
   def start(_type, _args) do
-    # Initialize storage adapter
-    storage_adapter = Application.get_env(:qot, :storage_adapter)
-    storage_adapter.init()
-
     children = [
       Qot.Repo,
       {Phoenix.PubSub, name: Qot.PubSub},
