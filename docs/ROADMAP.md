@@ -76,10 +76,7 @@ when priorities change.
       Control Center, Siri/App Intents, voice memo; background sync. Needs the
       Apple Developer account and TestFlight. Start fresh rather than from
       the 2024 prototype; reuse its bundle id `io.gatlin.qot` and Apple
-      team `9XYH562BTD`. The prototype (SwiftUI + SwiftData, `ios/`) and the
-      `crspike` branch (automerge-swift on iOS) live on as the
-      `legacy/qot-main` and `legacy/qot-crspike` tags, if only for
-      `AudioRecorder.swift` as a reference for voice memos.
+      team `9XYH562BTD`. (The prototype and its repo were deleted.)
 - [ ] **End-to-end encryption**: client-side encryption of change blobs;
       design key management (how a new device gets the key). Probably wanted
       before or alongside any paid tier, since it is the privacy promise.
