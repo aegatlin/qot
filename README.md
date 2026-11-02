@@ -14,3 +14,12 @@ Tools and tasks are pinned in one root `mise.toml`
 ([mise](https://mise.jdx.dev)): run `mise install`, then `mise run test`.
 Server secrets go in a gitignored `mise.local.toml` (see the comment at the
 top of `mise.toml`).
+
+## Try it locally
+
+```sh
+mise install
+cd server_web && mix setup && mix phx.server   # emails are printed here
+cargo run -p qot_cli -- login you@example.com   # open the printed link, type the code
+cargo run -p qot_cli -- get milk
+```

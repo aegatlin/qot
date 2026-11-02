@@ -12,6 +12,8 @@
 //! document, so a delete made on one device reaches the others instead of the
 //! note being resurrected by the next sync.
 
+pub mod sync;
+
 use automerge::{
     AutoCommit, ChangeHash, ObjType, ROOT, ReadDoc, ScalarValue, Value, transaction::Transactable,
 };

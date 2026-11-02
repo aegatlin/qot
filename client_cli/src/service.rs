@@ -1,6 +1,13 @@
+use crate::api::{Api, ApiError};
+use crate::credentials::{self, Credentials};
 use crate::storage::{FileSystemStorage, Storage};
 use directories::ProjectDirs;
+use qot_core::sync::{SyncState, apply_pulled, mark_pushed, plan_push};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
+
+/// The most changes one push may carry (the server's limit).
+const PUSH_CHUNK: usize = 500;
 
 /// Overrides where notes are stored. Tests use it so they never touch a real
 /// note store; it also lets a second store be pointed at by hand.
@@ -16,9 +23,17 @@ pub struct Note {
 
 pub struct NoteService {
     storage: FileSystemStorage,
+    dir: PathBuf,
 }
 
-fn data_dir() -> Result<PathBuf, String> {
+/// What a sync moved.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct SyncReport {
+    pub pushed: usize,
+    pub pulled: usize,
+}
+
+pub fn data_dir() -> Result<PathBuf, String> {
     if let Some(dir) = std::env::var_os(DATA_DIR_ENV).filter(|d| !d.is_empty()) {
         return Ok(PathBuf::from(dir));
     }
@@ -29,8 +44,77 @@ fn data_dir() -> Result<PathBuf, String> {
 
 impl NoteService {
     pub fn new() -> Result<Self, String> {
-        let storage = FileSystemStorage::new(data_dir()?).map_err(|e| e.to_string())?;
-        Ok(Self { storage })
+        Self::at(data_dir()?)
+    }
+
+    pub fn at(dir: PathBuf) -> Result<Self, String> {
+        let storage = FileSystemStorage::new(dir.clone()).map_err(|e| e.to_string())?;
+        Ok(Self { storage, dir })
+    }
+
+    pub fn dir(&self) -> &std::path::Path {
+        &self.dir
+    }
+
+    /// Pushes local changes, then pulls until caught up. The sync state is
+    /// saved after every step, so an interrupted sync resumes where it
+    /// stopped and anything repeated is harmless.
+    pub fn sync(&mut self, api: &Api, creds: &mut Credentials) -> Result<SyncReport, String> {
+        let mut report = SyncReport::default();
+        let mut state = self.load_state()?;
+
+        let notes = self.load_all()?;
+        for chunk in plan_push(&notes, &state).chunks(PUSH_CHUNK) {
+            authed(api, creds, &self.dir, |token| api.push(token, chunk))?;
+            state = mark_pushed(&state, chunk);
+            self.save_state(&state)?;
+            report.pushed += chunk.len();
+        }
+
+        loop {
+            let page = authed(api, creds, &self.dir, |token| api.pull(token, state.cursor))?;
+            let notes: BTreeMap<String, qot_core::Note> =
+                self.load_all()?.into_iter().map(|n| (n.id(), n)).collect();
+            let (changed, next) =
+                apply_pulled(&notes, &state, &page.changes).map_err(|e| e.to_string())?;
+            for note in changed.values() {
+                self.save(note)?;
+            }
+            state = next;
+            self.save_state(&state)?;
+            report.pulled += page.changes.len();
+            if !page.more {
+                break;
+            }
+        }
+
+        Ok(report)
+    }
+
+    /// Forgets what has been synced, so the next sign-in starts afresh.
+    /// Notes stay.
+    pub fn forget_sync_state(&self) -> Result<(), String> {
+        match std::fs::remove_file(self.state_path()) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
+            _ => Ok(()),
+        }
+    }
+
+    fn state_path(&self) -> PathBuf {
+        self.dir.join("sync.json")
+    }
+
+    fn load_state(&self) -> Result<SyncState, String> {
+        match std::fs::read(self.state_path()) {
+            Ok(bytes) => serde_json::from_slice(&bytes).map_err(|e| e.to_string()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(SyncState::default()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    fn save_state(&self, state: &SyncState) -> Result<(), String> {
+        let json = serde_json::to_vec(state).map_err(|e| e.to_string())?;
+        std::fs::write(self.state_path(), json).map_err(|e| e.to_string())
     }
 
     pub fn create(&mut self, content: &str) -> Result<Note, String> {
@@ -89,6 +173,25 @@ impl NoteService {
     }
 }
 
+/// Runs `call` with the access token, refreshing it once if it was refused.
+fn authed<T>(
+    api: &Api,
+    creds: &mut Credentials,
+    dir: &std::path::Path,
+    call: impl Fn(&str) -> Result<T, ApiError>,
+) -> Result<T, String> {
+    match call(&creds.tokens.access_token) {
+        Err(ApiError::Unauthorized) => {
+            creds.tokens.access_token = api
+                .refresh(&creds.tokens.refresh_token)
+                .map_err(|e| e.to_string())?;
+            credentials::save(dir, creds)?;
+            call(&creds.tokens.access_token).map_err(|e| e.to_string())
+        }
+        other => other.map_err(|e| e.to_string()),
+    }
+}
+
 fn view(note: &qot_core::Note) -> Note {
     Note {
         id: note.id(),
@@ -105,9 +208,7 @@ mod tests {
     #[test]
     fn test_list_returns_notes_sorted_by_creation_time() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = FileSystemStorage::new(temp_dir.path().to_path_buf()).unwrap();
-
-        let mut service = NoteService { storage };
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
 
         // Create first note
         let note1 = service.create("First note").unwrap();
@@ -144,9 +245,7 @@ mod tests {
     #[test]
     fn test_delete_by_index() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = FileSystemStorage::new(temp_dir.path().to_path_buf()).unwrap();
-
-        let mut service = NoteService { storage };
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
 
         // Create three notes
         service.create("First note").unwrap();
@@ -172,9 +271,7 @@ mod tests {
     #[test]
     fn test_delete_by_index_out_of_range() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = FileSystemStorage::new(temp_dir.path().to_path_buf()).unwrap();
-
-        let mut service = NoteService { storage };
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
 
         // Create one note
         service.create("Only note").unwrap();
@@ -196,8 +293,7 @@ mod tests {
     #[test]
     fn delete_keeps_a_tombstone_in_storage_so_it_can_sync() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = FileSystemStorage::new(temp_dir.path().to_path_buf()).unwrap();
-        let mut service = NoteService { storage };
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
 
         let note = service.create("buy milk").unwrap();
         service.delete_by_index(1).unwrap();
@@ -210,8 +306,7 @@ mod tests {
     #[test]
     fn delete_index_counts_only_live_notes() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = FileSystemStorage::new(temp_dir.path().to_path_buf()).unwrap();
-        let mut service = NoteService { storage };
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
 
         service.create("first").unwrap();
         sleep(Duration::from_millis(2));
@@ -231,7 +326,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let storage = FileSystemStorage::new(temp_dir.path().to_path_buf()).unwrap();
         storage.set("broken", b"not automerge").unwrap();
-        let mut service = NoteService { storage };
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
 
         let err = service.list().unwrap_err();
         assert!(err.contains("broken"), "{err}");

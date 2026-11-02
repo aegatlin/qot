@@ -89,6 +89,37 @@ must be an explicit opt-in and must not weaken this default.
   below N later. `Qot.SyncConcurrencyTest` pins this.
 - Request parsing is pure (`Qot.Sync.Batch`); `Qot.Sync` is the I/O shell.
 
+## Client sync (`qot_core::sync`)
+
+Every client syncs with the same pure functions, so iOS and the PWA inherit
+the rules the CLI is tested with:
+
+- `SyncState` (persisted per device): `cursor`, the last server seq applied,
+  and per note the heads last pushed.
+- A sync is **push, then pull**: `plan_push` (what moved since last pushed;
+  the whole note if never pushed or if the saved heads are unknown) →
+  send → `mark_pushed`; then pull pages from `cursor` and `apply_pulled`
+  until `more` is false. Save state after every step: an interrupted sync
+  resumes, and anything repeated is harmless.
+- `apply_pulled` moves a note's "pushed" heads only if nothing local was
+  waiting, so local edits made before a pull still go up next time.
+- A device pulls back its own pushes; applying them is a no-op.
+
+## CLI (`client_cli`)
+
+- `qot login <email> [--server URL]` runs the device sign-in (server from
+  `--server`, else `$QOT_SERVER`, else `http://localhost:4000`), then syncs.
+  `qot logout` revokes and forgets credentials and sync state; notes stay.
+  `qot sync` syncs and reports errors.
+- Capture never waits on the network: `add`/`get …`, `delete` and `list`
+  run a best-effort sync with a 3 s timeout when signed in, and print
+  `(not synced: …)` to stderr when offline. The note is saved first.
+- Store layout under the data dir: `notes/<id>.note` (Automerge bytes),
+  `sync.json` (`SyncState`), `credentials.json` (tokens, mode 0600).
+- Sync rules live in `qot_core::sync`; `service.rs` and `api.rs` are the
+  I/O shell. Integration tests run the binary against `httpmock`
+  (`tests/sync_test.rs`).
+
 ## Server (`server_web`)
 
 - **Auth is a device sign-in** (like `gh auth login`), for every client:
@@ -119,6 +150,7 @@ must be an explicit opt-in and must not weaken this default.
   `AuthHelpers`). `mix test` creates and migrates the test database.
 - CI (`.github/workflows/ci.yml`) runs Rust and server checks on every PR,
   reading tool versions from `mise.toml`.
+- Dev logs every email (sign-in links included) to the server's console.
 - Production env: `DATABASE_URL`, `JWT_SECRET_KEY`, `RESEND_API_KEY`,
   `SECRET_KEY_BASE`, `PHX_HOST` (sign-in links are built from it). Dev and
   test need none.

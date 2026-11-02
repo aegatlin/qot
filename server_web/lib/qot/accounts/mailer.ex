@@ -38,6 +38,6 @@ defmodule Qot.Accounts.Mailer do
     |> deliver_email()
   end
 
-  # Dev uses Swoosh.Adapters.Local (emails are logged), prod uses Resend.
+  # Dev logs emails (Swoosh.Adapters.Logger), test captures them, prod uses Resend.
   defp deliver_email(email), do: deliver(email)
 end
