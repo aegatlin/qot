@@ -27,6 +27,7 @@ with their own databases and secrets; deploy pipeline; secrets in fnox
 - #4 First production release (`server-v0.1.0` tag)
 - #3 Back up the age key
 - #5 Resend: verified domain and real keys (sign-in works after this)
+- #20 Tighten DMARC once sign-in mail has been reliable for a while
 - #6 Seal production's secrets in Railway
 - #7 Rate-limit `POST /api/auth/device` (before anyone else uses it)
 - #8 Postgres backups off Railway, and one tested restore
