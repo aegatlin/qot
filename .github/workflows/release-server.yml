@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment:
       name: production
-      url: https://server-production-0969.up.railway.app
+      url: https://api.quantumofthought.com
     permissions:
       contents: write
     steps:

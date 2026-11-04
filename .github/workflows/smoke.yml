@@ -57,8 +57,8 @@ jobs:
           SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
         run: |
           case "$ENVIRONMENT" in
-            staging) url=https://server-staging-b1ea.up.railway.app ;;
-            production) url=https://server-production-0969.up.railway.app ;;
+            staging) url=https://staging-api.quantumofthought.com ;;
+            production) url=https://api.quantumofthought.com ;;
             *) echo "::error::unknown environment $ENVIRONMENT"; exit 1 ;;
           esac
           deployed=true
