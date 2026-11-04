@@ -133,3 +133,13 @@ fn test_get_milk_then_list_then_delete() {
         .success()
         .stdout("1. call mum\n");
 }
+
+#[test]
+fn version_prints_the_crate_version() {
+    let qot = Qot::new();
+    qot.cmd()
+        .arg("--version")
+        .assert()
+        .success()
+        .stdout(format!("qot {}\n", env!("CARGO_PKG_VERSION")));
+}

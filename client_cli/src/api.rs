@@ -59,6 +59,7 @@ impl Api {
         let agent: Agent = Agent::config_builder()
             .http_status_as_error(false)
             .timeout_global(Some(timeout))
+            .user_agent(user_agent())
             .build()
             .into();
         Api {
@@ -161,6 +162,17 @@ impl Api {
     }
 }
 
+/// `qot-cli/<version> (<os>; <arch>)`, so the server can tell which client
+/// versions are still in use before it deprecates one.
+fn user_agent() -> String {
+    format!(
+        "qot-cli/{} ({}; {})",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    )
+}
+
 fn parse_page(body: &Value) -> Result<Page, String> {
     let changes = body["changes"]
         .as_array()
@@ -194,4 +206,20 @@ fn error_text(body: &Value) -> String {
 
 fn net(e: ureq::Error) -> ApiError {
     ApiError::Other(format!("can't reach the server: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn user_agent_names_client_version_os_and_arch() {
+        let ua = user_agent();
+        assert!(ua.starts_with(&format!("qot-cli/{} (", env!("CARGO_PKG_VERSION"))));
+        assert!(ua.ends_with(&format!(
+            "{}; {})",
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        )));
+    }
 }

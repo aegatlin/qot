@@ -259,3 +259,33 @@ fn logout_forgets_credentials_but_keeps_notes() {
         .failure()
         .stderr(predicate::str::contains("Not signed in"));
 }
+
+#[test]
+fn every_request_names_the_client_version() {
+    let user_agent = format!(
+        "qot-cli/{} ({}; {})",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
+    let server = MockServer::start();
+    let pull = server.mock(|when, then| {
+        when.method(GET)
+            .path("/api/sync/pull")
+            .header("user-agent", &user_agent);
+        then.status(200)
+            .json_body(json!({ "changes": [], "cursor": 0, "more": false }));
+    });
+    let push = server.mock(|when, then| {
+        when.method(POST)
+            .path("/api/sync/push")
+            .header("user-agent", &user_agent);
+        then.status(200).json_body(json!({ "cursor": 1 }));
+    });
+
+    let qot = Qot::new();
+    qot.sign_in(&server);
+    qot.cmd().args(["get", "milk"]).assert().success();
+    push.assert();
+    pull.assert();
+}
