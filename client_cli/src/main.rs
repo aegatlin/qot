@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 /// Where `qot login` signs in unless told otherwise.
 const SERVER_ENV: &str = "QOT_SERVER";
-const DEFAULT_SERVER: &str = "http://localhost:4000";
+const DEFAULT_SERVER: &str = "https://api.quantumofthought.com";
 /// How long a background sync after a command may take before giving up.
 const QUICK_SYNC: Duration = Duration::from_secs(3);
 
@@ -58,7 +58,7 @@ enum Commands {
     /// Sign in so notes sync between your devices
     Login {
         email: String,
-        /// Server to sign in to (default: $QOT_SERVER, else http://localhost:4000)
+        /// Server to sign in to (default: $QOT_SERVER, else https://api.quantumofthought.com)
         #[arg(long)]
         server: Option<String>,
     },
@@ -167,10 +167,15 @@ fn sync_now(notes: &mut NoteService) {
     }
 }
 
+/// The server to sign in to: `--server`, else `$QOT_SERVER` (if not empty),
+/// else production.
+fn resolve_server(flag: Option<String>, env: Option<String>) -> String {
+    flag.or_else(|| env.filter(|s| !s.is_empty()))
+        .unwrap_or_else(|| DEFAULT_SERVER.to_string())
+}
+
 fn login(notes: &mut NoteService, email: &str, server: Option<String>) {
-    let server = server
-        .or_else(|| std::env::var(SERVER_ENV).ok().filter(|s| !s.is_empty()))
-        .unwrap_or_else(|| DEFAULT_SERVER.to_string());
+    let server = resolve_server(server, std::env::var(SERVER_ENV).ok());
     let api = Api::new(&server, Duration::from_secs(30));
 
     let start = api
@@ -247,4 +252,38 @@ fn logout(notes: &NoteService) {
     credentials::remove(notes.dir()).unwrap_or_else(|e| fail(&e));
     notes.forget_sync_state().unwrap_or_else(|e| fail(&e));
     println!("Signed out. Your notes stay on this device.");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_to_production() {
+        assert_eq!(
+            resolve_server(None, None),
+            "https://api.quantumofthought.com"
+        );
+    }
+
+    #[test]
+    fn env_overrides_default() {
+        let env = Some("https://staging-api.quantumofthought.com".to_string());
+        assert_eq!(
+            resolve_server(None, env),
+            "https://staging-api.quantumofthought.com"
+        );
+    }
+
+    #[test]
+    fn empty_env_is_ignored() {
+        assert_eq!(resolve_server(None, Some(String::new())), DEFAULT_SERVER);
+    }
+
+    #[test]
+    fn flag_overrides_env() {
+        let flag = Some("http://localhost:4000".to_string());
+        let env = Some("https://staging-api.quantumofthought.com".to_string());
+        assert_eq!(resolve_server(flag, env), "http://localhost:4000");
+    }
 }

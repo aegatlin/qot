@@ -10,7 +10,7 @@ step. Keep the CLAUDE.md "Product" section in sync when priorities change.
 | Piece | State |
 |---|---|
 | `qot_core` | Done for v1: note model, tombstones, sync primitives, `qot_core::sync`. |
-| CLI (`qot`) | Feature-complete for v1: add/get, list, delete, login/logout/sync, offline capture, `--version`. Not distributed; defaults to `http://localhost:4000`. |
+| CLI (`qot`) | Feature-complete for v1: add/get, list, delete, login/logout/sync, offline capture, `--version`. Not distributed; signs in to production by default (#12). |
 | Sync server | Feature-complete for v1 and live at `api.quantumofthought.com` (staging: `staging-api.`); staging deploys green pushes to `main`, production deploys `server-v*` tags. Sign-in email works. Rate limits, account deletion and export, post-deploy smoke test. |
 | PWA | **Does not exist in this tree.** The old React + WASM client was removed on 2026-11-02 (it predates the current sync API); it is in git history before `ecdca61`. |
 | iOS app | Not started. |
@@ -30,11 +30,11 @@ release (#4); age key backed up (#3); sign-in email (#5), DMARC
 `p=quarantine` (#20); custom domains
 (#10, [layout](records/2026-11-04-domain-layout.md)); rate limits (#7);
 `qot --version` (#13); account deletion and export (#18); post-deploy
-`/health` smoke test (#11, first part).
+`/health` smoke test (#11, first part); the CLI signs in to
+production by default (#12).
 
 Next, so a friend can install the CLI and sign in without help:
 
-- #12 Default to the production server
 - #14 Release binaries from `cli-v*` tags: the `curl … | sh` installer,
   maybe a Homebrew tap
 

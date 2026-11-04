@@ -135,7 +135,9 @@ the rules the CLI is tested with:
 ## CLI (`client_cli`)
 
 - `qot login <email> [--server URL]` runs the device sign-in (server from
-  `--server`, else `$QOT_SERVER`, else `http://localhost:4000`), then syncs.
+  `--server`, else `$QOT_SERVER`, else production,
+  `https://api.quantumofthought.com`), then syncs. Against a local server:
+  `--server http://localhost:4000`, or `QOT_SERVER` in `mise.local.toml`.
   `qot logout` revokes and forgets credentials and sync state; notes stay.
   `qot sync` syncs and reports errors. `qot export` prints live notes as
   JSON (`id`, `created_at` from the UUIDv7, `content`): the data export,
