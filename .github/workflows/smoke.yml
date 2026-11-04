@@ -1,0 +1,78 @@
+name: Smoke test
+
+# After a deploy, checks that the server actually works (scripts/smoke-test):
+# it waits until /health reports the deployed commit, then checks the API.
+# A failure here means a deploy is broken; GitHub emails whoever pushed.
+#
+# - Staging: after CI passes on a push to main whose commit touched
+#   server_web/ (the same rule as Railway's watch pattern: only the pushed
+#   commit's files count).
+# - Production: called by release-server.yml once production has moved.
+# - By hand: Actions -> Smoke test -> Run workflow.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      sha:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+        default: staging
+      sha:
+        description: Commit to wait for (empty = whatever is deployed)
+        type: string
+        required: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    # A newer deploy replaces the one an older run is waiting for.
+    concurrency:
+      group: smoke-${{ inputs.environment || 'staging' }}
+      cancel-in-progress: true
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.workflow_run.head_sha || inputs.sha || github.sha }}
+      - id: target
+        env:
+          EVENT: ${{ github.event_name }}
+          ENVIRONMENT: ${{ inputs.environment || 'staging' }}
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
+        run: |
+          case "$ENVIRONMENT" in
+            staging) url=https://server-staging-b1ea.up.railway.app ;;
+            production) url=https://server-production-0969.up.railway.app ;;
+            *) echo "::error::unknown environment $ENVIRONMENT"; exit 1 ;;
+          esac
+          deployed=true
+          if [ "$EVENT" = workflow_run ] && git diff --quiet HEAD^ HEAD -- server_web; then
+            echo "$SHA didn't touch server_web/, so Railway didn't deploy it"
+            deployed=false
+          fi
+          {
+            echo "url=$url"
+            echo "sha=$SHA"
+            echo "deployed=$deployed"
+          } >> "$GITHUB_OUTPUT"
+      - if: steps.target.outputs.deployed == 'true'
+        env:
+          URL: ${{ steps.target.outputs.url }}
+          SHA: ${{ steps.target.outputs.sha }}
+        run: scripts/smoke-test "$URL" "$SHA"

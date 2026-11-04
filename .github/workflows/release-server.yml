@@ -7,7 +7,8 @@ name: Release server
 #
 #   git tag server-v0.1.0 && git push origin server-v0.1.0
 #
-# Tagging an older commit and pushing it rolls production back to it.
+# Tagging an older commit and pushing it rolls production back to it. Once
+# production has moved, smoke.yml waits for the new release and checks it.
 #
 # Railway's production environment must not have a watch pattern: Railway
 # checks only the files the pushed commit changed, so a tag on a commit that
@@ -45,3 +46,10 @@ jobs:
           }
       - name: Move production to the tag
         run: git push --force origin "$GITHUB_SHA:refs/heads/production"
+
+  smoke:
+    needs: promote
+    uses: ./.github/workflows/smoke.yml
+    with:
+      environment: production
+      sha: ${{ github.sha }}

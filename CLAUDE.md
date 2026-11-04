@@ -203,6 +203,12 @@ the rules the CLI is tested with:
   checks only the files the pushed commit changed, so a tag on a docs-only
   commit would be skipped. Agents can't deploy production; a person pushes
   the tag.
+- **Smoke test** after every deploy (`.github/workflows/smoke.yml`, running
+  `scripts/smoke-test <url> [<sha>]`): waits until `/health` reports the
+  deployed commit (`commit`, from Railway's `RAILWAY_GIT_COMMIT_SHA`), then
+  checks that the API answers. Read-only and sends no email, so it is safe
+  against production. Staging runs it after CI passes on `main`;
+  `release-server.yml` runs it for production after promoting.
 - CI (`.github/workflows/ci.yml`) runs Rust and server checks on every PR,
   reading tool versions from `mise.toml`.
 - Dev logs every email (sign-in links included) to the server's console.
@@ -215,4 +221,5 @@ the rules the CLI is tested with:
   Erlang versions match `mise.toml`; bump them together). `bin/server` starts
   it; `bin/migrate` runs migrations and is the platform's pre-deploy step, so
   a failed migration fails the deploy instead of crash-looping the app.
-  `GET /health` is 200 when the database answers, else 503.
+  `GET /health` is 200 (`{status, commit}`) when the database answers, else
+  503.

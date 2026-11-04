@@ -6,6 +6,9 @@ if System.get_env("PHX_SERVER") do
   config :qot, QotWeb.Endpoint, server: true
 end
 
+# The deployed commit, reported by /health. Railway sets this on every deploy.
+config :qot, :commit, System.get_env("RAILWAY_GIT_COMMIT_SHA")
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
