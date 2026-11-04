@@ -32,7 +32,8 @@ with their own databases and secrets; deploy pipeline; secrets in fnox
 - #7 Rate-limit `POST /api/auth/device` (before anyone else uses it)
 - #8 Postgres backups off Railway, and one tested restore
 - #9 Error reporting and log retention
-- #10 Custom domains (`api.` and `staging-api.quantumofthought.com`)
+- #10 Custom domains (`api.` and `staging-api.quantumofthought.com`; layout in
+  [records](records/2026-11-04-domain-layout.md))
 - #11 Smoke test after each deploy
 
 ### 2. CLI distribution
