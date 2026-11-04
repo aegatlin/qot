@@ -16,7 +16,6 @@ pub const DATA_DIR_ENV: &str = "QOT_DATA_DIR";
 /// What the CLI shows of a note.
 #[derive(Clone, Debug)]
 pub struct Note {
-    #[cfg_attr(not(test), allow(dead_code))]
     pub id: String,
     pub content: String,
 }
@@ -89,6 +88,37 @@ impl NoteService {
         }
 
         Ok(report)
+    }
+
+    /// Deletes the account on the server and forgets this device's sync
+    /// position. Notes on this device stay; the caller forgets credentials.
+    pub fn delete_account(
+        &self,
+        api: &Api,
+        creds: &mut Credentials,
+        confirm: &str,
+    ) -> Result<(), String> {
+        authed(api, creds, &self.dir, |token| {
+            api.delete_account(token, confirm)
+        })?;
+        self.forget_sync_state()
+    }
+
+    /// Live notes, oldest first, as a JSON array of `{id, created_at,
+    /// content}`: everything a person wrote, readable without qot.
+    pub fn export(&mut self) -> Result<String, String> {
+        let notes: Vec<serde_json::Value> = self
+            .list()?
+            .iter()
+            .map(|n| {
+                serde_json::json!({
+                    "id": n.id,
+                    "created_at": created_at(&n.id),
+                    "content": n.content,
+                })
+            })
+            .collect();
+        serde_json::to_string_pretty(&notes).map_err(|e| e.to_string())
     }
 
     /// Forgets what has been synced, so the next sign-in starts afresh.
@@ -192,6 +222,39 @@ fn authed<T>(
     }
 }
 
+/// When a note was created, from its UUIDv7 id, as RFC 3339 UTC to the
+/// second. `None` for an id that isn't a v7 UUID.
+fn created_at(id: &str) -> Option<String> {
+    let (secs, _nanos) = uuid::Uuid::parse_str(id).ok()?.get_timestamp()?.to_unix();
+    Some(rfc3339(secs))
+}
+
+fn rfc3339(unix_secs: u64) -> String {
+    let (days, rem) = (unix_secs / 86_400, unix_secs % 86_400);
+    let (y, m, d) = civil_from_days(days as i64);
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        rem / 3600,
+        rem % 3600 / 60,
+        rem % 60
+    )
+}
+
+/// Days since 1970-01-01 to a (year, month, day) date: Howard Hinnant's
+/// `civil_from_days`.
+fn civil_from_days(days: i64) -> (i64, u32, u32) {
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    (y, m, d)
+}
+
 fn view(note: &qot_core::Note) -> Note {
     Note {
         id: note.id(),
@@ -202,6 +265,24 @@ fn view(note: &qot_core::Note) -> Note {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rfc3339_formats_unix_seconds_in_utc() {
+        assert_eq!(rfc3339(0), "1970-01-01T00:00:00Z");
+        assert_eq!(rfc3339(951_782_400), "2000-02-29T00:00:00Z");
+        assert_eq!(rfc3339(1_793_770_899), "2026-11-04T05:41:39Z");
+    }
+
+    #[test]
+    fn created_at_reads_the_time_from_a_v7_id() {
+        assert_eq!(
+            created_at("019a4d62-9a38-7000-8000-000000000000").as_deref(),
+            Some("2025-11-04T05:41:39Z")
+        );
+        assert_eq!(created_at("not-a-uuid"), None);
+        // v4 ids carry no time.
+        assert_eq!(created_at("c2302a7f-1b0d-4f0b-9d5c-6c1d4b9e0b8a"), None);
+    }
     use std::thread::sleep;
     use std::time::Duration;
 

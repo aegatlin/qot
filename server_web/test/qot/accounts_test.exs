@@ -134,4 +134,42 @@ defmodule Qot.AccountsTest do
       assert_no_email_sent()
     end
   end
+
+  describe "delete_user/1" do
+    defp signed_in(email) do
+      {:ok, started} = Accounts.start_device_login(email)
+      {:ok, _} = Accounts.approve_device_login(link_token_from_email(), started.user_code)
+      {:ok, tokens} = Accounts.poll_device_login(started.device_code)
+      tokens
+    end
+
+    test "removes the user, their tokens, their change log and their sign-ins" do
+      %{user: user, refresh_token: refresh} = signed_in("gone@example.com")
+      {:ok, _} = Qot.Sync.push(user.id, [%{note_id: Ecto.UUID.generate(), data: "x"}])
+
+      other = signed_in("stays@example.com")
+      {:ok, _} = Qot.Sync.push(other.user.id, [%{note_id: Ecto.UUID.generate(), data: "y"}])
+      # A sign-in still in progress goes too.
+      {:ok, _} = Accounts.start_device_login("gone@example.com")
+
+      assert :ok = Accounts.delete_user(user.id)
+
+      assert {:error, :not_found} = Accounts.get_user(user.id)
+      assert {:error, :invalid_or_expired_token} = Accounts.refresh_access_token(refresh)
+      assert {:ok, %{changes: []}} = Qot.Sync.pull(user.id, 0, 100)
+
+      assert Repo.aggregate(
+               from(d in Accounts.DeviceLogin, where: d.email == "gone@example.com"),
+               :count
+             ) == 0
+
+      # Nobody else's data goes with it.
+      assert {:ok, %{changes: [_]}} = Qot.Sync.pull(other.user.id, 0, 100)
+      assert {:ok, _} = Accounts.refresh_access_token(other.refresh_token)
+    end
+
+    test "an unknown user is not found" do
+      assert {:error, :not_found} = Accounts.delete_user(Ecto.UUID.generate())
+    end
+  end
 end

@@ -132,7 +132,12 @@ the rules the CLI is tested with:
 - `qot login <email> [--server URL]` runs the device sign-in (server from
   `--server`, else `$QOT_SERVER`, else `http://localhost:4000`), then syncs.
   `qot logout` revokes and forgets credentials and sync state; notes stay.
-  `qot sync` syncs and reports errors.
+  `qot sync` syncs and reports errors. `qot export` prints live notes as
+  JSON (`id`, `created_at` from the UUIDv7, `content`): the data export,
+  since a synced device has everything the server has. `qot delete-account`
+  asks for the email to be typed, then deletes the account on the server;
+  notes stay on the device. Every request sends `User-Agent:
+  qot-cli/<version> (<os>; <arch>)`.
 - Capture never waits on the network: `add`/`get …`, `delete` and `list`
   run a best-effort sync with a 3 s timeout when signed in, and print
   `(not synced: …)` to stderr when offline. The note is saved first.
@@ -168,6 +173,11 @@ the rules the CLI is tested with:
   `RequireAuth` checks Bearer tokens for HTTP; WebSocket connect params carry
   the JWT, verified before channel join. The pure rules live in
   `Qot.Accounts.DeviceLogin` (status, code checks).
+- **Account deletion**: `DELETE /api/account {confirm: <the account's
+  email>}` removes the user, refresh tokens, change log and sign-ins
+  (`Qot.Accounts.delete_user/1`) and closes the user's sockets. A
+  server-side export would only be opaque change blobs, so export is the
+  client's job.
 - **Contexts**: `Qot.Accounts` (users, device sign-in, tokens), `Qot.Sync`
   (the change log, always scoped by `user_id`).
 - **Per-user isolation**: every sync call takes `user_id` from the token;

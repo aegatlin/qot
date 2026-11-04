@@ -52,6 +52,29 @@ defmodule Qot.Accounts do
     end
   end
 
+  @doc """
+  Deletes a user and everything the server keeps about them: their refresh
+  tokens and change log (by cascade) and their sign-ins (by email). Notes on
+  their devices are untouched.
+  """
+  @spec delete_user(Ecto.UUID.t()) :: :ok | {:error, :not_found}
+  def delete_user(user_id) do
+    {:ok, result} =
+      Repo.transaction(fn ->
+        case Repo.one(from(u in User, where: u.id == ^user_id, lock: "FOR UPDATE")) do
+          nil ->
+            {:error, :not_found}
+
+          user ->
+            Repo.delete_all(from(d in DeviceLogin, where: d.email == ^user.email))
+            Repo.delete!(user)
+            :ok
+        end
+      end)
+
+    result
+  end
+
   ## Device login
 
   @device_login_ttl 15 * 60

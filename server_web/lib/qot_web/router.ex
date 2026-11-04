@@ -43,5 +43,6 @@ defmodule QotWeb.Router do
 
     post("/sync/push", SyncController, :push)
     get("/sync/pull", SyncController, :pull)
+    delete("/account", AccountController, :delete)
   end
 end

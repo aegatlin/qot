@@ -310,3 +310,66 @@ fn a_rate_limited_login_says_how_long_to_wait() {
         ));
     assert!(!qot.dir.path().join("credentials.json").exists());
 }
+
+#[test]
+fn delete_account_needs_the_email_typed_then_forgets_the_sign_in() {
+    let server = MockServer::start();
+    empty_pull(&server);
+    server.mock(|when, then| {
+        when.method(POST).path("/api/sync/push");
+        then.status(200).json_body(json!({ "cursor": 1 }));
+    });
+    let delete = server.mock(|when, then| {
+        when.method(DELETE)
+            .path("/api/account")
+            .header("authorization", "Bearer good")
+            .json_body(json!({ "confirm": "Me@Example.com" }));
+        then.status(200).json_body(json!({ "deleted": true }));
+    });
+
+    let qot = Qot::new();
+    qot.sign_in(&server);
+    qot.cmd().args(["get", "milk"]).assert().success();
+    qot.cmd()
+        .arg("delete-account")
+        .write_stdin("Me@Example.com\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Account deleted"));
+
+    delete.assert();
+    assert!(!qot.dir.path().join("credentials.json").exists());
+    assert!(!qot.dir.path().join("sync.json").exists());
+    qot.cmd().arg("list").assert().stdout("1. get milk\n");
+}
+
+#[test]
+fn delete_account_with_the_wrong_email_deletes_nothing() {
+    let server = MockServer::start();
+    let delete = server.mock(|when, then| {
+        when.method(DELETE).path("/api/account");
+        then.status(200).json_body(json!({ "deleted": true }));
+    });
+
+    let qot = Qot::new();
+    qot.sign_in(&server);
+    qot.cmd()
+        .arg("delete-account")
+        .write_stdin("someone@else.com\n")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Not deleted"));
+
+    delete.assert_calls(0);
+    assert!(qot.dir.path().join("credentials.json").exists());
+}
+
+#[test]
+fn delete_account_needs_a_sign_in() {
+    let qot = Qot::new();
+    qot.cmd()
+        .arg("delete-account")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Not signed in"));
+}

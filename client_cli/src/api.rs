@@ -94,6 +94,23 @@ impl Api {
         Ok((status, body))
     }
 
+    /// Deletes the signed-in account on the server. `confirm` must be its email.
+    pub fn delete_account(&self, token: &str, confirm: &str) -> Result<(), ApiError> {
+        let mut res = self
+            .agent
+            .delete(format!("{}/api/account", self.base))
+            .header("authorization", format!("Bearer {token}"))
+            .force_send_body()
+            .send_json(json!({ "confirm": confirm }))
+            .map_err(net)?;
+        let body = res.body_mut().read_json::<Value>().unwrap_or(Value::Null);
+        match res.status().as_u16() {
+            200 => Ok(()),
+            401 => Err(ApiError::Unauthorized),
+            _ => Err(ApiError::Other(error_text(&body))),
+        }
+    }
+
     pub fn start_device_login(&self, email: &str) -> Result<DeviceStart, ApiError> {
         match self.post("/api/auth/device", None, json!({ "email": email }))? {
             (200, body) => serde_json::from_value(body).map_err(|e| ApiError::Other(e.to_string())),
