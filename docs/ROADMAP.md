@@ -5,50 +5,54 @@ The order of work and why. Each step is tracked as a GitHub issue
 come back to the repo, start with the first open issue in the next unfinished
 step. Keep the CLAUDE.md "Product" section in sync when priorities change.
 
-## Where things stand (2026-11-02)
+## Where things stand (2026-11-04)
 
 | Piece | State |
 |---|---|
 | `qot_core` | Done for v1: note model, tombstones, sync primitives, `qot_core::sync`. |
-| CLI (`qot`) | Feature-complete for v1: add/get, list, delete, login/logout/sync, offline capture. Not distributed; defaults to `http://localhost:4000`. |
-| Sync server | Feature-complete for v1 and deployed on Railway: staging deploys green pushes to `main`, production deploys `server-v*` tags. Sign-in email not working yet (no Resend key). |
+| CLI (`qot`) | Feature-complete for v1: add/get, list, delete, login/logout/sync, offline capture, `--version`. Not distributed; defaults to `http://localhost:4000`. |
+| Sync server | Feature-complete for v1 and live at `api.quantumofthought.com` (staging: `staging-api.`); staging deploys green pushes to `main`, production deploys `server-v*` tags. Sign-in email works. Rate limits, account deletion and export, post-deploy smoke test. |
 | PWA | **Does not exist in this tree.** The old React + WASM client was removed on 2026-11-02 (it predates the current sync API); it is in git history before `ecdca61`. |
 | iOS app | Not started. |
-| Marketing page | Not started. |
+| Marketing page | Not started, and not planned for now. |
 
-## Launch v1: CLI + sync server
+## Now: dogfood the CLI and sync
+
+The goal is a platform the developer and a few friends use every day, not a
+public launch. Launch is not on the horizon, so work that only matters at
+real user volume or for strangers waits (see "Deferred" below).
 
 Done: release build and `/health`; host chosen (Railway, see
 [records](records/2026-11-02-hosting-platform.md)); staging and production
 with their own databases and secrets; deploy pipeline; secrets in fnox
-([record](records/2026-11-02-secrets-management.md)).
+([record](records/2026-11-02-secrets-management.md)); first production
+release (#4); age key backed up (#3); sign-in email (#5); custom domains
+(#10, [layout](records/2026-11-04-domain-layout.md)); rate limits (#7);
+`qot --version` (#13); account deletion and export (#18); post-deploy
+`/health` smoke test (#11, first part).
 
-### 1. Server in production
-- #4 First production release (`server-v0.1.0` tag)
-- #3 Back up the age key
-- #5 Resend: verified domain and real keys (sign-in works after this)
-- #20 Tighten DMARC once sign-in mail has been reliable for a while
+Next, so a friend can install the CLI and sign in without help:
+
+- #12 Default to the production server
+- #14 Release binaries from `cli-v*` tags: the `curl … | sh` installer,
+  maybe a Homebrew tap
+
+## Deferred
+
+Closed as not planned on 2026-11-04 while dogfooding; reopen when a public
+launch or real user volume makes them matter:
+
 - #6 Seal production's secrets in Railway
-- #7 Rate-limit `POST /api/auth/device` (before anyone else uses it)
 - #8 Postgres backups off Railway, and one tested restore
 - #9 Error reporting and log retention
-- #10 Custom domains (`api.` and `staging-api.quantumofthought.com`; layout in
-  [records](records/2026-11-04-domain-layout.md))
-- #11 Smoke test after each deploy
-
-### 2. CLI distribution
-- #12 Default to the production server
-- #13 `qot --version` and a versioned `User-Agent`
-- #14 Release binaries from `cli-v*` tags (cargo-dist) and install paths
-- #15 Sign and notarize the macOS binary
-
-### 3. Before going public
+- #11 The rest of the smoke test (scripted `qot login` with a test inbox)
+- #15 Sign and notarize the macOS binary (Gatekeeper doesn't block
+  `curl | sh` or Homebrew installs)
 - #16 Decide what is free and what will be paid ([go-to-market.md](go-to-market.md))
 - #17 Privacy policy and terms
-- #18 Account deletion and data export
 - #19 Landing page with install instructions
 
-## After v1
+## After dogfooding
 
 Direction, not yet split into issues; open issues when a piece starts.
 
