@@ -190,9 +190,11 @@ the rules the CLI is tested with:
 - **Deploys: Railway**, project `qot` in the Abstract Syntax workspace (why:
   `docs/records/2026-11-02-hosting-platform.md`). Services `server` (built
   from `server_web/Dockerfile`) and `Postgres`; environments `production`
-  (`https://server-production-0969.up.railway.app`) and `staging`
-  (`https://server-staging-b1ea.up.railway.app`), each with its own database
-  and secrets. Pre-deploy `bin/migrate`, health check `/health`, `DATABASE_URL`
+  (`https://api.quantumofthought.com`) and `staging`
+  (`https://staging-api.quantumofthought.com`), each with its own database
+  and secrets. The Railway hosts (`server-production-0969.up.railway.app`,
+  `server-staging-b1ea.up.railway.app`) still answer; `PHX_HOST` is the
+  custom one. Domain layout: `docs/records/2026-11-04-domain-layout.md`. Pre-deploy `bin/migrate`, health check `/health`, `DATABASE_URL`
   is a reference to the private-network Postgres (`DATABASE_SSL=false`,
   `ECTO_IPV6=true`). The config lives in Railway, not in the repo: read it with
   the Railway MCP or `railway environment config --json`.
