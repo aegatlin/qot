@@ -22,3 +22,8 @@ config :phoenix, :plug_init_mode, :runtime
 
 # A fixed signer so tests never depend on the environment.
 config :joken, default_signer: "test-only-jwt-signing-key"
+
+# Every test shares one limiter and one client IP, so the real limits would
+# make tests fail depending on what else ran. Tests of the limits start their
+# own limiter or set lower ones.
+config :qot, :sign_in_limits, %{email: {1000, 3600}, ip: {1000, 3600}}

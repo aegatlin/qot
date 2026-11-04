@@ -56,6 +56,10 @@ if config_env() == :prod do
     System.get_env("PHX_HOST") ||
       raise "environment variable PHX_HOST is missing. Example: qot.example.com"
 
+  # Railway's edge proxy sets X-Real-IP to the client's address on every
+  # request; elsewhere, set CLIENT_IP_HEADER to what your proxy sets.
+  config :qot, :client_ip_header, System.get_env("CLIENT_IP_HEADER", "x-real-ip")
+
   port = String.to_integer(System.get_env("PORT") || "4000")
 
   config :qot, QotWeb.Endpoint,

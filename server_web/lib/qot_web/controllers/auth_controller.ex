@@ -8,12 +8,20 @@ defmodule QotWeb.AuthController do
   @doc """
   POST /api/auth/device {"email": "..."}
   Starts a device sign-in and emails the link. The device shows `user_code`
-  and polls `/api/auth/device/token` every `interval` seconds.
+  and polls `/api/auth/device/token` every `interval` seconds. Too many
+  starts for one address or client IP get a 429 with `Retry-After` (and
+  `retry_after` in the body), in seconds.
   """
   def start_device_login(conn, %{"email" => email}) when is_binary(email) do
-    case Accounts.start_device_login(email) do
+    case Accounts.start_device_login(email, conn.assigns[:client_ip]) do
       {:ok, started} ->
         json(conn, started)
+
+      {:error, {:rate_limited, seconds}} ->
+        conn
+        |> put_resp_header("retry-after", Integer.to_string(seconds))
+        |> put_status(:too_many_requests)
+        |> json(%{error: "rate_limited", retry_after: seconds})
 
       {:error, :invalid_email} ->
         conn |> put_status(:bad_request) |> json(%{error: "Email is invalid"})

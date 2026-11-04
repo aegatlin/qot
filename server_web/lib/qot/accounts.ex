@@ -5,7 +5,7 @@ defmodule Qot.Accounts do
 
   import Ecto.Query, warn: false
   alias Qot.Repo
-  alias Qot.Accounts.{DeviceLogin, Mailer, Token, User}
+  alias Qot.Accounts.{DeviceLogin, Mailer, SignInLimit, SignInLimiter, Token, User}
 
   ## User functions
 
@@ -60,38 +60,48 @@ defmodule Qot.Accounts do
   @doc """
   Starts a device sign-in: emails a link to `email` and returns the codes
   the device needs. The user code is shown on the device only.
+
+  Limited per address and per `client_ip` (when given), since each one sends
+  an email: `{:error, {:rate_limited, seconds}}` says how long to wait.
   """
-  def start_device_login(email) when is_binary(email) do
+  def start_device_login(email, client_ip \\ nil) when is_binary(email) do
     email = String.trim(email)
 
-    if User.changeset(%User{}, %{email: email}).valid? do
-      device_code = Token.generate_refresh_token()
-      link_token = Token.generate_refresh_token()
-      user_code = DeviceLogin.user_code_from_bytes(:crypto.strong_rand_bytes(8))
+    device_code = Token.generate_refresh_token()
+    link_token = Token.generate_refresh_token()
+    user_code = DeviceLogin.user_code_from_bytes(:crypto.strong_rand_bytes(8))
 
-      login = %DeviceLogin{
-        email: email,
-        device_code: Token.hash_token(device_code),
-        link_token: Token.hash_token(link_token),
-        user_code: user_code,
-        expires_at:
-          DateTime.utc_now() |> DateTime.add(@device_login_ttl) |> DateTime.truncate(:second)
-      }
+    login = %DeviceLogin{
+      email: email,
+      device_code: Token.hash_token(device_code),
+      link_token: Token.hash_token(link_token),
+      user_code: user_code,
+      expires_at:
+        DateTime.utc_now() |> DateTime.add(@device_login_ttl) |> DateTime.truncate(:second)
+    }
 
-      with {:ok, _} <- Repo.insert(login),
-           {:ok, _} <- Mailer.send_device_login(email, link_token) do
-        {:ok,
-         %{
-           device_code: device_code,
-           user_code: user_code,
-           expires_in: @device_login_ttl,
-           interval: @poll_interval
-         }}
-      end
-    else
-      {:error, :invalid_email}
+    with :ok <- validate_email(email),
+         :ok <- SignInLimiter.hit(limit_keys(email, client_ip)),
+         {:ok, _} <- Repo.insert(login),
+         {:ok, _} <- Mailer.send_device_login(email, link_token) do
+      {:ok,
+       %{
+         device_code: device_code,
+         user_code: user_code,
+         expires_in: @device_login_ttl,
+         interval: @poll_interval
+       }}
     end
   end
+
+  defp validate_email(email) do
+    if User.changeset(%User{}, %{email: email}).valid?, do: :ok, else: {:error, :invalid_email}
+  end
+
+  defp limit_keys(email, nil), do: [email: SignInLimit.email_key(email)]
+
+  defp limit_keys(email, client_ip),
+    do: [email: SignInLimit.email_key(email), ip: SignInLimit.ip_key(client_ip)]
 
   @doc "The login an emailed link refers to, if it can still be approved."
   def get_device_login_by_link(link_token) do

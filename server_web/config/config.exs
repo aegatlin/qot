@@ -10,4 +10,12 @@ config :qot, QotWeb.Endpoint,
   render_errors: [formats: [json: QotWeb.ErrorJSON], layout: false],
   pubsub_server: Qot.PubSub
 
+# How often a sign-in may start (each one sends an email): at most `max` in
+# any `window` seconds, per address and per client IP.
+config :qot, :sign_in_limits, %{email: {5, 3600}, ip: {20, 3600}}
+
+# The header a trusted proxy sets to the client's IP (see
+# QotWeb.Plugs.ClientIP). Unset: the peer address is the client.
+config :qot, :client_ip_header, nil
+
 import_config "#{config_env()}.exs"

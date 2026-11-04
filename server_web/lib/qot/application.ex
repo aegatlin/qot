@@ -6,6 +6,7 @@ defmodule Qot.Application do
     children = [
       Qot.Repo,
       {Phoenix.PubSub, name: Qot.PubSub},
+      Qot.Accounts.SignInLimiter,
       QotWeb.Endpoint
     ]
 

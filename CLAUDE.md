@@ -158,6 +158,13 @@ the rules the CLI is tested with:
      `authorization_pending` until approved) and receives, once, a JWT access
      token (1 h, `user_id` claim) and a refresh token (30 days, stored
      hashed). `POST /api/auth/refresh` renews the access token.
+  Starting a sign-in sends an email, so it is **rate-limited** per address
+  (5/hour, case-insensitive) and per client IP (20/hour; IPv6 per /64): a
+  429 with `Retry-After`. The rules are pure (`Qot.Accounts.SignInLimit`);
+  `SignInLimiter` holds the history in memory, which is fine for one
+  instance (several would each allow the full limit). The client IP comes
+  from `X-Real-IP` in production (Railway's edge sets it;
+  `QotWeb.Plugs.ClientIP`, `CLIENT_IP_HEADER` to change it).
   `RequireAuth` checks Bearer tokens for HTTP; WebSocket connect params carry
   the JWT, verified before channel join. The pure rules live in
   `Qot.Accounts.DeviceLogin` (status, code checks).
@@ -191,7 +198,7 @@ the rules the CLI is tested with:
 - Dev logs every email (sign-in links included) to the server's console.
 - Production env: `DATABASE_URL`, `JWT_SECRET_KEY`, `RESEND_API_KEY`,
   `SECRET_KEY_BASE`, `PHX_HOST` (sign-in links are built from it). Optional:
-  `DATABASE_SSL=false` (a database on the host's private network; TLS with
+  `CLIENT_IP_HEADER` (default `x-real-ip`), `DATABASE_SSL=false` (a database on the host's private network; TLS with
   certificate verification is the default), `ECTO_IPV6=true`, `POOL_SIZE`,
   `PORT`. Dev and test need none.
 - **Release**: `server_web/Dockerfile` builds a `mix release` (Elixir and

@@ -289,3 +289,24 @@ fn every_request_names_the_client_version() {
     push.assert();
     pull.assert();
 }
+
+#[test]
+fn a_rate_limited_login_says_how_long_to_wait() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(POST).path("/api/auth/device");
+        then.status(429)
+            .header("retry-after", "1500")
+            .json_body(json!({ "error": "rate_limited", "retry_after": 1500 }));
+    });
+
+    let qot = Qot::new();
+    qot.cmd()
+        .args(["login", "me@example.com", "--server", &server.base_url()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Too many sign-in attempts. Try again in 25 minutes.",
+        ));
+    assert!(!qot.dir.path().join("credentials.json").exists());
+}
