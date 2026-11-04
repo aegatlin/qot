@@ -14,7 +14,8 @@ Clients, in priority order: CLI and iOS now; a Mac app next; web later.
 ## Where the work is
 
 Todos are **GitHub issues**: code, ops and human-only tasks alike (`gh issue
-list`; issues for a person say "Who: a person"). `docs/ROADMAP.md` orders
+list`, or in cloud sessions, which block GraphQL, `gh api
+repos/aegatlin/qot/issues`; issues for a person say "Who: a person"). `docs/ROADMAP.md` orders
 them into steps; `docs/records/` keeps research and decisions. When a PR
 finishes an issue, say `Fixes #N`. When work reveals a new todo, open an
 issue rather than leaving a TODO comment or a note in a doc.
@@ -40,6 +41,11 @@ task, named `<action>:<component>` with the bare action running all of them.
 A new component adds its tools and tasks there. Server env vars are
 deliberately not `required` in `mise.toml`, which would stop CLI tasks from
 running without them; local overrides go in a gitignored `mise.local.toml`.
+
+**Cloud sessions** (Claude Code on the web) come with mise, the pinned tools
+and a running Postgres, so `mise run test` and `mise run lint` work as-is.
+They have no `fnox` key and no `railway` CLI: they can't decrypt secrets or
+deploy.
 
 **Secrets** for deployed environments live in `fnox.toml`, age-encrypted and
 committed, one profile per environment (`staging`, `production`). Decrypting
