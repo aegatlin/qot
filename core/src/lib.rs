@@ -82,6 +82,13 @@ impl Note {
         }
     }
 
+    /// When the note was created, in Unix milliseconds, from its UUIDv7 id.
+    /// `None` if the id carries no time.
+    pub fn created_at_ms(&self) -> Option<u64> {
+        let (secs, nanos) = Uuid::parse_str(&self.id()).ok()?.get_timestamp()?.to_unix();
+        Some(secs * 1000 + u64::from(nanos) / 1_000_000)
+    }
+
     pub fn content(&self) -> String {
         match self.doc.get(ROOT, CONTENT) {
             Ok(Some((_, text))) => self.doc.text(text).unwrap_or_default(),
@@ -188,6 +195,16 @@ mod tests {
         assert_eq!(id.get_version_num(), 7);
         assert_eq!(note.content(), "expected content!");
         assert!(!note.is_deleted());
+    }
+
+    #[test]
+    fn created_at_is_read_from_the_v7_id() {
+        let before = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let at = Note::new("x").created_at_ms().unwrap();
+        assert!(at >= before && at < before + 5_000);
     }
 
     #[test]

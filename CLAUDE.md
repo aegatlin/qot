@@ -30,18 +30,22 @@ issue rather than leaving a TODO comment or a note in a doc.
 | Directory | What |
 |---|---|
 | `core/` | `qot_core` (Rust): the note model and its sync primitives. Shared by every client. |
+| `core_ffi/` | `qot_ffi` (Rust): `qot_core` for Swift/Kotlin via UniFFI. Adapts types only; no rules. |
 | `client_cli/` | `qot` binary (Rust), uses `qot_core` directly. |
+| `client_apple/` | Every Apple target in one XcodeGen project; `QotKit/` is the shared SwiftPM package. |
 | `server_web/` | Phoenix server: accounts, device sign-in, note sync. |
 | `docs/` | `ROADMAP.md`, `go-to-market.md`, and `records/`: dated research and decision records (see its README). |
 
-`core/` and `client_cli/` form one Cargo workspace (root `Cargo.toml`, one
-committed `Cargo.lock`, one `target/`). The iOS app will reach `qot_core`
-through UniFFI. A web client existed (React + the core compiled to WASM) and
+Folders are **per build toolchain, not per device**: a new device is a new
+target in an existing folder unless it needs a new toolchain
+(`docs/records/2026-11-04-repo-layout-for-clients.md`). `core/`, `core_ffi/`
+and `client_cli/` form one Cargo workspace (root `Cargo.toml`, one committed
+`Cargo.lock`, one `target/`). A web client existed (React + the core compiled to WASM) and
 was removed on 2026-11-02 while CLI and iOS come first; it is in git history.
 
 ## Tooling
 
-One root `mise.toml` pins every tool (Rust, Erlang, Elixir) and holds every
+One root `mise.toml` pins every tool (Rust, Erlang, Elixir, XcodeGen) and holds every
 task, named `<action>:<component>` with the bare action running all of them.
 A new component adds its tools and tasks there. Server env vars are
 deliberately not `required` in `mise.toml`, which would stop CLI tasks from
@@ -60,10 +64,11 @@ secrets:push:<env>` copies a profile to Railway and redeploys. To add or rotate
 one: `fnox -P <env> set KEY` (reads stdin), then push. Never print values.
 
 ```sh
-mise run test          # everything; or test:rust, test:server
+mise run test          # everything; or test:rust, test:server, test:apple
 mise run lint          # lint:rust (rustfmt check + clippy -D warnings)
 mise run server        # alias: s
 mise run cli-install   # alias: ci; installs `qot`
+mise run gen:apple     # alias: xcode; builds the Apple core, generates the Xcode project
 ```
 
 ## Conventions
@@ -118,7 +123,8 @@ must be an explicit opt-in and must not weaken this default.
 
 ## Client sync (`qot_core::sync`)
 
-Every client syncs with the same pure functions, so iOS and the PWA inherit
+Every client syncs with the same pure functions (Swift reaches them through
+`qot_ffi`), so iOS and the PWA inherit
 the rules the CLI is tested with:
 
 - `SyncState` (persisted per device): `cursor`, the last server seq applied,
@@ -153,6 +159,28 @@ the rules the CLI is tested with:
 - Sync rules live in `qot_core::sync`; `service.rs` and `api.rs` are the
   I/O shell. Integration tests run the binary against `httpmock`
   (`tests/sync_test.rs`).
+
+## Apple (`client_apple`)
+
+- `scripts/build-apple-core` (`mise run build:apple-core`) compiles
+  `qot_ffi` for iPhone, simulator and Mac, generates the Swift bindings with
+  UniFFI and puts both in `QotKit/` (gitignored). Rerun it after any Rust
+  change. `project.yml` is the source of the Xcode project; the
+  `.xcodeproj` is generated and gitignored, so edit `project.yml`.
+- **QotKit** holds the logic (store, and later API and sync shell) as a
+  plain SwiftPM package, tested with `swift test` (Swift Testing) on the Mac
+  host against the real Rust core. App, widget and intent targets stay thin
+  SwiftUI over it. The generated bindings are internal to QotKit, which
+  exposes its own types (`NoteStore`, `NoteItem`).
+- The store uses the CLI's layout (`notes/<id>.note`, Automerge bytes),
+  currently under the app's Application Support directory.
+- The FFI is synchronous and UniFFI is pinned exactly. Network I/O belongs
+  in Swift, not Rust.
+- `mise run test:apple` needs macOS and Xcode; elsewhere it reports itself
+  skipped. CI runs it on macOS only when Apple or Rust paths change
+  (`.github/workflows/apple.yml`).
+- The Watch doesn't link `qot_core` in v1 (arm64_32 is a Tier 3 Rust
+  target); it hands captures to the iPhone (#35).
 
 ## Server (`server_web`)
 

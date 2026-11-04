@@ -1,0 +1,36 @@
+name: Apple
+
+# QotKit's Swift tests (against the real Rust core) and an iOS simulator
+# build. macOS runners are slow and costly, so this runs only when the Apple
+# client or the Rust it links changes.
+on:
+  pull_request:
+    paths: &paths
+      - "core/**"
+      - "core_ffi/**"
+      - "client_apple/**"
+      - "scripts/build-apple-core"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "mise.toml"
+      - ".github/workflows/apple.yml"
+  push:
+    branches: [main]
+    paths: *paths
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apple:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      # Installs only what this job needs (Rust with the iOS targets,
+      # xcodegen) at the versions pinned in mise.toml.
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: rust xcodegen
+      - uses: Swatinem/rust-cache@v2
+      - run: mise run test:apple
