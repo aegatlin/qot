@@ -259,3 +259,117 @@ fn logout_forgets_credentials_but_keeps_notes() {
         .failure()
         .stderr(predicate::str::contains("Not signed in"));
 }
+
+#[test]
+fn every_request_names_the_client_version() {
+    let user_agent = format!(
+        "qot-cli/{} ({}; {})",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
+    let server = MockServer::start();
+    let pull = server.mock(|when, then| {
+        when.method(GET)
+            .path("/api/sync/pull")
+            .header("user-agent", &user_agent);
+        then.status(200)
+            .json_body(json!({ "changes": [], "cursor": 0, "more": false }));
+    });
+    let push = server.mock(|when, then| {
+        when.method(POST)
+            .path("/api/sync/push")
+            .header("user-agent", &user_agent);
+        then.status(200).json_body(json!({ "cursor": 1 }));
+    });
+
+    let qot = Qot::new();
+    qot.sign_in(&server);
+    qot.cmd().args(["get", "milk"]).assert().success();
+    push.assert();
+    pull.assert();
+}
+
+#[test]
+fn a_rate_limited_login_says_how_long_to_wait() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(POST).path("/api/auth/device");
+        then.status(429)
+            .header("retry-after", "1500")
+            .json_body(json!({ "error": "rate_limited", "retry_after": 1500 }));
+    });
+
+    let qot = Qot::new();
+    qot.cmd()
+        .args(["login", "me@example.com", "--server", &server.base_url()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Too many sign-in attempts. Try again in 25 minutes.",
+        ));
+    assert!(!qot.dir.path().join("credentials.json").exists());
+}
+
+#[test]
+fn delete_account_needs_the_email_typed_then_forgets_the_sign_in() {
+    let server = MockServer::start();
+    empty_pull(&server);
+    server.mock(|when, then| {
+        when.method(POST).path("/api/sync/push");
+        then.status(200).json_body(json!({ "cursor": 1 }));
+    });
+    let delete = server.mock(|when, then| {
+        when.method(DELETE)
+            .path("/api/account")
+            .header("authorization", "Bearer good")
+            .json_body(json!({ "confirm": "Me@Example.com" }));
+        then.status(200).json_body(json!({ "deleted": true }));
+    });
+
+    let qot = Qot::new();
+    qot.sign_in(&server);
+    qot.cmd().args(["get", "milk"]).assert().success();
+    qot.cmd()
+        .arg("delete-account")
+        .write_stdin("Me@Example.com\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Account deleted"));
+
+    delete.assert();
+    assert!(!qot.dir.path().join("credentials.json").exists());
+    assert!(!qot.dir.path().join("sync.json").exists());
+    qot.cmd().arg("list").assert().stdout("1. get milk\n");
+}
+
+#[test]
+fn delete_account_with_the_wrong_email_deletes_nothing() {
+    let server = MockServer::start();
+    let delete = server.mock(|when, then| {
+        when.method(DELETE).path("/api/account");
+        then.status(200).json_body(json!({ "deleted": true }));
+    });
+
+    let qot = Qot::new();
+    qot.sign_in(&server);
+    qot.cmd()
+        .arg("delete-account")
+        .write_stdin("someone@else.com\n")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Not deleted"));
+
+    delete.assert_calls(0);
+    assert!(qot.dir.path().join("credentials.json").exists());
+}
+
+#[test]
+fn delete_account_needs_a_sign_in() {
+    let qot = Qot::new();
+    qot.cmd()
+        .arg("delete-account")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Not signed in"));
+}

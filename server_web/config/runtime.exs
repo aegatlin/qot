@@ -6,6 +6,9 @@ if System.get_env("PHX_SERVER") do
   config :qot, QotWeb.Endpoint, server: true
 end
 
+# The deployed commit, reported by /health. Railway sets this on every deploy.
+config :qot, :commit, System.get_env("RAILWAY_GIT_COMMIT_SHA")
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -55,6 +58,10 @@ if config_env() == :prod do
   host =
     System.get_env("PHX_HOST") ||
       raise "environment variable PHX_HOST is missing. Example: qot.example.com"
+
+  # Railway's edge proxy sets X-Real-IP to the client's address on every
+  # request; elsewhere, set CLIENT_IP_HEADER to what your proxy sets.
+  config :qot, :client_ip_header, System.get_env("CLIENT_IP_HEADER", "x-real-ip")
 
   port = String.to_integer(System.get_env("PORT") || "4000")
 

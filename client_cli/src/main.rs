@@ -25,7 +25,8 @@ const QUICK_SYNC: Duration = Duration::from_secs(3);
     qot list              # Show all notes\n  \
     qot delete 2          # Delete note #2\n  \
     qot login me@x.com    # Sign in to sync between devices\n  \
-    qot sync              # Sync now")]
+    qot sync              # Sync now\n  \
+    qot export > n.json   # All notes as JSON")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -66,6 +67,10 @@ enum Commands {
     /// Push local changes and pull everyone else's
     #[command(visible_alias = "s")]
     Sync,
+    /// Print every note as JSON (id, created_at, content)
+    Export,
+    /// Delete your account and synced notes on the server (notes on this device stay)
+    DeleteAccount,
 }
 
 fn main() {
@@ -87,6 +92,14 @@ fn main() {
         Some(Commands::Login { email, server }) => login(&mut notes, &email, server),
         Some(Commands::Logout) => logout(&notes),
         Some(Commands::Sync) => sync_now(&mut notes),
+        Some(Commands::Export) => {
+            quick_sync(&mut notes);
+            match notes.export() {
+                Ok(json) => println!("{json}"),
+                Err(e) => fail(&format!("Error exporting notes: {e}")),
+            }
+        }
+        Some(Commands::DeleteAccount) => delete_account(&notes),
         None if cli.content.is_empty() => {
             Cli::command().print_help().unwrap();
         }
@@ -199,6 +212,31 @@ fn login(notes: &mut NoteService, email: &str, server: Option<String>) {
         Ok(r) => println!("Synced: {} sent, {} received", r.pushed, r.pulled),
         Err(e) => eprintln!("(not synced yet: {e})"),
     }
+}
+
+fn delete_account(notes: &NoteService) {
+    let mut creds =
+        signed_in(notes).unwrap_or_else(|| fail("Not signed in. Run: qot login <email>"));
+    println!(
+        "This deletes the account {} on {} and every note synced there.",
+        creds.email, creds.server
+    );
+    println!("Notes on this device stay. Type the email to confirm:");
+    let mut typed = String::new();
+    std::io::stdin()
+        .read_line(&mut typed)
+        .unwrap_or_else(|e| fail(&format!("Not deleted: {e}")));
+    let typed = typed.trim();
+    if !typed.eq_ignore_ascii_case(creds.email.trim()) {
+        fail("Not deleted: that isn't the email you're signed in with.");
+    }
+
+    let api = Api::new(&creds.server, Duration::from_secs(30));
+    notes
+        .delete_account(&api, &mut creds, typed)
+        .unwrap_or_else(|e| fail(&format!("Not deleted: {e}")));
+    credentials::remove(notes.dir()).unwrap_or_else(|e| fail(&e));
+    println!("Account deleted. Your notes stay on this device (qot export saves them).");
 }
 
 fn logout(notes: &NoteService) {
