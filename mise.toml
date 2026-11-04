@@ -13,7 +13,9 @@
 # CLI ones included, refuse to run without the server's secrets.
 
 [tools]
-rust = { version = "1.98.1", components = "clippy,rustfmt" }
+rust = { version = "1.98.1", components = "clippy,rustfmt", targets = "aarch64-apple-ios,aarch64-apple-ios-sim" }
+# Generates client_apple's Xcode project; macOS only (it has no Linux build).
+xcodegen = { version = "2.46.0", os = ["macos"] }
 erlang = "29.1.2"
 elixir = "1.20.5-otp-29"
 
@@ -26,9 +28,20 @@ description = "Test the Phoenix server"
 dir = "server_web"
 run = "mix test"
 
+[tasks."test:apple"]
+description = "Test QotKit (Swift, against the Rust core) and build the iOS app; skipped off macOS"
+run = """
+if [ "$(uname)" != Darwin ]; then echo "test:apple skipped: needs macOS and Xcode"; exit 0; fi
+scripts/build-apple-core
+(cd client_apple/QotKit && swift test)
+(cd client_apple && xcodegen generate --quiet)
+xcodebuild -quiet -project client_apple/Qot.xcodeproj -scheme Qot \
+  -destination 'generic/platform=iOS Simulator' -derivedDataPath target/xcode build
+"""
+
 [tasks.test]
 description = "Test everything"
-depends = ["test:rust", "test:server"]
+depends = ["test:rust", "test:server", "test:apple"]
 
 [tasks."lint:rust"]
 description = "rustfmt check and clippy, warnings as errors"
@@ -40,6 +53,17 @@ run = [
 [tasks.lint]
 description = "Lint everything"
 depends = ["lint:rust"]
+
+[tasks."build:apple-core"]
+description = "Build qot_core for Apple (XCFramework + Swift bindings); rerun after Rust changes"
+run = "scripts/build-apple-core"
+
+[tasks."gen:apple"]
+alias = "xcode"
+description = "Build the Apple core and generate client_apple/Qot.xcodeproj; then open it in Xcode"
+depends = ["build:apple-core"]
+dir = "client_apple"
+run = "xcodegen generate"
 
 [tasks.server]
 alias = "s"
