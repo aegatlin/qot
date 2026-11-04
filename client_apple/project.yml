@@ -1,0 +1,46 @@
+# The Xcode project is generated from this file (`mise run gen:apple`); the
+# .xcodeproj is gitignored, so edit this, not the project. One project holds
+# every Apple target (iPhone now; widgets, intents, Watch and Mac later). See
+# docs/records/2026-11-04-repo-layout-for-clients.md.
+name: Qot
+options:
+  bundleIdPrefix: io.gatlin
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    DEVELOPMENT_TEAM: 9XYH562BTD
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # The Rust core is built for Apple silicon only (scripts/build-apple-core).
+    "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
+packages:
+  QotKit:
+    path: QotKit
+targets:
+  Qot:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: QotKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.gatlin.qot
+        PRODUCT_NAME: Qot
+        INFOPLIST_KEY_CFBundleDisplayName: qot
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+schemes:
+  Qot:
+    build:
+      targets:
+        Qot: all
+    test:
+      targets: []

@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Build qot_core for Apple platforms: compile the qot_ffi crate for each
+# slice, generate its Swift bindings with UniFFI, and package both where the
+# QotKit Swift package expects them. Outputs are gitignored; rerun after any
+# change to core/ or core_ffi/.
+#
+#   scripts/build-apple-core            # debug, all slices
+#   scripts/build-apple-core --release
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+profile=debug
+cargo_flags=()
+if [[ "${1:-}" == "--release" ]]; then
+  profile=release
+  cargo_flags=(--release)
+fi
+
+# iPhone, the iPhone simulator, and the Mac (for `swift test` on the host).
+targets=(aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-darwin)
+
+for t in "${targets[@]}"; do
+  cargo build -p qot_ffi --lib ${cargo_flags[@]+"${cargo_flags[@]}"} --target "$t"
+done
+
+kit="$root/client_apple/QotKit"
+gen="$root/target/uniffi-swift"
+rm -rf "$gen" && mkdir -p "$gen"
+cargo run -q -p qot_ffi --features bindgen --bin uniffi-bindgen -- \
+  generate --library "target/aarch64-apple-darwin/$profile/libqot_ffi.a" \
+  --language swift --out-dir "$gen"
+
+# The XCFramework carries the C header and a module map named
+# module.modulemap, which is what Xcode and SwiftPM look for.
+headers="$gen/headers"
+mkdir -p "$headers"
+cp "$gen/qot_ffiFFI.h" "$headers/"
+cp "$gen/qot_ffiFFI.modulemap" "$headers/module.modulemap"
+
+xcf="$kit/QotFFI.xcframework"
+rm -rf "$xcf"
+args=()
+for t in "${targets[@]}"; do
+  args+=(-library "target/$t/$profile/libqot_ffi.a" -headers "$headers")
+done
+xcodebuild -create-xcframework "${args[@]}" -output "$xcf" >/dev/null
+
+mkdir -p "$kit/Sources/QotKit/Generated"
+cp "$gen/qot_ffi.swift" "$kit/Sources/QotKit/Generated/qot_ffi.swift"
+echo "built $xcf ($profile)"
