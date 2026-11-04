@@ -133,3 +133,50 @@ fn test_get_milk_then_list_then_delete() {
         .success()
         .stdout("1. call mum\n");
 }
+
+#[test]
+fn version_prints_the_crate_version() {
+    let qot = Qot::new();
+    qot.cmd()
+        .arg("--version")
+        .assert()
+        .success()
+        .stdout(format!("qot {}\n", env!("CARGO_PKG_VERSION")));
+}
+
+#[test]
+fn export_prints_live_notes_as_json_oldest_first() {
+    let qot = Qot::new();
+    qot.cmd().arg("[]").assert().success(); // a note whose content looks like JSON
+    qot.cmd().args(["get", "milk"]).assert().success();
+    qot.cmd().args(["gone"]).assert().success();
+    qot.cmd().args(["delete", "3"]).assert().success();
+
+    let out = qot
+        .cmd()
+        .arg("export")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let notes: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    let notes = notes.as_array().unwrap();
+
+    assert_eq!(notes.len(), 2);
+    assert_eq!(notes[0]["content"], "[]");
+    assert_eq!(notes[1]["content"], "get milk");
+    for note in notes {
+        assert_eq!(note["id"].as_str().unwrap().len(), 36);
+        let created = note["created_at"].as_str().unwrap();
+        // e.g. 2026-11-04T05:41:39Z
+        assert_eq!(created.len(), 20, "{created}");
+        assert!(created.ends_with('Z') && created.as_bytes()[10] == b'T');
+    }
+}
+
+#[test]
+fn export_with_no_notes_is_an_empty_list() {
+    let qot = Qot::new();
+    qot.cmd().arg("export").assert().success().stdout("[]\n");
+}

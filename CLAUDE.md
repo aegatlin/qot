@@ -132,7 +132,12 @@ the rules the CLI is tested with:
 - `qot login <email> [--server URL]` runs the device sign-in (server from
   `--server`, else `$QOT_SERVER`, else `http://localhost:4000`), then syncs.
   `qot logout` revokes and forgets credentials and sync state; notes stay.
-  `qot sync` syncs and reports errors.
+  `qot sync` syncs and reports errors. `qot export` prints live notes as
+  JSON (`id`, `created_at` from the UUIDv7, `content`): the data export,
+  since a synced device has everything the server has. `qot delete-account`
+  asks for the email to be typed, then deletes the account on the server;
+  notes stay on the device. Every request sends `User-Agent:
+  qot-cli/<version> (<os>; <arch>)`.
 - Capture never waits on the network: `add`/`get …`, `delete` and `list`
   run a best-effort sync with a 3 s timeout when signed in, and print
   `(not synced: …)` to stderr when offline. The note is saved first.
@@ -158,9 +163,21 @@ the rules the CLI is tested with:
      `authorization_pending` until approved) and receives, once, a JWT access
      token (1 h, `user_id` claim) and a refresh token (30 days, stored
      hashed). `POST /api/auth/refresh` renews the access token.
+  Starting a sign-in sends an email, so it is **rate-limited** per address
+  (5/hour, case-insensitive) and per client IP (20/hour; IPv6 per /64): a
+  429 with `Retry-After`. The rules are pure (`Qot.Accounts.SignInLimit`);
+  `SignInLimiter` holds the history in memory, which is fine for one
+  instance (several would each allow the full limit). The client IP comes
+  from `X-Real-IP` in production (Railway's edge sets it;
+  `QotWeb.Plugs.ClientIP`, `CLIENT_IP_HEADER` to change it).
   `RequireAuth` checks Bearer tokens for HTTP; WebSocket connect params carry
   the JWT, verified before channel join. The pure rules live in
   `Qot.Accounts.DeviceLogin` (status, code checks).
+- **Account deletion**: `DELETE /api/account {confirm: <the account's
+  email>}` removes the user, refresh tokens, change log and sign-ins
+  (`Qot.Accounts.delete_user/1`) and closes the user's sockets. A
+  server-side export would only be opaque change blobs, so export is the
+  client's job.
 - **Contexts**: `Qot.Accounts` (users, device sign-in, tokens), `Qot.Sync`
   (the change log, always scoped by `user_id`).
 - **Per-user isolation**: every sync call takes `user_id` from the token;
@@ -186,16 +203,23 @@ the rules the CLI is tested with:
   checks only the files the pushed commit changed, so a tag on a docs-only
   commit would be skipped. Agents can't deploy production; a person pushes
   the tag.
+- **Smoke test** after every deploy (`.github/workflows/smoke.yml`, running
+  `scripts/smoke-test <url> [<sha>]`): waits until `/health` reports the
+  deployed commit (`commit`, from Railway's `RAILWAY_GIT_COMMIT_SHA`), then
+  checks that the API answers. Read-only and sends no email, so it is safe
+  against production. Staging runs it after CI passes on `main`;
+  `release-server.yml` runs it for production after promoting.
 - CI (`.github/workflows/ci.yml`) runs Rust and server checks on every PR,
   reading tool versions from `mise.toml`.
 - Dev logs every email (sign-in links included) to the server's console.
 - Production env: `DATABASE_URL`, `JWT_SECRET_KEY`, `RESEND_API_KEY`,
   `SECRET_KEY_BASE`, `PHX_HOST` (sign-in links are built from it). Optional:
-  `DATABASE_SSL=false` (a database on the host's private network; TLS with
+  `CLIENT_IP_HEADER` (default `x-real-ip`), `DATABASE_SSL=false` (a database on the host's private network; TLS with
   certificate verification is the default), `ECTO_IPV6=true`, `POOL_SIZE`,
   `PORT`. Dev and test need none.
 - **Release**: `server_web/Dockerfile` builds a `mix release` (Elixir and
   Erlang versions match `mise.toml`; bump them together). `bin/server` starts
   it; `bin/migrate` runs migrations and is the platform's pre-deploy step, so
   a failed migration fails the deploy instead of crash-looping the app.
-  `GET /health` is 200 when the database answers, else 503.
+  `GET /health` is 200 (`{status, commit}`) when the database answers, else
+  503.

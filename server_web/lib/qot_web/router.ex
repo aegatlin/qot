@@ -4,6 +4,7 @@ defmodule QotWeb.Router do
 
   pipeline :api do
     plug(:accepts, ["json"])
+    plug(QotWeb.Plugs.ClientIP)
   end
 
   # The sign-in page opened from the email. No session or CSRF token: the
@@ -42,5 +43,6 @@ defmodule QotWeb.Router do
 
     post("/sync/push", SyncController, :push)
     get("/sync/pull", SyncController, :pull)
+    delete("/account", AccountController, :delete)
   end
 end

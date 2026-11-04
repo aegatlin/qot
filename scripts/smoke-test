@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Checks that a deployed server works, not just that its container started.
+#
+#   scripts/smoke-test <base-url> [<commit-sha>]
+#
+# With a commit, first waits (up to SMOKE_TIMEOUT seconds, default 1200) until
+# /health reports that commit, i.e. the new release is the one answering. Then
+# checks that the API answers as it should. Nothing here writes data or sends
+# email, so it is safe against production.
+set -euo pipefail
+
+base=${1:?usage: scripts/smoke-test <base-url> [<commit-sha>]}
+base=${base%/}
+want=${2:-}
+timeout=${SMOKE_TIMEOUT:-1200}
+interval=${SMOKE_INTERVAL:-15}
+
+fail() { echo "::error::smoke test of $base: $*" >&2; exit 1; }
+
+# Prints "<status> <body>" for a request; status 000 if it couldn't connect.
+request() {
+  local out
+  out=$(curl -sS --max-time 10 -w '\n%{http_code}' "$@" 2>/dev/null) || out=$'\n000'
+  printf '%s %s\n' "${out##*$'\n'}" "${out%$'\n'*}"
+}
+
+deadline=$((SECONDS + timeout))
+while :; do
+  read -r status body < <(request "$base/health")
+  commit=$(jq -r '.commit // empty' <<<"$body" 2>/dev/null || true)
+  if [[ $status == 200 && ( -z $want || $commit == "$want" ) ]]; then
+    echo "ok: /health is up${want:+ at $want}"
+    break
+  fi
+  if (( SECONDS >= deadline )); then
+    fail "/health never reported ${want:-ok} within ${timeout}s (last: $status, commit '${commit}')"
+  fi
+  echo "waiting: /health is $status, commit '${commit}'${want:+, want $want}"
+  sleep "$interval"
+done
+
+expect() {
+  local name=$1 want_status=$2 want_error=$3; shift 3
+  read -r status body < <(request "$@")
+  local error
+  error=$(jq -r '.error // empty' <<<"$body" 2>/dev/null || true)
+  [[ $status == "$want_status" ]] || fail "$name: HTTP $status, expected $want_status ($body)"
+  [[ -z $want_error || $error == "$want_error" ]] || fail "$name: error '$error', expected '$want_error'"
+  echo "ok: $name"
+}
+
+# Routing, JSON parsing and the auth plug, without a token.
+expect "sync needs a token" 401 "" "$base/api/sync/pull"
+# The sign-in controller and validation. An invalid email is refused before
+# anything is sent or counted towards the rate limit.
+expect "sign-in validates the email" 400 "Email is invalid" \
+  -X POST -H 'content-type: application/json' -d '{"email":"not-an-email"}' \
+  "$base/api/auth/device"
+
+echo "smoke test passed: $base"

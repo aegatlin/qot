@@ -37,6 +37,8 @@ pub enum Poll {
 pub enum ApiError {
     /// The access token was refused; refresh and retry.
     Unauthorized,
+    /// Too many sign-ins; the server says how many seconds to wait, if it did.
+    RateLimited(Option<u64>),
     Other(String),
 }
 
@@ -44,6 +46,7 @@ impl std::fmt::Display for ApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ApiError::Unauthorized => f.write_str("not signed in (run `qot login`)"),
+            ApiError::RateLimited(wait) => f.write_str(&rate_limited_text(*wait)),
             ApiError::Other(e) => f.write_str(e),
         }
     }
@@ -59,6 +62,7 @@ impl Api {
         let agent: Agent = Agent::config_builder()
             .http_status_as_error(false)
             .timeout_global(Some(timeout))
+            .user_agent(user_agent())
             .build()
             .into();
         Api {
@@ -90,9 +94,27 @@ impl Api {
         Ok((status, body))
     }
 
+    /// Deletes the signed-in account on the server. `confirm` must be its email.
+    pub fn delete_account(&self, token: &str, confirm: &str) -> Result<(), ApiError> {
+        let mut res = self
+            .agent
+            .delete(format!("{}/api/account", self.base))
+            .header("authorization", format!("Bearer {token}"))
+            .force_send_body()
+            .send_json(json!({ "confirm": confirm }))
+            .map_err(net)?;
+        let body = res.body_mut().read_json::<Value>().unwrap_or(Value::Null);
+        match res.status().as_u16() {
+            200 => Ok(()),
+            401 => Err(ApiError::Unauthorized),
+            _ => Err(ApiError::Other(error_text(&body))),
+        }
+    }
+
     pub fn start_device_login(&self, email: &str) -> Result<DeviceStart, ApiError> {
         match self.post("/api/auth/device", None, json!({ "email": email }))? {
             (200, body) => serde_json::from_value(body).map_err(|e| ApiError::Other(e.to_string())),
+            (429, body) => Err(ApiError::RateLimited(body["retry_after"].as_u64())),
             (_, body) => Err(ApiError::Other(error_text(&body))),
         }
     }
@@ -161,6 +183,28 @@ impl Api {
     }
 }
 
+/// What to tell someone who has started too many sign-ins, rounding the wait
+/// up to whole minutes.
+fn rate_limited_text(wait_secs: Option<u64>) -> String {
+    let when = match wait_secs.map(|s| s.div_ceil(60)) {
+        None => "later".to_string(),
+        Some(0 | 1) => "in a minute".to_string(),
+        Some(m) => format!("in {m} minutes"),
+    };
+    format!("Too many sign-in attempts. Try again {when}.")
+}
+
+/// `qot-cli/<version> (<os>; <arch>)`, so the server can tell which client
+/// versions are still in use before it deprecates one.
+fn user_agent() -> String {
+    format!(
+        "qot-cli/{} ({}; {})",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    )
+}
+
 fn parse_page(body: &Value) -> Result<Page, String> {
     let changes = body["changes"]
         .as_array()
@@ -194,4 +238,38 @@ fn error_text(body: &Value) -> String {
 
 fn net(e: ureq::Error) -> ApiError {
     ApiError::Other(format!("can't reach the server: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rate_limited_text_rounds_the_wait_up_to_minutes() {
+        let text = |w| rate_limited_text(w);
+        assert_eq!(
+            text(Some(1500)),
+            "Too many sign-in attempts. Try again in 25 minutes."
+        );
+        assert_eq!(
+            text(Some(1501)),
+            "Too many sign-in attempts. Try again in 26 minutes."
+        );
+        assert_eq!(
+            text(Some(20)),
+            "Too many sign-in attempts. Try again in a minute."
+        );
+        assert_eq!(text(None), "Too many sign-in attempts. Try again later.");
+    }
+
+    #[test]
+    fn user_agent_names_client_version_os_and_arch() {
+        let ua = user_agent();
+        assert!(ua.starts_with(&format!("qot-cli/{} (", env!("CARGO_PKG_VERSION"))));
+        assert!(ua.ends_with(&format!(
+            "{}; {})",
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        )));
+    }
 }
