@@ -26,7 +26,8 @@ Done: release build and `/health`; host chosen (Railway, see
 [records](records/2026-11-02-hosting-platform.md)); staging and production
 with their own databases and secrets; deploy pipeline; secrets in fnox
 ([record](records/2026-11-02-secrets-management.md)); first production
-release (#4); age key backed up (#3); sign-in email (#5); custom domains
+release (#4); age key backed up (#3); sign-in email (#5), DMARC
+`p=quarantine` (#20); custom domains
 (#10, [layout](records/2026-11-04-domain-layout.md)); rate limits (#7);
 `qot --version` (#13); account deletion and export (#18); post-deploy
 `/health` smoke test (#11, first part).
