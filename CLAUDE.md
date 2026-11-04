@@ -11,6 +11,11 @@ time you look, without opening the app.
 
 Clients, in priority order: CLI and iOS now; a Mac app next; web later.
 
+The current goal is dogfooding (the developer and a few friends using it
+daily), not a public launch. Work that only matters for strangers or at
+real user volume (backups, pricing, legal pages, a landing page) is
+deferred; `docs/ROADMAP.md` lists it.
+
 ## Where the work is
 
 Todos are **GitHub issues**: code, ops and human-only tasks alike (`gh issue
