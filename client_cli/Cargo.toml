@@ -3,6 +3,13 @@ name = "qot_cli"
 version = "0.1.0"
 edition = "2024"
 license.workspace = true
+repository.workspace = true
+description = "Quantum of Thought: capture a note from anywhere (`qot get milk`)"
+homepage = "https://quantumofthought.com"
+
+[package.metadata.dist]
+# The Homebrew formula is `qot` (brew install aegatlin/tap/qot), not qot-cli.
+formula = "qot"
 
 [[bin]]
 name = "qot"

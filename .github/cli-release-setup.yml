@@ -1,0 +1,9 @@
+# Steps dist runs before building the CLI (github-build-setup in
+# dist-workspace.toml): use the Rust version pinned in mise.toml, as CI does.
+- name: Install the pinned Rust
+  shell: bash
+  run: |
+    rust=$(sed -nE 's/^rust = \{ version = "([^"]+)".*/\1/p' mise.toml)
+    test -n "$rust"
+    rustup toolchain install "$rust" --profile minimal
+    rustup default "$rust"

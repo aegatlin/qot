@@ -18,6 +18,9 @@ rust = { version = "1.98.1", components = "clippy,rustfmt", targets = "aarch64-a
 xcodegen = { version = "2.46.0", os = ["macos"] }
 erlang = "29.1.2"
 elixir = "1.20.5-otp-29"
+# Builds and publishes CLI releases (`dist`); .github/workflows/release-cli.yml
+# is generated from dist-workspace.toml by it.
+cargo-dist = "0.33.1"
 
 [tasks."test:rust"]
 description = "Test the Rust workspace (core + CLI)"

@@ -1,0 +1,30 @@
+[workspace]
+members = ["cargo:."]
+
+# Config for `dist`, which builds and publishes the CLI. After editing, run
+# `dist generate` to regenerate .github/workflows/cli-release.yml.
+[dist]
+# The dist version CI uses; keep it equal to cargo-dist in mise.toml.
+cargo-dist-version = "0.33.1"
+ci = "github"
+# Only tags starting `cli/` release the CLI (cli/v0.1.0); server-v* tags
+# must not trigger it.
+tag-namespace = "cli"
+installers = ["shell", "homebrew"]
+tap = "aegatlin/homebrew-tap"
+publish-jobs = ["homebrew"]
+# Windows is out of scope while dogfooding (#14).
+targets = [
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-musl",
+  "x86_64-unknown-linux-musl",
+]
+# Friends won't have Rust, so not ~/.cargo/bin.
+install-path = "~/.local/bin"
+hosting = "github"
+install-updater = false
+# Build with the Rust version pinned in mise.toml, not the runner's default.
+github-build-setup = "../cli-release-setup.yml"

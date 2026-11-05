@@ -17,6 +17,22 @@ Tools and tasks are pinned in one root `mise.toml`
 Server secrets go in a gitignored `mise.local.toml` (see the comment at the
 top of `mise.toml`).
 
+## Install the CLI
+
+macOS and Linux:
+
+```sh
+brew install aegatlin/tap/qot
+```
+
+or, without Homebrew (installs to `~/.local/bin`):
+
+```sh
+curl -LsSf https://github.com/aegatlin/qot/releases/latest/download/qot_cli-installer.sh | sh
+```
+
+Then `qot login you@example.com` and `qot get milk`.
+
 ## Try it locally
 
 ```sh
