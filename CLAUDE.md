@@ -175,7 +175,10 @@ the rules the CLI is tested with:
   JSON (`id`, `created_at` from the UUIDv7, `content`): the data export,
   since a synced device has everything the server has. `qot delete-account`
   asks for the email to be typed, then deletes the account on the server;
-  notes stay on the device. Every request sends `User-Agent:
+  notes stay on the device. `qot status` shows the account, the server
+  (labelled production, staging, local or custom), live notes and how many
+  have changes not pushed yet, the data dir and the version; offline, and
+  never prints tokens. Every request sends `User-Agent:
   qot-cli/<version> (<os>; <arch>)`.
 - Capture never waits on the network: `add`/`get …`, `delete` and `list`
   run a best-effort sync with a 3 s timeout when signed in, and print

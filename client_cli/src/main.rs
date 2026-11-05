@@ -6,7 +6,7 @@ mod storage;
 use api::{Api, Poll};
 use clap::{CommandFactory, Parser, Subcommand};
 use credentials::Credentials;
-use service::NoteService;
+use service::{Counts, NoteService};
 use std::process::exit;
 use std::time::{Duration, Instant};
 
@@ -26,6 +26,7 @@ const QUICK_SYNC: Duration = Duration::from_secs(3);
     qot delete 2          # Delete note #2\n  \
     qot login me@x.com    # Sign in to sync between devices\n  \
     qot sync              # Sync now\n  \
+    qot status            # Account, server and what's waiting to sync\n  \
     qot export > n.json   # All notes as JSON")]
 #[command(version)]
 struct Cli {
@@ -69,6 +70,8 @@ enum Commands {
     Sync,
     /// Print every note as JSON (id, created_at, content)
     Export,
+    /// Show the account, server and notes on this device (no network)
+    Status,
     /// Delete your account and synced notes on the server (notes on this device stay)
     DeleteAccount,
 }
@@ -100,6 +103,7 @@ fn main() {
             }
         }
         Some(Commands::DeleteAccount) => delete_account(&notes),
+        Some(Commands::Status) => status(&notes),
         None if cli.content.is_empty() => {
             Cli::command().print_help().unwrap();
         }
@@ -244,6 +248,60 @@ fn delete_account(notes: &NoteService) {
     println!("Account deleted. Your notes stay on this device (qot export saves them).");
 }
 
+fn status(notes: &NoteService) {
+    let creds = signed_in(notes);
+    let counts = notes
+        .counts()
+        .unwrap_or_else(|e| fail(&format!("Error reading notes: {e}")));
+    print!(
+        "{}",
+        render_status(
+            creds.as_ref(),
+            counts,
+            &notes.dir().display().to_string(),
+            env!("CARGO_PKG_VERSION"),
+        )
+    );
+}
+
+/// A name for the server, so production and staging can't be mistaken for
+/// each other at a glance.
+fn server_label(url: &str) -> &'static str {
+    let host = url
+        .split("://")
+        .nth(1)
+        .unwrap_or(url)
+        .split(['/', ':'])
+        .next()
+        .unwrap_or("");
+    match host {
+        "api.quantumofthought.com" => "production",
+        "staging-api.quantumofthought.com" => "staging",
+        "localhost" | "127.0.0.1" | "[::1]" => "local",
+        _ => "custom",
+    }
+}
+
+/// The `qot status` page. Never includes tokens.
+fn render_status(creds: Option<&Credentials>, counts: Counts, dir: &str, version: &str) -> String {
+    let mut out = String::new();
+    match creds {
+        Some(c) => {
+            out += &format!("Account   {}\n", c.email);
+            out += &format!("Server    {} ({})\n", c.server, server_label(&c.server));
+        }
+        None => out += "Account   not signed in (sign in with: qot login <email>)\n",
+    }
+    let waiting = match counts.unsynced {
+        0 => "all synced".to_string(),
+        n => format!("{n} not synced yet"),
+    };
+    out += &format!("Notes     {}, {waiting}\n", counts.live);
+    out += &format!("Data      {dir}\n");
+    out += &format!("Version   qot {version}\n");
+    out
+}
+
 fn logout(notes: &NoteService) {
     if let Some(creds) = signed_in(notes) {
         // Revoke on the server if it's reachable; signing out locally is what matters.
@@ -257,6 +315,76 @@ fn logout(notes: &NoteService) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn creds(server: &str) -> Credentials {
+        Credentials {
+            server: server.into(),
+            email: "me@example.com".into(),
+            tokens: api::Tokens {
+                access_token: "secret-access".into(),
+                refresh_token: "secret-refresh".into(),
+            },
+        }
+    }
+
+    #[test]
+    fn labels_known_servers() {
+        assert_eq!(
+            server_label("https://api.quantumofthought.com"),
+            "production"
+        );
+        assert_eq!(
+            server_label("https://api.quantumofthought.com/"),
+            "production"
+        );
+        assert_eq!(
+            server_label("https://staging-api.quantumofthought.com"),
+            "staging"
+        );
+        assert_eq!(server_label("http://localhost:4000"), "local");
+        assert_eq!(server_label("http://127.0.0.1:4000"), "local");
+        assert_eq!(server_label("https://qot.example.com"), "custom");
+        // A lookalike host is not production.
+        assert_eq!(
+            server_label("https://api.quantumofthought.com.evil.example"),
+            "custom"
+        );
+    }
+
+    #[test]
+    fn status_signed_in() {
+        let counts = Counts {
+            live: 3,
+            unsynced: 1,
+        };
+        let page = render_status(
+            Some(&creds("https://api.quantumofthought.com")),
+            counts,
+            "/data",
+            "0.1.1",
+        );
+        assert_eq!(
+            page,
+            "Account   me@example.com\n\
+             Server    https://api.quantumofthought.com (production)\n\
+             Notes     3, 1 not synced yet\n\
+             Data      /data\n\
+             Version   qot 0.1.1\n"
+        );
+        assert!(!page.contains("secret"));
+    }
+
+    #[test]
+    fn status_signed_out() {
+        let counts = Counts {
+            live: 0,
+            unsynced: 0,
+        };
+        let page = render_status(None, counts, "/data", "0.1.1");
+        assert!(page.starts_with("Account   not signed in (sign in with: qot login <email>)\n"));
+        assert!(!page.contains("Server"));
+        assert!(page.contains("Notes     0, all synced\n"));
+    }
 
     #[test]
     fn defaults_to_production() {
