@@ -52,9 +52,30 @@ deliberately not `required` in `mise.toml`, which would stop CLI tasks from
 running without them; local overrides go in a gitignored `mise.local.toml`.
 
 **Cloud sessions** (Claude Code on the web) come with mise, the pinned tools
-and a running Postgres, so `mise run test` and `mise run lint` work as-is.
-They have no `fnox` key and no `railway` CLI: they can't decrypt secrets or
-deploy.
+and Postgres, so `mise run test` and `mise run lint` work as-is (tools run
+through mise: `mise exec -- mix …`). If `pg_isready` says no response, run
+`service postgresql start`. They have no `fnox` key and no `railway` CLI:
+they can't decrypt secrets or deploy.
+
+They also have a **headless Chromium with Playwright** (`require('playwright')`
+works from any directory; `chromium.launch()` needs no options), so verify
+changes end to end, not only with tests:
+
+- **Server + CLI, the whole sign-in and sync loop, locally.** Start the server
+  in the background (`cd server_web && mise exec -- mix setup`, then
+  `mix phx.server` with its output to a log file). Run `qot login
+  <any email> --server http://localhost:4000` in the background with a
+  scratch `QOT_DATA_DIR`. Dev logs the email, so take the
+  `/auth/device?token=…` link from the server log and the `XXXX-XXXX` code
+  from the CLI's output, open the link in Chromium, fill the code and submit.
+  The CLI then signs in; a second `QOT_DATA_DIR` signed in the same way is a
+  second device, which shows sync working (`qot get …` on one, `qot list` on
+  the other).
+- **Web pages** (the device sign-in page, a future PWA): load them from the
+  local server and screenshot or read them.
+
+Not against staging or production: signing in there needs a real inbox
+(#11), and agents don't create accounts on production.
 
 **Secrets** for deployed environments live in `fnox.toml`, age-encrypted and
 committed, one profile per environment (`staging`, `production`). Decrypting
