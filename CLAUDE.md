@@ -164,6 +164,18 @@ the rules the CLI is tested with:
 - Sync rules live in `qot_core::sync`; `service.rs` and `api.rs` are the
   I/O shell. Integration tests run the binary against `httpmock`
   (`tests/sync_test.rs`).
+- **Releasing** is [dist](https://axodotdev.github.io/cargo-dist/): bump
+  `version` in `client_cli/Cargo.toml`, merge, then a person pushes a
+  `cli/vX.Y.Z` tag (dist parses `cli/`, not `cli-`; the namespace keeps
+  `server-v*` tags from triggering it). `.github/workflows/cli-release.yml`
+  builds macOS (arm64, x86_64) and Linux (arm64, x86_64, glibc and musl)
+  with the Rust pinned in `mise.toml` (`.github/cli-release-setup.yml`),
+  publishes a GitHub Release with `qot_cli-installer.sh`, and pushes the
+  `qot` formula to `aegatlin/homebrew-tap` with the `HOMEBREW_TAP_TOKEN`
+  secret (a fine-grained token, Contents read/write on that repo only,
+  renewed yearly). The workflow is generated: edit `dist-workspace.toml`,
+  then run `dist generate` (dist is pinned in `mise.toml`; keep
+  `cargo-dist-version` equal). On PRs it runs `dist plan` only.
 
 ## Apple (`client_apple`)
 

@@ -4,3 +4,9 @@ members = ["core", "core_ffi", "client_cli"]
 
 [workspace.package]
 license = "AGPL-3.0-only"
+repository = "https://github.com/aegatlin/qot"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

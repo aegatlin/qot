@@ -3,7 +3,12 @@ name = "qot_ffi"
 version = "0.1.0"
 edition = "2024"
 license.workspace = true
+repository.workspace = true
 description = "qot_core for Swift and Kotlin, through UniFFI"
+
+# uniffi-bindgen is a build tool for client_apple, not something to release.
+[package.metadata.dist]
+dist = false
 
 [lib]
 crate-type = ["lib", "staticlib"]
