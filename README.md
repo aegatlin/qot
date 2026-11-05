@@ -34,3 +34,15 @@ for Apple and generates `client_apple/Qot.xcodeproj`; open it and run the
 
 Launch todos and what comes after: [docs/ROADMAP.md](docs/ROADMAP.md).
 Pricing and the free/paid line: [docs/go-to-market.md](docs/go-to-market.md).
+
+## License
+
+[AGPL-3.0](LICENSE), copyright Austin Gatlin. Why open source, and why this
+license: [docs/records/2026-11-04-open-source-or-closed.md](docs/records/2026-11-04-open-source-or-closed.md).
+
+Issues and ideas are welcome. Code contributions aren't accepted yet: see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+"Quantum of Thought" and "qot" name this project and the service at
+quantumofthought.com. A fork is welcome under the license, but needs its
+own name.

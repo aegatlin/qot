@@ -1,12 +1,12 @@
 # Open source or closed source
 
-Status: proposed
+Status: decided
 Date: 2026-11-04
 Question: Should qot's code be open source, given that it is meant to become
 a solo business selling managed cloud services (sync, capture channels,
 pipelines) on top of free clients?
 
-## Answer (proposed)
+## Answer
 
 **Open source, copyleft, with the copyright kept in one hand.** Concretely:
 
@@ -32,6 +32,23 @@ work, and a public repo has free Actions minutes (macOS runners cost 10×
 Linux on private repos). The alternative is a separate public releases repo,
 which works but is extra machinery to avoid a decision that leans one way
 anyway.
+
+## Checked before going public (2026-11-05)
+
+- Git history (all branches, 75 commits) scanned for keys, tokens, private
+  keys and database URLs with credentials: nothing found. The only secret
+  material is the age-encrypted values in `fnox.toml`, safe to publish as
+  long as the age key stays private (if it ever leaks, rotate every value,
+  since old ciphertexts stay public). Dev and test configs hold only
+  dev-only placeholder keys; production refuses to start without real ones.
+- Dependency licences: Rust crates are MIT, Apache-2.0, MPL-2.0, ISC, BSD,
+  Zlib, Unicode-3.0 and CDLA-Permissive-2.0; Elixir deps are MIT and
+  Apache-2.0. All compatible with AGPL-3.0.
+- No workflow uses `pull_request_target` or repository secrets, so a fork's
+  pull request can't reach anything secret through Actions.
+- `LICENSE` is AGPL-3.0, Cargo crates declare `AGPL-3.0-only` (only, not
+  "or later": as sole copyright holder, relicensing stays our call rather
+  than the FSF's), and `CONTRIBUTING.md` says code PRs wait for a CLA.
 
 ## Why open fits qot in particular
 
