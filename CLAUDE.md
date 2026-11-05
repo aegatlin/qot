@@ -78,6 +78,11 @@ mise run gen:apple     # alias: xcode; builds the Apple core, generates the Xcod
   immutable values that are tested without I/O; storage, network and UI are a
   thin shell around them. In `qot_core` every operation on a `Note` returns a
   new `Note` rather than mutating one.
+- **License: AGPL-3.0-only**, sole copyright (no outside code until there is
+  a CLA; `CONTRIBUTING.md`). Every dependency must be AGPL-compatible
+  (permissive or MPL-2.0; no GPL-2.0-only, no proprietary). Gate paid
+  features on the server, never in a client
+  (`docs/records/2026-11-04-open-source-or-closed.md`).
 - Errors are values. Never turn a failure into an empty or default note; that
   silently loses a user's data.
 - Rust: unit tests beside the code (`#[cfg(test)]`), CLI integration tests in

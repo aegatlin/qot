@@ -35,3 +35,4 @@ was considered and turned down.
 | 2026-11-02 | [Where todos live](2026-11-02-task-tracking.md) | decided |
 | 2026-11-04 | [Domain layout](2026-11-04-domain-layout.md) | decided |
 | 2026-11-04 | [Repo layout for many clients](2026-11-04-repo-layout-for-clients.md) | decided |
+| 2026-11-04 | [Open source or closed source](2026-11-04-open-source-or-closed.md) | decided |

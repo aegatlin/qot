@@ -25,7 +25,8 @@ model (Obsidian Sync, Bear Pro, Things Cloud being bundled into the price).
 2. **Self-hosting.** The server is in this repo. Do we let people point
    `qot --server` at their own instance? That is a strong trust signal for an
    E2EE notes tool and costs us little, while most people will still pay to
-   not run Postgres. Decide the license accordingly (check `LICENSE`).
+   not run Postgres. Decided: yes, the code is AGPL-3.0 and self-hosting is allowed
+   ([records/2026-11-04-open-source-or-closed.md](records/2026-11-04-open-source-or-closed.md)).
 3. **What else is "managed cloud"?** Candidates that need a server:
    - Sync across devices (core)
    - Capture channels: email-to-note, SMS, a share link, webhooks
