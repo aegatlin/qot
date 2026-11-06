@@ -133,6 +133,10 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: postgres
       PGHOST: localhost
+      # Erlang and Elixir come from setup-beam here. Left enabled in mise,
+      # anything run through a mise shim (npm, mise run) would get MIX_HOME
+      # pointed at mise's Elixir directory, where setup-beam's Hex isn't.
+      MISE_DISABLE_TOOLS: erlang,elixir
     steps:
       - uses: actions/checkout@v5
       # Rust, Node and the wasm tools at the versions mise.toml pins; Erlang
@@ -169,9 +173,7 @@ jobs:
       - run: mise run lint:web
       - run: mise run test:web
       - run: mise run build:web
-      # mise-action points MIX_HOME at mise's Elixir directory for the whole
-      # job, where setup-beam's Hex isn't; install Hex and Rebar there.
-      - run: cd server_web && mix local.hex --force && mix local.rebar --force && mix deps.get
+      - run: cd server_web && mix deps.get
       - run: cd client_web && npx playwright install --with-deps chromium
       - run: mise run e2e:web
         env:
