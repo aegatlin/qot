@@ -42,6 +42,24 @@ describe("api", () => {
     expect(!offline.ok && offline.error.kind).toBe("offline");
   });
 
+  test("deleting the account sends the typed email and maps the answers", async () => {
+    let sent: { method?: string; auth?: string | null; body?: unknown } = {};
+    const capture = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+      sent = {
+        method: init?.method,
+        auth: new Headers(init?.headers).get("authorization"),
+        body: JSON.parse(String(init?.body)),
+      };
+      return new Response(JSON.stringify({ deleted: true }), { status: 200 });
+    }) as typeof fetch;
+    const deleted = await new Api("https://api.example", capture).deleteAccount("tok", "me@example.com");
+    expect(deleted.ok).toBe(true);
+    expect(sent).toEqual({ method: "DELETE", auth: "Bearer tok", body: { confirm: "me@example.com" } });
+
+    const mismatch = await new Api("https://api.example", reply(400, { error: "confirmation_mismatch" })).deleteAccount("t", "x");
+    expect(!mismatch.ok && mismatch.error).toEqual({ kind: "failed", status: 400, error: "confirmation_mismatch" });
+  });
+
   test("the socket lives next to the API", () => {
     expect(new Api("https://api.example/").socketUrl()).toBe("wss://api.example/socket");
     expect(new Api("http://localhost:4000").socketUrl()).toBe("ws://localhost:4000/socket");

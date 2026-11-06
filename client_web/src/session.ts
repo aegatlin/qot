@@ -1,8 +1,11 @@
 // Signing this browser in and out. The rules are pure; `adoptTokens` and
 // `signOut` are the shell.
 
-import type { Api, Tokens } from "./api";
+import type { Api, ApiResult, Tokens } from "./api";
+import { err } from "./result";
 import type { Credentials, Store } from "./store";
+import { withLock } from "./lock";
+import { authed, SYNC_LOCK } from "./sync";
 
 const sameEmail = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
@@ -66,4 +69,25 @@ export async function signOut(store: Store, api: Api): Promise<void> {
   const current = await store.credentials();
   if (current) await api.logout(current.refreshToken);
   await store.forgetSession();
+}
+
+/** Whether the typed email confirms deleting `email`'s account (the server's rule too). */
+export function confirmsAccount(typed: string, email: string): boolean {
+  return typed.trim() !== "" && sameEmail(typed, email);
+}
+
+/**
+ * Like `qot delete-account`: deletes the account on the server, then forgets
+ * this browser's session and sync position. Notes in this browser stay. On
+ * any failure nothing local changes. Holds the sync lock, so no tab's sync
+ * writes a sync position back after it's forgotten.
+ */
+export function deleteAccount(store: Store, api: Api, typed: string): ApiResult<void> {
+  return withLock(SYNC_LOCK, async () => {
+    const current = await store.credentials();
+    if (!current) return err({ kind: "unauthorized" as const });
+    const result = await authed(api, store, current, (token) => api.deleteAccount(token, typed));
+    if (result.ok) await store.forgetSession();
+    return result;
+  });
 }

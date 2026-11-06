@@ -161,6 +161,14 @@ export class Api {
     return r.ok ? ok(undefined) : r;
   }
 
+  /** Deletes the signed-in account on the server; `confirm` must be its email. */
+  async deleteAccount(token: string, confirm: string): ApiResult<void> {
+    const r = await this.call("DELETE", "/api/account", { token, body: { confirm } });
+    if (!r.ok) return r;
+    const { status, body } = r.value;
+    return status === 200 ? ok(undefined) : Api.failed(status, body);
+  }
+
   async push(token: string, changes: { noteId: string; data: Uint8Array }[]): ApiResult<number> {
     const r = await this.call("POST", "/api/sync/push", {
       token,

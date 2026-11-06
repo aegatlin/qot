@@ -305,7 +305,7 @@ the rules the CLI is tested with:
 
 ## Web (`client_web`)
 
-- The PWA: capture, list, delete, sync, and the device sign-in page. Same
+- The PWA: capture, list, delete, sync, the device sign-in page, and deleting the account (`deleteAccount` in `session.ts`, like `qot delete-account`: the email typed again, the session forgotten, notes kept). Same
   rules as every client: `qot_wasm` (`core_wasm/`) wraps `qot_core`;
   `scripts/build-wasm-core` (`mise run build:wasm-core`) compiles it and
   generates the JS bindings into `client_web/src/core/` (gitignored); rerun
