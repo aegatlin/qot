@@ -9,12 +9,16 @@ milk` in a terminal; the Action button, a Control Center control, Siri or a
 voice memo on iOS). Notes taken offline must be on your other devices by the
 time you look, without opening the app.
 
-Clients, in priority order: CLI and iOS now; a Mac app next; web later.
+Clients, in priority order: the CLI, then the PWA (`app.`), then iOS; a Mac
+app next. The PWA comes early for onboarding: sign in once from the CLI and
+land on the PWA already signed in, watching notes typed in the terminal
+appear there. The website (`www.`: install every client, privacy policy,
+terms, support) comes after the PWA and before iOS reaches the App Store.
 
 The current goal is dogfooding (the developer and a few friends using it
 daily), not a public launch. Work that only matters for strangers or at
-real user volume (backups, pricing, legal pages, a landing page) is
-deferred; `docs/ROADMAP.md` lists it.
+real user volume (backups, pricing, error reporting) is deferred;
+`docs/ROADMAP.md` lists it.
 
 ## Where the work is
 
@@ -251,6 +255,11 @@ the rules the CLI is tested with:
   instance (several would each allow the full limit). The client IP comes
   from `X-Real-IP` in production (Railway's edge sets it;
   `QotWeb.Plugs.ClientIP`, `CLIENT_IP_HEADER` to change it).
+  **Decided, not built yet** (#51,
+  `docs/records/2026-11-06-sign-in-through-the-pwa.md`): the emailed page
+  moves into the PWA at `app.`, and a correct code there also signs in that
+  browser. Hosting of the PWA and website:
+  `docs/records/2026-11-06-hosting-the-pwa-and-website.md`.
   `RequireAuth` checks Bearer tokens for HTTP; WebSocket connect params carry
   the JWT, verified before channel join. The pure rules live in
   `Qot.Accounts.DeviceLogin` (status, code checks).

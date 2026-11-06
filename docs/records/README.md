@@ -37,3 +37,5 @@ was considered and turned down.
 | 2026-11-04 | [Repo layout for many clients](2026-11-04-repo-layout-for-clients.md) | decided |
 | 2026-11-04 | [Open source or closed source](2026-11-04-open-source-or-closed.md) | decided |
 | 2026-11-06 | [Release tags are pushed by hand](2026-11-06-release-tags-by-hand.md) | decided |
+| 2026-11-06 | [Hosting the PWA and the website](2026-11-06-hosting-the-pwa-and-website.md) | decided |
+| 2026-11-06 | [Sign-in through the PWA](2026-11-06-sign-in-through-the-pwa.md) | decided |
