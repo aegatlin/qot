@@ -19,11 +19,11 @@ defmodule QotWeb.AppOriginTest do
     refute AppOrigin.allowed?(URI.parse("https://app.quantumofthought.com"), [])
   end
 
-  test "the sign-in link goes to the app when there is one" do
-    assert AppOrigin.sign_in_url("https://app.example", "https://api.example", "t0k") ==
+  test "the sign-in link opens the app's sign-in page" do
+    assert AppOrigin.sign_in_url("https://app.example", "t0k") ==
              "https://app.example/auth/device?token=t0k"
 
-    assert AppOrigin.sign_in_url(nil, "https://api.example", "t0k") ==
-             "https://api.example/auth/device?token=t0k"
+    assert AppOrigin.sign_in_url("https://app.example/", "t0k") ==
+             "https://app.example/auth/device?token=t0k"
   end
 end

@@ -1,61 +1,26 @@
 defmodule QotWeb.DevicePageControllerTest do
-  # The server's own page, as served when there is no PWA (no :app_url).
-  # Changes app config, so not async.
-  use QotWeb.ConnCase, async: false
+  # The server's old sign-in page: sign-in happens in the PWA now
+  # (docs/records/2026-11-06-sign-in-through-the-pwa.md), and this path only
+  # sends a link that still arrives here on to it.
+  use QotWeb.ConnCase, async: true
 
-  import Swoosh.TestAssertions
-
-  alias Qot.Accounts
-
-  setup do
-    app_url = Application.get_env(:qot, :app_url)
-    Application.put_env(:qot, :app_url, nil)
-    on_exit(fn -> Application.put_env(:qot, :app_url, app_url) end)
-
-    {:ok, started} = Accounts.start_device_login("page@example.com")
-
-    assert_email_sent(fn email ->
-      [_, token] = Regex.run(~r{/auth/device\?token=([A-Za-z0-9_-]+)}, email.text_body)
-      send(self(), {:link_token, token})
-      true
-    end)
-
-    assert_received {:link_token, link_token}
-    %{started: started, link_token: link_token}
+  test "a sign-in link opens the PWA's sign-in page", %{conn: conn} do
+    conn = get(conn, "/auth/device", %{token: "t0k"})
+    assert redirected_to(conn, 302) == "https://app.example/auth/device?token=t0k"
   end
 
-  test "the link opens a form asking for the terminal's code", %{conn: conn, link_token: t} do
-    html = conn |> get("/auth/device", %{token: t}) |> html_response(200)
-    assert html =~ "code shown in your terminal"
-    assert html =~ ~s(name="user_code")
+  test "the token is passed on escaped", %{conn: conn} do
+    conn = get(conn, "/auth/device", %{token: "a b&c"})
+    assert redirected_to(conn, 302) == "https://app.example/auth/device?token=a+b%26c"
   end
 
-  test "opening the link does not approve the login", %{conn: conn, link_token: t, started: s} do
-    get(conn, "/auth/device", %{token: t})
-    assert {:error, :authorization_pending} = Accounts.poll_device_login(s.device_code)
+  test "without a token it opens the PWA's page, which says the link is bad", %{conn: conn} do
+    conn = get(conn, "/auth/device")
+    assert redirected_to(conn, 302) == "https://app.example/auth/device"
   end
 
-  test "the right code signs the terminal in", %{conn: conn, link_token: t, started: s} do
-    html =
-      conn
-      |> post("/auth/device", %{token: t, user_code: s.user_code})
-      |> html_response(200)
-
-    assert html =~ "return to your terminal"
-    assert {:ok, _} = Accounts.poll_device_login(s.device_code)
-  end
-
-  test "a wrong code shows the form again with an error", %{conn: conn, link_token: t} do
-    html =
-      conn
-      |> post("/auth/device", %{token: t, user_code: "ZZZZ-ZZZZ"})
-      |> html_response(422)
-
-    assert html =~ "match"
-    assert html =~ ~s(name="user_code")
-  end
-
-  test "an unknown link says so", %{conn: conn} do
-    assert conn |> get("/auth/device", %{token: "nope"}) |> html_response(404) =~ "expired"
+  test "the server no longer takes codes itself", %{conn: conn} do
+    conn = post(conn, "/auth/device", %{token: "t0k", user_code: "ABCD-EFGH"})
+    assert conn.status == 404
   end
 end
