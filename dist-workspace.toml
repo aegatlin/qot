@@ -28,3 +28,8 @@ hosting = "github"
 install-updater = false
 # Build with the Rust version pinned in mise.toml, not the runner's default.
 github-build-setup = "../cli-release-setup.yml"
+
+# dist's default runner for Apple Silicon is macos-14, which GitHub retired
+# on 2026-11-02 (jobs on it are cancelled before they start).
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"
