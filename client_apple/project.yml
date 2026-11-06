@@ -7,6 +7,7 @@ options:
   bundleIdPrefix: llc.abstractsyntax
   deploymentTarget:
     iOS: "26.0"
+    watchOS: "26.0"
   createIntermediateGroups: true
 settings:
   base:
@@ -28,6 +29,7 @@ targets:
     dependencies:
       - package: QotKit
       - target: QotWidgets
+      - target: QotWatch
     info:
       path: App/Info.plist
       properties:
@@ -91,6 +93,50 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: llc.abstractsyntax.qot.widgets
         TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
+  # The Watch app (#35): no qot_core (arm64_32 is a Tier 3 Rust target);
+  # it sends captures to the iPhone with WatchConnectivity.
+  QotWatch:
+    type: application
+    platform: watchOS
+    sources: [Watch]
+    dependencies:
+      - target: QotWatchWidgets
+    info:
+      path: Watch/Info.plist
+      properties:
+        CFBundleDisplayName: qot
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: llc.abstractsyntax.qot
+        CFBundleURLTypes:
+          - CFBundleURLName: llc.abstractsyntax.qot.watchkitapp
+            CFBundleURLSchemes: [qot]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: llc.abstractsyntax.qot.watchkitapp
+        TARGETED_DEVICE_FAMILY: "4"
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
+  # Complication and Smart Stack widget for the Watch.
+  QotWatchWidgets:
+    type: app-extension
+    platform: watchOS
+    sources: [WatchWidgets]
+    info:
+      path: WatchWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: qot
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: llc.abstractsyntax.qot.watchkitapp.widgets
+        TARGETED_DEVICE_FAMILY: "4"
         CODE_SIGN_STYLE: Automatic
         SKIP_INSTALL: YES
 schemes:

@@ -7,6 +7,10 @@ struct QotApp: App {
     @State private var model = AppModel.onDevice()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        WatchReceiver.shared.activate()
+    }
+
     var body: some Scene {
         WindowGroup {
             NotesView(model: model)

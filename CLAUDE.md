@@ -293,8 +293,13 @@ the rules the CLI is tested with:
 - `mise run test:apple` needs macOS and Xcode; elsewhere it reports itself
   skipped. CI runs it on macOS only when Apple or Rust paths change
   (`.github/workflows/apple.yml`).
-- The Watch doesn't link `qot_core` in v1 (arm64_32 is a Tier 3 Rust
-  target); it hands captures to the iPhone (#35).
+- **The Watch** (`QotWatch`, `llc.abstractsyntax.qot.watchkitapp`, embedded
+  in the iOS app) doesn't link `qot_core` in v1 (arm64_32 is a Tier 3 Rust
+  target): it sends `{id, text}` to the iPhone with WatchConnectivity
+  `transferUserInfo` (queued while apart), and the phone's `WatchReceiver`
+  saves it through QotKit's `Inbox` (drops a transfer delivered twice, by
+  id) and syncs. `QotWatchWidgets` is the complication / Smart Stack
+  widget. Its App IDs get registered the first time the app is archived.
 
 ## Web (`client_web`)
 

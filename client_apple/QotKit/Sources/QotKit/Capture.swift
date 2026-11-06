@@ -17,7 +17,7 @@ public struct Capture: Sendable {
         public let synced: Synced
     }
 
-    let store: NoteStore
+    public let store: NoteStore
     let syncer: Syncer
 
     public init(store: NoteStore, syncer: Syncer) {
