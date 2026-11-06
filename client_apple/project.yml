@@ -4,13 +4,13 @@
 # docs/records/2026-11-04-repo-layout-for-clients.md.
 name: Qot
 options:
-  bundleIdPrefix: io.gatlin
+  bundleIdPrefix: llc.abstractsyntax
   deploymentTarget:
     iOS: "26.0"
   createIntermediateGroups: true
 settings:
   base:
-    DEVELOPMENT_TEAM: 9XYH562BTD
+    DEVELOPMENT_TEAM: H88537CLVC
     SWIFT_VERSION: "6.0"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
@@ -26,9 +26,15 @@ targets:
     sources: [App]
     dependencies:
       - package: QotKit
+    # The App Group holds the note store every target shares (#28).
+    entitlements:
+      path: App/Qot.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.llc.abstractsyntax.qot
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.gatlin.qot
+        PRODUCT_BUNDLE_IDENTIFIER: llc.abstractsyntax.qot
         PRODUCT_NAME: Qot
         INFOPLIST_KEY_CFBundleDisplayName: qot
         INFOPLIST_KEY_UILaunchScreen_Generation: YES

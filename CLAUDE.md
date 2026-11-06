@@ -20,6 +20,10 @@ daily), not a public launch. Work that only matters for strangers or at
 real user volume (backups, pricing, error reporting) is deferred;
 `docs/ROADMAP.md` lists it.
 
+qot is an **Abstract Syntax LLC** product: every outside account (Apple,
+Railway, later Stripe and the rest) belongs to the company, never to a
+personal account, and identifiers follow it (`llc.abstractsyntax.*`).
+
 ## Where the work is
 
 Todos are **GitHub issues**: code, ops and human-only tasks alike (`gh issue
@@ -228,6 +232,13 @@ the rules the CLI is tested with:
 
 ## Apple (`client_apple`)
 
+- Team Abstract Syntax LLC (`H88537CLVC`); bundle id
+  `llc.abstractsyntax.qot`, App Group `group.llc.abstractsyntax.qot`; App
+  Store Connect app "qot: Quantum of Thought", id `6831604070`. New targets
+  are `llc.abstractsyntax.qot.<name>`. Xcode's automatic signing registers
+  identifiers and capabilities. The `asc` CLI (`brew install asc`, key in the
+  system keychain) reads App Store Connect; its key has the Developer role,
+  so creating App IDs, groups or apps is done in Xcode or by a person.
 - `scripts/build-apple-core` (`mise run build:apple-core`) compiles
   `qot_ffi` for iPhone, simulator and Mac, generates the Swift bindings with
   UniFFI and puts both in `QotKit/` (gitignored). Rerun it after any Rust
