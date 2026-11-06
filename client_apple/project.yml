@@ -7,6 +7,7 @@ options:
   bundleIdPrefix: llc.abstractsyntax
   deploymentTarget:
     iOS: "26.0"
+    watchOS: "26.0"
   createIntermediateGroups: true
 settings:
   base:
@@ -23,9 +24,12 @@ targets:
   Qot:
     type: application
     platform: iOS
-    sources: [App]
+    # Shared/ is compiled into the app and its extensions.
+    sources: [App, Shared]
     dependencies:
       - package: QotKit
+      - target: QotWidgets
+      - target: QotWatch
     info:
       path: App/Info.plist
       properties:
@@ -38,6 +42,16 @@ targets:
         # (`--server http://localhost:4000` from the simulator).
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # qot://capture opens the app ready to type (widgets).
+        CFBundleURLTypes:
+          - CFBundleURLName: llc.abstractsyntax.qot
+            CFBundleURLSchemes: [qot]
+        # Siri also answers to the full name.
+        INAlternativeAppNames:
+          - INAlternativeAppName: Quantum of Thought
+        # Capture by voice, transcribed on the device (Dictation.swift).
+        NSMicrophoneUsageDescription: qot listens while you dictate a note.
+        NSSpeechRecognitionUsageDescription: qot turns what you say into a note's text, on this device.
     # The App Group holds the note store every target shares (#28).
     entitlements:
       path: App/Qot.entitlements
@@ -55,6 +69,76 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
+  # Control Center control, Lock Screen and Home Screen widgets (#30).
+  QotWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [Widgets, Shared]
+    dependencies:
+      - package: QotKit
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: qot
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widgets/QotWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.llc.abstractsyntax.qot
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: llc.abstractsyntax.qot.widgets
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
+  # The Watch app (#35): no qot_core (arm64_32 is a Tier 3 Rust target);
+  # it sends captures to the iPhone with WatchConnectivity.
+  QotWatch:
+    type: application
+    platform: watchOS
+    sources: [Watch]
+    dependencies:
+      - target: QotWatchWidgets
+    info:
+      path: Watch/Info.plist
+      properties:
+        CFBundleDisplayName: qot
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: llc.abstractsyntax.qot
+        CFBundleURLTypes:
+          - CFBundleURLName: llc.abstractsyntax.qot.watchkitapp
+            CFBundleURLSchemes: [qot]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: llc.abstractsyntax.qot.watchkitapp
+        TARGETED_DEVICE_FAMILY: "4"
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
+  # Complication and Smart Stack widget for the Watch.
+  QotWatchWidgets:
+    type: app-extension
+    platform: watchOS
+    sources: [WatchWidgets]
+    info:
+      path: WatchWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: qot
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: llc.abstractsyntax.qot.watchkitapp.widgets
+        TARGETED_DEVICE_FAMILY: "4"
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
 schemes:
   Qot:
     build:

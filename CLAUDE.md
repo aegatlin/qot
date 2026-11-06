@@ -187,6 +187,12 @@ the rules the CLI is tested with:
 - `apply_pulled` moves a note's "pushed" heads only if nothing local was
   waiting, so local edits made before a pull still go up next time.
 - A device pulls back its own pushes; applying them is a no-op.
+- **Shared test vectors** (`core/tests/vectors/sync.json`) pin these rules
+  for every binding: `core/tests/sync_vectors.rs` (Rust, which also
+  regenerates them), `SyncVectorTests` (Swift) and `core_wasm/tests/web.rs`
+  (wasm) replay the same cases. Regenerate only when the rules change on
+  purpose (`cargo test -p qot_core --test sync_vectors -- --ignored
+  regenerate`); a new binding replays them too.
 
 ## CLI (`client_cli`)
 
@@ -264,6 +270,17 @@ the rules the CLI is tested with:
   read-modify-writes hold `store.lock` and save by merging with what is on
   disk; a sync holds `sync.lock` (both `flock`). Tokens are in the Keychain
   with the App Group as access group, readable after first unlock.
+- **Capture surfaces**: `AddNoteIntent` (app target; Siri phrases in
+  `QotShortcuts`, also Shortcuts, the Action button and Spotlight) saves
+  through `Capture` (QotKit: save, then a sync bounded to 3 s) without
+  opening the app. `Shared/` is compiled into the app and the `QotWidgets`
+  extension (`llc.abstractsyntax.qot.widgets`): `OpenCaptureIntent` (the
+  Control Center control; opens the app ready to type). The extension also
+  has a Lock Screen widget and a Home Screen "Latest Notes" widget, which
+  read the App Group store; the app reloads widget timelines whenever its
+  notes change. `qot://capture` opens the app ready to type. Dictation
+  (`Dictation.swift`) transcribes on the device (`requiresOnDeviceRecognition`)
+  into the draft for the person to check; audio is never kept or sent.
 - The app syncs on launch and foreground, after every capture and delete
   (in the background; capture never waits), on pull-to-refresh, on the
   channel nudge while open, and in a `BGAppRefreshTask`
@@ -276,8 +293,13 @@ the rules the CLI is tested with:
 - `mise run test:apple` needs macOS and Xcode; elsewhere it reports itself
   skipped. CI runs it on macOS only when Apple or Rust paths change
   (`.github/workflows/apple.yml`).
-- The Watch doesn't link `qot_core` in v1 (arm64_32 is a Tier 3 Rust
-  target); it hands captures to the iPhone (#35).
+- **The Watch** (`QotWatch`, `llc.abstractsyntax.qot.watchkitapp`, embedded
+  in the iOS app) doesn't link `qot_core` in v1 (arm64_32 is a Tier 3 Rust
+  target): it sends `{id, text}` to the iPhone with WatchConnectivity
+  `transferUserInfo` (queued while apart), and the phone's `WatchReceiver`
+  saves it through QotKit's `Inbox` (drops a transfer delivered twice, by
+  id) and syncs. `QotWatchWidgets` is the complication / Smart Stack
+  widget. Its App IDs get registered the first time the app is archived.
 
 ## Web (`client_web`)
 
