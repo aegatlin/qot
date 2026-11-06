@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Checks that a deployed PWA works, and that its API accepts it.
+#
+#   scripts/smoke-test-web <app-url> <api-url> [<commit-sha>]
+#
+# With a commit, first waits (up to SMOKE_TIMEOUT seconds, default 1200) until
+# the app's /health reports that commit. Read-only, so safe against production.
+set -euo pipefail
+
+app=${1:?usage: scripts/smoke-test-web <app-url> <api-url> [<commit-sha>]}
+api=${2:?usage: scripts/smoke-test-web <app-url> <api-url> [<commit-sha>]}
+app=${app%/}
+api=${api%/}
+want=${3:-}
+timeout=${SMOKE_TIMEOUT:-1200}
+interval=${SMOKE_INTERVAL:-15}
+
+fail() { echo "::error::smoke test of $app: $*" >&2; exit 1; }
+
+deadline=$((SECONDS + timeout))
+while :; do
+  body=$(curl -sS --max-time 10 "$app/health" 2>/dev/null || true)
+  commit=$(jq -r '.commit // empty' <<<"$body" 2>/dev/null || true)
+  status=$(jq -r '.status // empty' <<<"$body" 2>/dev/null || true)
+  if [[ $status == ok && ( -z $want || $commit == "$want" ) ]]; then
+    echo "ok: /health is up${want:+ at $want}"
+    break
+  fi
+  (( SECONDS < deadline )) || fail "/health never reported ${want:-ok} within ${timeout}s (last commit '${commit}')"
+  echo "waiting: /health commit '${commit}'${want:+, want $want}"
+  sleep "$interval"
+done
+
+page=$(curl -sS --max-time 10 "$app/auth/device?token=smoke") || fail "the app doesn't load"
+grep -q "<title>Quantum of Thought</title>" <<<"$page" || fail "/auth/device isn't the app"
+echo "ok: the app loads, client routes included"
+
+configured=$(curl -sS --max-time 10 "$app/config.json" | jq -r .apiUrl)
+[[ $configured == "$api" ]] || fail "config.json names $configured, expected $api"
+echo "ok: config.json names $api"
+
+curl -sSf --max-time 10 -o /dev/null "$app/sw.js" || fail "no service worker"
+curl -sSf --max-time 10 -o /dev/null "$app/manifest.webmanifest" || fail "no manifest"
+csp=$(curl -sSI --max-time 10 "$app/" | tr -d '\r' | sed -n 's/^content-security-policy: //Ip')
+[[ $csp == *"connect-src 'self' $api"* ]] || fail "the CSP doesn't allow the API ($csp)"
+echo "ok: service worker, manifest, CSP"
+
+# The API's half: CORS for this origin (APP_URL on the server).
+allowed=$(curl -sS --max-time 10 -X OPTIONS -o /dev/null -D - \
+  -H "Origin: $app" -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: authorization,content-type" \
+  "$api/api/sync/push" | tr -d '\r' | sed -n 's/^access-control-allow-origin: //Ip')
+[[ $allowed == "$app" ]] || fail "$api doesn't allow $app (CORS: '$allowed'); is APP_URL set on the server?"
+echo "ok: $api accepts $app"
+
+echo "smoke test passed: $app"

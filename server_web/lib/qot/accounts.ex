@@ -145,26 +145,48 @@ defmodule Qot.Accounts do
   is counted (and committed), so guessing runs out after a few tries.
   """
   def approve_device_login(link_token, user_code) do
-    {:ok, result} =
-      Repo.transaction(fn ->
-        with {:ok, login} <- lock_device_login(link_token: Token.hash_token(link_token)) do
-          now = DateTime.utc_now() |> DateTime.truncate(:second)
+    approve(link_token, user_code, &{:ok, &1})
+  end
 
-          case DeviceLogin.check_code(login, user_code, now) do
-            :ok ->
-              {:ok, Repo.update!(Ecto.Changeset.change(login, approved_at: now))}
+  @doc """
+  Approves like `approve_device_login/2` and, in the same transaction, issues
+  tokens for the browser that approved it (the PWA's sign-in page). Holding
+  the link and the code already approves the asking device, which is the
+  whole account, so the browser's session gives away nothing more.
+  """
+  def approve_device_login_and_sign_in(link_token, user_code) do
+    approve(link_token, user_code, fn login ->
+      {:ok, user} = get_or_create_user(login.email)
+      issue_tokens(user)
+    end)
+  end
 
-            {:error, :mismatch} ->
-              Repo.update!(Ecto.Changeset.change(login, attempts: login.attempts + 1))
-              {:error, :mismatch}
+  # A failure after approving (issuing tokens) rolls the approval back too.
+  defp approve(link_token, user_code, on_approved) do
+    Repo.transaction(fn ->
+      with {:ok, login} <- lock_device_login(link_token: Token.hash_token(link_token)) do
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-            {:error, reason} ->
-              {:error, reason}
-          end
+        case DeviceLogin.check_code(login, user_code, now) do
+          :ok ->
+            case on_approved.(Repo.update!(Ecto.Changeset.change(login, approved_at: now))) do
+              {:ok, _} = ok -> ok
+              {:error, reason} -> Repo.rollback(reason)
+            end
+
+          {:error, :mismatch} ->
+            Repo.update!(Ecto.Changeset.change(login, attempts: login.attempts + 1))
+            {:error, :mismatch}
+
+          {:error, reason} ->
+            {:error, reason}
         end
-      end)
-
-    result
+      end
+    end)
+    |> case do
+      {:ok, result} -> result
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """

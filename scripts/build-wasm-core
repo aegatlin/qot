@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Build qot_core for the browser: compile the qot_wasm crate to WebAssembly and
+# generate its JS bindings with wasm-bindgen, into client_web/src/core/
+# (gitignored). Rerun after any change to core/ or core_wasm/.
+#
+#   scripts/build-wasm-core            # debug
+#   scripts/build-wasm-core --release   # small (Cargo.toml's wasm-release profile)
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+profile=debug
+cargo_flags=()
+if [[ "${1:-}" == "--release" ]]; then
+  profile=wasm-release
+  cargo_flags=(--profile wasm-release)
+fi
+
+cargo build -p qot_wasm --lib ${cargo_flags[@]+"${cargo_flags[@]}"} --target wasm32-unknown-unknown
+
+out="$root/client_web/src/core"
+rm -rf "$out"
+# --target web: an ES module that fetches the .wasm next to it (Vite bundles
+# both). --weak-refs: JS's garbage collector frees Rust objects, so the app
+# doesn't have to call .free() on every Note.
+wasm-bindgen --target web --weak-refs --out-dir "$out" \
+  "target/wasm32-unknown-unknown/$profile/qot_wasm.wasm"
+
+# Release: shrink with wasm-opt (binaryen, pinned in mise.toml); it also
+# drops the symbol names the build keeps for wasm-bindgen.
+if [[ "$profile" == wasm-release ]]; then
+  wasm-opt -Oz --strip-debug --strip-producers \
+    "$out/qot_wasm_bg.wasm" -o "$out/qot_wasm_bg.wasm"
+fi
+
+echo "qot_wasm: $(du -h "$out/qot_wasm_bg.wasm" | cut -f1) ($(gzip -c "$out/qot_wasm_bg.wasm" | wc -c | awk '{printf "%.0f KB", $1/1024}') gzipped)"

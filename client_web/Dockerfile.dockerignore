@@ -1,0 +1,15 @@
+# Context is the repo root; send only what client_web/Dockerfile copies.
+*
+!Cargo.toml
+!Cargo.lock
+!core
+!core_ffi
+!core_wasm
+!client_cli
+!scripts/build-wasm-core
+!client_web
+client_web/node_modules
+client_web/dist
+client_web/src/core
+client_web/test-results
+**/target

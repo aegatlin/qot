@@ -3,11 +3,12 @@ defmodule QotWeb.Endpoint do
 
   # WebSocket configuration
   socket("/socket", QotWeb.UserSocket,
-    websocket: true,
+    # Browsers may connect only from the PWA (native clients send no Origin).
+    websocket: [check_origin: {QotWeb.AppOrigin, :allowed?, []}],
     longpoll: false
   )
 
-  plug(CORSPlug, origin: Application.compile_env(:qot, :cors_origins, []))
+  plug(QotWeb.Plugs.CORS)
 
   plug(Plug.Parsers,
     parsers: [:urlencoded, :json],

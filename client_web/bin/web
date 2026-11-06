@@ -1,0 +1,14 @@
+#!/bin/sh
+# Starts the PWA's server. API_URL is the sync API this deployment talks to,
+# e.g. https://api.quantumofthought.com; it goes into /config.json and the
+# Content-Security-Policy. The WebSocket URL is derived from it.
+set -eu
+case "${API_URL:-}" in
+  http://* | https://*) ;;
+  *) echo "web: API_URL must be the sync API's http(s) URL" >&2; exit 1 ;;
+esac
+API_URL="${API_URL%/}"
+API_WS_URL="ws${API_URL#http}"
+COMMIT="${RAILWAY_GIT_COMMIT_SHA:-}"
+export API_URL API_WS_URL COMMIT
+exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile

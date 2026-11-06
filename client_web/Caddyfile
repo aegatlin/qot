@@ -1,0 +1,48 @@
+# The PWA's server: static files from /srv, plus /config.json and /health.
+# Environment from bin/web: PORT, API_URL, API_WS_URL, COMMIT. TLS ends at
+# Railway's edge, so Caddy serves plain HTTP.
+{
+	admin off
+	auto_https off
+	persist_config off
+}
+
+:{$PORT} {
+	root * /srv
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		# Sign-in links carry a token in the URL; never send it on.
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# The app calls only the API; wasm needs wasm-unsafe-eval.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self' {$API_URL} {$API_WS_URL}; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+		-Server
+	}
+
+	# Built files are named by their content.
+	@immutable path /assets/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# Everything else must be revalidated, or a new build wouldn't show.
+	@fresh not path /assets/*
+	header @fresh Cache-Control "no-cache"
+
+	handle /health {
+		header Content-Type application/json
+		respond `{"status":"ok","commit":"{$COMMIT}"}` 200
+	}
+
+	handle /config.json {
+		header Content-Type application/json
+		respond `{"apiUrl":"{$API_URL}"}` 200
+	}
+
+	# Client-side routes (/auth/device) get the app.
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

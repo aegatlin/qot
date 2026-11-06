@@ -87,6 +87,20 @@ jobs:
       - run: mix compile --warnings-as-errors
       - run: mix test
 
+  # The PWA's image (client_web/Dockerfile, built from the repo root).
+  docker-web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: client_web/Dockerfile
+          push: false
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
   # The image Railway builds; catches a broken Dockerfile or release before
   # it reaches staging.
   docker:
@@ -100,3 +114,67 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # core_wasm and the PWA (client_web): unit tests against the real core,
+  # then end to end in Chromium with the server and the CLI.
+  web:
+    needs: versions
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGHOST: localhost
+      # Erlang and Elixir come from setup-beam here. Left enabled in mise,
+      # anything run through a mise shim (npm, mise run) would get MIX_HOME
+      # pointed at mise's Elixir directory, where setup-beam's Hex isn't.
+      MISE_DISABLE_TOOLS: erlang,elixir
+    steps:
+      - uses: actions/checkout@v5
+      # Rust, Node and the wasm tools at the versions mise.toml pins; Erlang
+      # and Elixir (for the e2e server) as the server job installs them.
+      - uses: jdx/mise-action@v3
+        with:
+          install_args: rust node github:wasm-bindgen/wasm-bindgen github:WebAssembly/binaryen
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ needs.versions.outputs.erlang }}
+          elixir-version: ${{ needs.versions.outputs.elixir }}
+          version-type: strict
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache@v4
+        with:
+          path: |
+            server_web/deps
+            server_web/_build
+          key: mix-dev-${{ needs.versions.outputs.erlang }}-${{ needs.versions.outputs.elixir }}-${{ hashFiles('server_web/mix.lock') }}
+      - name: client_web/Dockerfile pins what mise.toml pins
+        run: |
+          check() {
+            local name=$1 docker mise
+            docker=$(sed -nE "s/^ARG $name=(.+)/\1/p" client_web/Dockerfile)
+            mise=$2
+            [ "$docker" = "$mise" ] || { echo "::error::client_web/Dockerfile $name=$docker, mise.toml has $mise"; exit 1; }
+          }
+          check RUST_VERSION "$(sed -nE 's/^rust = \{ version = "([^"]+)".*/\1/p' mise.toml)"
+          check NODE_VERSION "$(sed -nE 's/^node = "([^"]+)"/\1/p' mise.toml)"
+          check WASM_BINDGEN_VERSION "$(sed -nE 's|^"github:wasm-bindgen/wasm-bindgen" = "([^"]+)"|\1|p' mise.toml)"
+          check BINARYEN_VERSION "$(sed -nE 's|^"github:WebAssembly/binaryen" = "([^"]+)"|\1|p' mise.toml)"
+      - run: cargo clippy -p qot_wasm --all-targets --locked --target wasm32-unknown-unknown -- -D warnings
+      - run: mise run test:wasm
+      - run: mise run lint:web
+      - run: mise run test:web
+      - run: mise run build:web
+      - run: cd server_web && mix deps.get
+      - run: cd client_web && npx playwright install --with-deps chromium
+      - run: mise run e2e:web
+        env:
+          CI: "1"

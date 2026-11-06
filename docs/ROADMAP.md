@@ -12,7 +12,7 @@ step. Keep the CLAUDE.md "Product" section in sync when priorities change.
 | `qot_core` | Done for v1: note model, tombstones, sync primitives, `qot_core::sync`. |
 | CLI (`qot`) | Feature-complete for v1: add/get, list, delete, login/logout/sync, offline capture, `--version`. Not distributed; signs in to production by default (#12). |
 | Sync server | Feature-complete for v1 and live at `api.quantumofthought.com` (staging: `staging-api.`); staging deploys green pushes to `main`, production deploys `server/v*` tags. Sign-in email works. Rate limits, account deletion and export, post-deploy smoke test. |
-| PWA | Planned, next after the CLI release: issues #48–#54. Hosting and sign-in decided 2026-11-06. The old React + WASM client (removed 2026-11-02, it predates the current sync API) is in git history before `ecdca61`. |
+| PWA | Built 2026-11-06 (`client_web`, `core_wasm`): capture, list, delete, live sync, offline, sign-in through the PWA, the deploy image and workflows. Not deployed yet: #54 (Railway service and DNS, a person). |
 | iOS app | Started 2026-11-04: `client_apple` (XcodeGen), QotKit over `qot_ffi`; local capture, list and delete in the simulator. No sync yet. |
 | Website | Not started; planned after the PWA and before the iOS app goes to the App Store (#19, #17). |
 

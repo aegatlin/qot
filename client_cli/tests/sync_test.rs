@@ -86,6 +86,33 @@ fn login_shows_the_code_and_saves_credentials() {
 }
 
 #[test]
+fn login_points_to_the_web_app_when_the_server_has_one() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(POST).path("/api/auth/device");
+        then.status(200).json_body(json!({
+            "device_code": "dev", "user_code": "BCDF-GHJK", "interval": 0, "expires_in": 60,
+            "app_url": "https://app.example"
+        }));
+    });
+    server.mock(|when, then| {
+        when.method(POST).path("/api/auth/device/token");
+        then.status(200).json_body(json!({
+            "access_token": "jwt", "refresh_token": "ref",
+            "user": { "id": "u", "email": "me@example.com" }
+        }));
+    });
+    empty_pull(&server);
+
+    Qot::new()
+        .cmd()
+        .args(["login", "me@example.com", "--server", &server.base_url()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("https://app.example"));
+}
+
+#[test]
 fn a_denied_login_fails_without_saving_anything() {
     let server = MockServer::start();
     server.mock(|when, then| {

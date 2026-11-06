@@ -1,11 +1,17 @@
 defmodule QotWeb.DevicePageControllerTest do
-  use QotWeb.ConnCase, async: true
+  # The server's own page, as served when there is no PWA (no :app_url).
+  # Changes app config, so not async.
+  use QotWeb.ConnCase, async: false
 
   import Swoosh.TestAssertions
 
   alias Qot.Accounts
 
   setup do
+    app_url = Application.get_env(:qot, :app_url)
+    Application.put_env(:qot, :app_url, nil)
+    on_exit(fn -> Application.put_env(:qot, :app_url, app_url) end)
+
     {:ok, started} = Accounts.start_device_login("page@example.com")
 
     assert_email_sent(fn email ->

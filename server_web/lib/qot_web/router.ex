@@ -27,6 +27,8 @@ defmodule QotWeb.Router do
 
     post("/auth/device", AuthController, :start_device_login)
     post("/auth/device/token", AuthController, :poll_device_login)
+    get("/auth/device/link", AuthController, :device_link)
+    post("/auth/device/approve", AuthController, :approve_device_login)
     post("/auth/refresh", AuthController, :refresh)
     post("/auth/logout", AuthController, :logout)
   end

@@ -216,6 +216,11 @@ fn login(notes: &mut NoteService, email: &str, server: Option<String>) {
     notes.forget_sync_state().unwrap_or_else(|e| fail(&e));
     credentials::save(notes.dir(), &creds).unwrap_or_else(|e| fail(&e));
     println!("Signed in as {email}.");
+    if let Some(url) = &start.app_url {
+        println!(
+            "Your notes are on the web too: {url} (the browser you confirmed in is signed in)."
+        );
+    }
 
     match notes.sync(&api, &mut creds) {
         Ok(r) => println!("Synced: {} sent, {} received", r.pushed, r.pulled),

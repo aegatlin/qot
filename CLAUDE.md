@@ -35,21 +35,23 @@ issue rather than leaving a TODO comment or a note in a doc.
 |---|---|
 | `core/` | `qot_core` (Rust): the note model and its sync primitives. Shared by every client. |
 | `core_ffi/` | `qot_ffi` (Rust): `qot_core` for Swift/Kotlin via UniFFI. Adapts types only; no rules. |
+| `core_wasm/` | `qot_wasm` (Rust): `qot_core` for the browser via wasm-bindgen. Adapts types only; no rules. |
 | `client_cli/` | `qot` binary (Rust), uses `qot_core` directly. |
 | `client_apple/` | Every Apple target in one XcodeGen project; `QotKit/` is the shared SwiftPM package. |
+| `client_web/` | The PWA (`app.quantumofthought.com`): Vite + TypeScript + Preact over `qot_wasm`. |
 | `server_web/` | Phoenix server: accounts, device sign-in, note sync. |
 | `docs/` | `ROADMAP.md`, `go-to-market.md`, and `records/`: dated research and decision records (see its README). |
 
 Folders are **per build toolchain, not per device**: a new device is a new
 target in an existing folder unless it needs a new toolchain
-(`docs/records/2026-11-04-repo-layout-for-clients.md`). `core/`, `core_ffi/`
-and `client_cli/` form one Cargo workspace (root `Cargo.toml`, one committed
-`Cargo.lock`, one `target/`). A web client existed (React + the core compiled to WASM) and
-was removed on 2026-11-02 while CLI and iOS come first; it is in git history.
+(`docs/records/2026-11-04-repo-layout-for-clients.md`). `core/`, `core_ffi/`,
+`core_wasm/` and `client_cli/` form one Cargo workspace (root `Cargo.toml`,
+one committed `Cargo.lock`, one `target/`).
 
 ## Tooling
 
-One root `mise.toml` pins every tool (Rust, Erlang, Elixir, XcodeGen) and holds every
+One root `mise.toml` pins every tool (Rust, Erlang, Elixir, XcodeGen, Node,
+wasm-bindgen, binaryen) and holds every
 task, named `<action>:<component>` with the bare action running all of them.
 A new component adds its tools and tasks there. Server env vars are
 deliberately not `required` in `mise.toml`, which would stop CLI tasks from
@@ -59,18 +61,30 @@ running without them; local overrides go in a gitignored `mise.local.toml`.
 and Postgres, so `mise run test` and `mise run lint` work as-is (tools run
 through mise: `mise exec -- mix …`). If `pg_isready` says no response, run
 `service postgresql start`. They have no `fnox` key and no `railway` CLI:
-they can't decrypt secrets or deploy.
+they can't decrypt secrets or deploy. Docker works after starting `dockerd`
+in the background, but builds can't reach the network directly: build with
+`--network host`, the proxy as `--build-arg HTTPS_PROXY=…`, and a scratch
+copy of the Dockerfile that installs `/root/.ccr/ca-bundle.crt` (passed with
+`--build-context ccr=/root/.ccr`) and switches apt to https. Never commit
+those changes.
 
 They also have a **headless Chromium with Playwright** (`require('playwright')`
 works from any directory; `chromium.launch()` needs no options), so verify
 changes end to end, not only with tests:
 
-- **Server + CLI, the whole sign-in and sync loop, locally.** Start the server
+- **Server + PWA + CLI: `mise run e2e:web`** (Playwright, `client_web/e2e/`)
+  starts the server with `APP_URL` pointing at the built PWA, signs in from
+  the CLI by typing its code into the PWA's sign-in page, and checks notes
+  moving both ways live, offline capture and a wrong code. Extend it rather
+  than clicking through by hand.
+- **Server + CLI, the whole sign-in and sync loop, by hand.** Start the server
   in the background (`cd server_web && mise exec -- mix setup`, then
   `mix phx.server` with its output to a log file). Run `qot login
   <any email> --server http://localhost:4000` in the background with a
   scratch `QOT_DATA_DIR`. Dev logs the email, so take the
-  `/auth/device?token=…` link from the server log and the `XXXX-XXXX` code
+  `/auth/device?token=…` link from the server log (in dev it points at the
+  PWA's dev server, `mise run dev:web`; `APP_URL=` empty gives the server's
+  own page) and the `XXXX-XXXX` code
   from the CLI's output, open the link in Chromium, fill the code and submit.
   The CLI then signs in; a second `QOT_DATA_DIR` signed in the same way is a
   second device, which shows sync working (`qot get …` on one, `qot list` on
@@ -89,8 +103,10 @@ secrets:push:<env>` copies a profile to Railway and redeploys. To add or rotate
 one: `fnox -P <env> set KEY` (reads stdin), then push. Never print values.
 
 ```sh
-mise run test          # everything; or test:rust, test:server, test:apple
-mise run lint          # lint:rust (rustfmt check + clippy -D warnings)
+mise run test          # everything; or test:rust, test:wasm, test:web, test:server, test:apple
+mise run lint          # lint:rust (rustfmt + clippy, also for wasm32), lint:web (tsc)
+mise run e2e:web       # PWA + server + CLI in headless Chromium (needs Postgres)
+mise run dev:web       # alias: w; the PWA at http://localhost:5173 against the local server
 mise run server        # alias: s
 mise run cli-install   # alias: ci; installs `qot`
 mise run gen:apple     # alias: xcode; builds the Apple core, generates the Xcode project
@@ -154,7 +170,7 @@ must be an explicit opt-in and must not weaken this default.
 ## Client sync (`qot_core::sync`)
 
 Every client syncs with the same pure functions (Swift reaches them through
-`qot_ffi`), so iOS and the PWA inherit
+`qot_ffi`, the PWA through `qot_wasm`), so iOS and the PWA inherit
 the rules the CLI is tested with:
 
 - `SyncState` (persisted per device): `cursor`, the last server seq applied,
@@ -232,14 +248,59 @@ the rules the CLI is tested with:
 - The Watch doesn't link `qot_core` in v1 (arm64_32 is a Tier 3 Rust
   target); it hands captures to the iPhone (#35).
 
+## Web (`client_web`)
+
+- The PWA: capture, list, delete, sync, and the device sign-in page. Same
+  rules as every client: `qot_wasm` (`core_wasm/`) wraps `qot_core`;
+  `scripts/build-wasm-core` (`mise run build:wasm-core`) compiles it and
+  generates the JS bindings into `client_web/src/core/` (gitignored); rerun
+  after any Rust change. `--release` uses Cargo's `wasm-release` profile and
+  `wasm-opt` (~510 KB gzipped). wasm-bindgen's CLI is pinned in `mise.toml`
+  and must equal the crate version.
+- Layout: pure logic in `notes.ts`, `session.ts`, `config.ts` and the core;
+  the shell is `api.ts` (HTTP), `store.ts` (IndexedDB, the CLI's layout:
+  notes by id, `sync` and `credentials` in `meta`), `sync.ts` (push then
+  pull, state saved after each step), `live.ts` (the Phoenix channel nudge),
+  `app.tsx` (Preact). Errors are `Result` values (`result.ts`).
+- Tabs share one IndexedDB: Web Locks (`lock.ts`) serialise syncs and every
+  read-modify-write of a note; a `BroadcastChannel` tells other tabs to
+  reload.
+- Offline: `src/sw.js` is the service worker template; `vite.config.ts`
+  fills in the build's files. It precaches the build and `config.json`,
+  serves pages network-first and hashed assets cache-first (`ignoreVary`:
+  servers send `Vary: Origin` and module scripts carry an `Origin`).
+- Config is runtime, not build time: `/config.json` `{apiUrl}`, written by
+  the image at start (`API_URL`), served by Vite's dev and preview servers
+  from `QOT_API_URL` (default `http://localhost:4000`). One build runs in
+  staging and production.
+- Tests: `vitest` (`client_web/tests/`) against the real core, IndexedDB
+  from `fake-indexeddb`, the server faked as a `fetch` (`fake-server.ts`);
+  Playwright e2e in `client_web/e2e/` (see Tooling). `qot_wasm` itself is
+  tested natively and in Node (`mise run test:wasm`).
+- **Deploys** (`docs/records/2026-11-06-hosting-the-pwa-and-website.md`):
+  Railway service `web`, built from `client_web/Dockerfile` with the repo
+  root as context (Rust, Node and Caddy stages; versions must match
+  `mise.toml`, which CI checks). `bin/web` checks `API_URL` and starts
+  Caddy (`client_web/Caddyfile`): SPA fallback, `/health` `{status,
+  commit}`, `/config.json`, immutable `/assets/*`, `no-cache` elsewhere, a
+  CSP whose `connect-src` is the API and its `wss:`, `Referrer-Policy:
+  no-referrer` (sign-in links carry a token). Staging deploys green pushes
+  to `main` touching `client_web/`, `core/`, `core_wasm/` or `Cargo.lock`;
+  production deploys the `production-web` branch, which
+  `.github/workflows/release-web.yml` moves to a `web/v*` tag (a person
+  pushes it) and then smoke-tests (`scripts/smoke-test-web <app> <api>
+  [<sha>]`, also run for staging by `smoke-web.yml`; it checks the API's
+  CORS for the app too).
+
 ## Server (`server_web`)
 
 - **Auth is a device sign-in** (like `gh auth login`), for every client:
   1. The device calls `POST /api/auth/device {email}` and gets a
      `device_code` (secret, kept on the device) and a `user_code`
      (`XXXX-XXXX`, shown to the person).
-  2. The server emails a link to `/auth/device?token=…`, a small HTML page
-     where the person **types the user code**. Opening the link approves
+  2. The server emails a link to the PWA's `/auth/device?token=…` page
+     (`APP_URL`; without one, the server's own small HTML page at the same
+     path) where the person **types the user code**. Opening the link approves
      nothing, so mail scanners that prefetch links are harmless, and someone
      who starts a sign-in with your address can't get in by you clicking an
      email you didn't expect. The code is never in the email. Five wrong codes
@@ -255,11 +316,18 @@ the rules the CLI is tested with:
   instance (several would each allow the full limit). The client IP comes
   from `X-Real-IP` in production (Railway's edge sets it;
   `QotWeb.Plugs.ClientIP`, `CLIENT_IP_HEADER` to change it).
-  **Decided, not built yet** (#51,
-  `docs/records/2026-11-06-sign-in-through-the-pwa.md`): the emailed page
-  moves into the PWA at `app.`, and a correct code there also signs in that
-  browser. Hosting of the PWA and website:
-  `docs/records/2026-11-06-hosting-the-pwa-and-website.md`.
+  **Sign-in through the PWA**
+  (`docs/records/2026-11-06-sign-in-through-the-pwa.md`): the PWA's page
+  reads `GET /api/auth/device/link?token=` (which account; approves
+  nothing), then `POST /api/auth/device/approve {token, user_code,
+  sign_in_browser}`: a correct code approves the asking device and, unless
+  `sign_in_browser` is false, returns tokens for that browser too, in the
+  same transaction. `POST /api/auth/device` returns `app_url` so `qot login`
+  can point to the PWA. With `APP_URL` set, the server's `/auth/device`
+  redirects to the PWA's.
+  **Browser origins**: `QotWeb.AppOrigin` (from `APP_URL`, read at runtime)
+  is the one origin CORS (`QotWeb.Plugs.CORS`, no credentials) and the
+  socket's `check_origin` accept; native clients send no `Origin`.
   `RequireAuth` checks Bearer tokens for HTTP; WebSocket connect params carry
   the JWT, verified before channel join. The pure rules live in
   `Qot.Accounts.DeviceLogin` (status, code checks).
@@ -305,7 +373,10 @@ the rules the CLI is tested with:
   reading tool versions from `mise.toml`.
 - Dev logs every email (sign-in links included) to the server's console.
 - Production env: `DATABASE_URL`, `JWT_SECRET_KEY`, `RESEND_API_KEY`,
-  `SECRET_KEY_BASE`, `PHX_HOST` (sign-in links are built from it). Optional:
+  `SECRET_KEY_BASE`, `PHX_HOST`. Optional: `APP_URL` (the PWA, e.g.
+  `https://app.quantumofthought.com`: sign-in links open it and its origin may
+  call the API; unset, links open the server's page and no browser origin is
+  allowed),
   `CLIENT_IP_HEADER` (default `x-real-ip`), `DATABASE_SSL=false` (a database on the host's private network; TLS with
   certificate verification is the default), `ECTO_IPV6=true`, `POOL_SIZE`,
   `PORT`. Dev and test need none.
