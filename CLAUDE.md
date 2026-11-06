@@ -193,11 +193,10 @@ the rules the CLI is tested with:
   tag on that merge commit. A person pushes release tags by hand
   (`docs/records/2026-11-06-release-tags-by-hand.md`). Cloud sessions
   can't push tags at all: Anthropic's GitHub proxy allows branch pushes
-  only. Claude Code on the person's machine may push `cli/v*` tags when
-  asked (`.claude/settings.json` allows `git tag cli/v*` and `git push
-  origin cli/v*`), after checking the tag matches the version, since dist
-  fails on a mismatch (dist parses `cli/`, not `cli-`; the namespace keeps
-  `server/v*` tags from triggering it). `.github/workflows/cli-release.yml`
+  only, and agents don't push tags anywhere else either. Check the tag
+  matches the version, since dist fails on a mismatch (dist parses `cli/`,
+  not `cli-`; the namespace keeps `server/v*` tags from triggering it).
+  `.github/workflows/cli-release.yml`
   builds macOS (arm64, x86_64) and Linux (arm64, x86_64, glibc and musl)
   with the Rust pinned in `mise.toml` (`.github/cli-release-setup.yml`),
   publishes a GitHub Release with `qot_cli-installer.sh`, and pushes the

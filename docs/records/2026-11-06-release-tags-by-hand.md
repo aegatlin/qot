@@ -10,8 +10,9 @@ now that cloud agent sessions can't push tags?
 **A person pushes every release tag by hand**, for every component. No
 workflow creates tags. A release is: bump the version (where the component
 has one), merge, then push the tag on the merge commit from your own
-machine. Claude Code running locally may push `cli/v*` tags when asked
-(`.claude/settings.json` allows it); cloud sessions can't.
+machine. Agents don't push tags, locally or in the cloud (amended the same
+day: the `.claude/settings.json` rule that let a local Claude Code push
+`cli/v*` tags was removed, so releasing is fully manual).
 
 ## Why
 
@@ -52,7 +53,8 @@ machine. Claude Code running locally may push `cli/v*` tags when asked
   could start it. Same token problem, and the version file could drift from
   what shipped.
 - **Push from a local Claude Code session**: works with the person's own git
-  credentials; kept as allowed for `cli/v*`.
+  credentials. Allowed for `cli/v*` at first, then removed the same day to
+  keep releasing fully manual.
 
 Revisit if releases become frequent, or if more than one person releases.
 

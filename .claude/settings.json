@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git tag cli/v*)",
-      "Bash(git push origin cli/v*)"
-    ]
-  }
-}
