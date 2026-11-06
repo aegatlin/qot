@@ -13,7 +13,7 @@ step. Keep the CLAUDE.md "Product" section in sync when priorities change.
 | CLI (`qot`) | Feature-complete for v1: add/get, list, delete, login/logout/sync, offline capture, `--version`. Not distributed; signs in to production by default (#12). |
 | Sync server | Feature-complete for v1 and live at `api.quantumofthought.com` (staging: `staging-api.`); staging deploys green pushes to `main`, production deploys `server/v*` tags. Sign-in email works. Rate limits, account deletion and export, post-deploy smoke test. |
 | PWA | Built 2026-11-06 (`client_web`, `core_wasm`): capture, list, delete, live sync, offline, sign-in through the PWA, the deploy image and workflows. Not deployed yet: #54 (Railway service and DNS, a person). |
-| iOS app | Started 2026-11-04: `client_apple` (XcodeGen), QotKit over `qot_ffi`; capture, list, delete, device sign-in and sync (live while open, background refresh), sign-out, delete account and export; the store is in the App Group (#27, #28). Not on TestFlight yet (#32). |
+| iOS app | Started 2026-11-04: `client_apple` (XcodeGen), QotKit over `qot_ffi`; capture, list, delete, device sign-in and sync (live while open, background refresh), sign-out, delete account and export; the store is in the App Group (#27, #28); Siri/Shortcuts/Action button capture, a Control Center control, Lock and Home Screen widgets, on-device dictation (#29–#31). Not on TestFlight yet (#32). |
 | Website | Not started; planned after the PWA and before the iOS app goes to the App Store (#19, #17). |
 
 ## Now: dogfood the CLI and sync
@@ -77,9 +77,6 @@ API key has the Developer role, so it reads App Store Connect but can't
 create App IDs or apps.
 
 - #26 Apple Developer account, App Store Connect, TestFlight (a person)
-- #29 Capture with App Intents (Siri, Shortcuts, Action button, Spotlight)
-- #30 Control Center control and Lock Screen widget
-- #31 Capture by voice
 - #32 TestFlight builds from `ios/v*` tags
 - #33 Run QotKit's tests on Linux (cloud sessions)
 - #34 Shared sync test vectors for every binding

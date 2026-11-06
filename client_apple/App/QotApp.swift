@@ -41,7 +41,7 @@ enum BackgroundSync {
     static func run() async {
         guard let store = try? AppGroup.store() else { return }
         let syncer = Syncer(store: store, credentials: AppGroup.credentials()) { base in
-            ServerAPI(baseURL: base, transport: URLSession.shared, userAgent: AppModel.userAgent)
+            ServerAPI(baseURL: base, transport: URLSession.shared, userAgent: UserAgent.value)
         }
         _ = try? await syncer.sync()
     }

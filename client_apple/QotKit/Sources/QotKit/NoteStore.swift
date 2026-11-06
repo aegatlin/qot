@@ -5,6 +5,12 @@ public struct NoteItem: Identifiable, Equatable, Hashable, Sendable {
     public let id: String
     public let content: String
     public let createdAt: Date
+
+    public init(id: String, content: String, createdAt: Date) {
+        self.id = id
+        self.content = content
+        self.createdAt = createdAt
+    }
 }
 
 public enum NoteStoreError: Error, Equatable, LocalizedError {

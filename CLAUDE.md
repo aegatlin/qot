@@ -264,6 +264,17 @@ the rules the CLI is tested with:
   read-modify-writes hold `store.lock` and save by merging with what is on
   disk; a sync holds `sync.lock` (both `flock`). Tokens are in the Keychain
   with the App Group as access group, readable after first unlock.
+- **Capture surfaces**: `AddNoteIntent` (app target; Siri phrases in
+  `QotShortcuts`, also Shortcuts, the Action button and Spotlight) saves
+  through `Capture` (QotKit: save, then a sync bounded to 3 s) without
+  opening the app. `Shared/` is compiled into the app and the `QotWidgets`
+  extension (`llc.abstractsyntax.qot.widgets`): `OpenCaptureIntent` (the
+  Control Center control; opens the app ready to type). The extension also
+  has a Lock Screen widget and a Home Screen "Latest Notes" widget, which
+  read the App Group store; the app reloads widget timelines whenever its
+  notes change. `qot://capture` opens the app ready to type. Dictation
+  (`Dictation.swift`) transcribes on the device (`requiresOnDeviceRecognition`)
+  into the draft for the person to check; audio is never kept or sent.
 - The app syncs on launch and foreground, after every capture and delete
   (in the background; capture never waits), on pull-to-refresh, on the
   channel nudge while open, and in a `BGAppRefreshTask`

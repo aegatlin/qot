@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import QotKit
+import WidgetKit
 
 /// The app's state over QotKit. Every action saves locally first and then
 /// syncs in the background: capture never waits on the network. Errors from
@@ -25,11 +26,16 @@ final class AppModel {
         self.error = error
         account = store.map { store in
             Account(store: store, credentials: credentials) { base in
-                ServerAPI(baseURL: base, transport: AppModel.session, userAgent: AppModel.userAgent)
+                ServerAPI(baseURL: base, transport: AppModel.session, userAgent: UserAgent.value)
             }
         }
         session = try? account?.current()
         reload()
+        NotificationCenter.default.addObserver(
+            forName: NotesChanged.name, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reload() }
+        }
     }
 
     /// The shared App Group store and the Keychain session.
@@ -74,7 +80,9 @@ final class AppModel {
         guard let store else { return false }
         do {
             try action(store)
-            notes = try store.list().reversed()
+            let next = Array(try store.list().reversed())
+            if next != notes { WidgetCenter.shared.reloadAllTimelines() }
+            notes = next
             unsynced = try store.unsyncedCount()
             return true
         } catch {
@@ -168,23 +176,4 @@ final class AppModel {
         config.waitsForConnectivity = false
         return URLSession(configuration: config)
     }()
-
-    nonisolated static let userAgent: String = {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
-        let os = ProcessInfo.processInfo.operatingSystemVersion
-        let osVersion = [os.majorVersion, os.minorVersion] + (os.patchVersion > 0 ? [os.patchVersion] : [])
-        return ServerAPI.userAgent(
-            appVersion: version, osName: "iOS",
-            osVersion: osVersion.map(String.init).joined(separator: "."), model: modelIdentifier())
-    }()
-
-    /// e.g. `iPhone18,1`; in the simulator, the simulated model's.
-    nonisolated private static func modelIdentifier() -> String {
-        if let simulated = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] {
-            return simulated
-        }
-        var info = utsname()
-        uname(&info)
-        return withUnsafeBytes(of: &info.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
-    }
 }
