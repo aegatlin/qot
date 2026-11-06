@@ -4,8 +4,9 @@ import SwiftUI
 /// Capture at the top, newest notes below. Opening the app puts the cursor
 /// in the field, so capturing is: open, type, return.
 struct NotesView: View {
-    @State var model: NotesModel
+    @Bindable var model: AppModel
     @State private var draft = ""
+    @State private var showingAccount = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -37,9 +38,18 @@ struct NotesView: View {
                     .onDelete { offsets in
                         offsets.map { model.notes[$0] }.forEach(model.delete)
                     }
+                } footer: {
+                    SyncStatus(model: model)
                 }
             }
+            .refreshable { await model.sync() }
             .navigationTitle("qot")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Account", systemImage: "person.crop.circle") { showingAccount = true }
+                }
+            }
+            .sheet(isPresented: $showingAccount) { AccountView(model: model) }
             .onAppear { focused = true }
             .alert(
                 "Something went wrong",
@@ -59,6 +69,23 @@ struct NotesView: View {
     }
 }
 
+/// One quiet line under the notes: whether they've reached the server.
+struct SyncStatus: View {
+    let model: AppModel
+
+    var body: some View {
+        if model.session == nil {
+            Text("Notes stay on this device until you sign in.")
+        } else if let problem = model.syncProblem {
+            Label("Not synced: \(problem)", systemImage: "icloud.slash")
+        } else if model.syncing {
+            Text("Syncing…")
+        } else if model.unsynced > 0 {
+            Text("\(model.unsynced) not synced yet")
+        }
+    }
+}
+
 #Preview {
-    NotesView(model: NotesModel.onDevice())
+    NotesView(model: AppModel(store: try? NoteStore(directory: .temporaryDirectory), credentials: MemoryCredentialStore()))
 }

@@ -26,6 +26,18 @@ targets:
     sources: [App]
     dependencies:
       - package: QotKit
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Background sync (BackgroundSync in QotApp.swift).
+        BGTaskSchedulerPermittedIdentifiers: [llc.abstractsyntax.qot.sync]
+        UIBackgroundModes: [fetch]
+        # Plain HTTP only to a dev server on the local network
+        # (`--server http://localhost:4000` from the simulator).
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     # The App Group holds the note store every target shares (#28).
     entitlements:
       path: App/Qot.entitlements
