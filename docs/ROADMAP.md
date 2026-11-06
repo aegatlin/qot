@@ -5,16 +5,16 @@ The order of work and why. Each step is tracked as a GitHub issue
 come back to the repo, start with the first open issue in the next unfinished
 step. Keep the CLAUDE.md "Product" section in sync when priorities change.
 
-## Where things stand (2026-11-04)
+## Where things stand (2026-11-06)
 
 | Piece | State |
 |---|---|
 | `qot_core` | Done for v1: note model, tombstones, sync primitives, `qot_core::sync`. |
 | CLI (`qot`) | Feature-complete for v1: add/get, list, delete, login/logout/sync, offline capture, `--version`. Not distributed; signs in to production by default (#12). |
 | Sync server | Feature-complete for v1 and live at `api.quantumofthought.com` (staging: `staging-api.`); staging deploys green pushes to `main`, production deploys `server/v*` tags. Sign-in email works. Rate limits, account deletion and export, post-deploy smoke test. |
-| PWA | **Does not exist in this tree.** The old React + WASM client was removed on 2026-11-02 (it predates the current sync API); it is in git history before `ecdca61`. |
+| PWA | Planned, next after the CLI release: issues #48–#54. Hosting and sign-in decided 2026-11-06. The old React + WASM client (removed 2026-11-02, it predates the current sync API) is in git history before `ecdca61`. |
 | iOS app | Started 2026-11-04: `client_apple` (XcodeGen), QotKit over `qot_ffi`; local capture, list and delete in the simulator. No sync yet. |
-| Marketing page | Not started, and not planned for now. |
+| Website | Not started; planned after the PWA and before the iOS app goes to the App Store (#19, #17). |
 
 ## Now: dogfood the CLI and sync
 
@@ -37,6 +37,33 @@ Next, so a friend can install the CLI and sign in without help:
 
 - #14 Release binaries from `cli/v*` tags: the `curl … | sh` installer,
   maybe a Homebrew tap
+
+### PWA
+
+The second client a new user sees, and the onboarding moment: sign in once
+from the CLI, land on the PWA already signed in, and watch a note typed in the
+terminal appear in the tab. Hosting:
+[records/2026-11-06-hosting-the-pwa-and-website.md](records/2026-11-06-hosting-the-pwa-and-website.md);
+sign-in: [records/2026-11-06-sign-in-through-the-pwa.md](records/2026-11-06-sign-in-through-the-pwa.md).
+Lives at `app.quantumofthought.com`, an origin that must never change
+([domain layout](records/2026-11-04-domain-layout.md)).
+
+- #48 `core_wasm`: `qot_core` in the browser
+- #49 `client_web` app shell, installable and offline
+- #52 Server accepts the PWA's origin (CORS, WebSocket), per environment
+- #50 Notes in IndexedDB, capture/list/delete, live sync
+- #51 Sign-in through the PWA: approving a device signs in the browser too
+- #53 Deploy the PWA: image, `web/v*` releases, smoke test
+- #54 Railway `web` service and `app.` DNS (a person)
+
+### Website
+
+`www.quantumofthought.com`: what qot is, how to install each client, and the
+privacy policy, terms and support page the App Store asks for. So it comes
+before the iOS app ships, not after launch. Same hosting shape as the PWA.
+
+- #19 The website
+- #17 Privacy policy and terms (a person; an agent can draft)
 
 ### iOS app
 
@@ -68,8 +95,9 @@ launch or real user volume makes them matter:
 - #15 Sign and notarize the macOS binary (Gatekeeper doesn't block
   `curl | sh` or Homebrew installs)
 - #16 Decide what is free and what will be paid ([go-to-market.md](go-to-market.md))
-- #17 Privacy policy and terms
-- #19 Landing page with install instructions
+
+(#17 and #19, privacy policy and terms and the website, were reopened on
+2026-11-06; see "Website" above.)
 
 ## After dogfooding
 
@@ -78,9 +106,7 @@ Direction, not yet split into issues; open issues when a piece starts.
 - **End-to-end encryption**: client-side encryption of change blobs;
   design key management (how a new device gets the key). Probably wanted
   before or alongside any paid tier, since it is the privacy promise.
-- **Marketing / splash page**: what qot is, install, pricing.
-- **Billing**, once the go-to-market plan is settled.
+- **Billing, and pricing on the website**, once the go-to-market plan is
+  settled.
 - **Mac app**: a macOS target in `client_apple` (shares QotKit and most
   of iOS).
-- **Web client / PWA**: rebuild on `qot_core` compiled to WASM against
-  the current sync API (the old one is in git history for reference).

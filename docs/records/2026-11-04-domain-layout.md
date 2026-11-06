@@ -1,6 +1,8 @@
 # Domain layout
 
-Status: decided
+Status: decided; where `app.` and `www.` run is settled in
+`2026-11-06-hosting-the-pwa-and-website.md`, and sign-in links move to `app.`
+in `2026-11-06-sign-in-through-the-pwa.md`
 Date: 2026-11-04
 Question: How should `quantumofthought.com` be split between the sync API, a
 future PWA, the marketing page and mail?
