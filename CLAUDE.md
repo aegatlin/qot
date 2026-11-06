@@ -189,8 +189,11 @@ the rules the CLI is tested with:
   I/O shell. Integration tests run the binary against `httpmock`
   (`tests/sync_test.rs`).
 - **Releasing** is [dist](https://axodotdev.github.io/cargo-dist/): bump
-  `version` in `client_cli/Cargo.toml`, merge, then a person pushes a
-  `cli/vX.Y.Z` tag (dist parses `cli/`, not `cli-`; the namespace keeps
+  `version` in `client_cli/Cargo.toml`, merge, then push a `cli/vX.Y.Z`
+  tag on that merge commit. Agents may push these tags (only these:
+  `.claude/settings.json` allows `git tag cli/v*` and `git push origin
+  cli/v*`) when the person asks for a release, after checking the tag
+  matches the version, since dist fails on a mismatch (dist parses `cli/`, not `cli-`; the namespace keeps
   `server-v*` tags from triggering it). `.github/workflows/cli-release.yml`
   builds macOS (arm64, x86_64) and Linux (arm64, x86_64, glibc and musl)
   with the Rust pinned in `mise.toml` (`.github/cli-release-setup.yml`),
