@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["core", "core_ffi", "client_cli"]
+members = ["core", "core_ffi", "core_wasm", "client_cli"]
 
 [workspace.package]
 license = "AGPL-3.0-only"
@@ -10,3 +10,12 @@ repository = "https://github.com/aegatlin/qot"
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+# The browser downloads qot_wasm, so it is built for size
+# (scripts/build-wasm-core --release).
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

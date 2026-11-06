@@ -13,7 +13,7 @@
 # CLI ones included, refuse to run without the server's secrets.
 
 [tools]
-rust = { version = "1.98.1", components = "clippy,rustfmt", targets = "aarch64-apple-ios,aarch64-apple-ios-sim" }
+rust = { version = "1.98.1", components = "clippy,rustfmt", targets = "aarch64-apple-ios,aarch64-apple-ios-sim,wasm32-unknown-unknown" }
 # Generates client_apple's Xcode project; macOS only (it has no Linux build).
 xcodegen = { version = "2.46.0", os = ["macos"] }
 erlang = "29.1.2"
@@ -21,6 +21,11 @@ elixir = "1.20.5-otp-29"
 # Builds and publishes CLI releases (`dist`); .github/workflows/release-cli.yml
 # is generated from dist-workspace.toml by it.
 cargo-dist = "0.33.1"
+# Generates the JS bindings for core_wasm and runs its tests in Node; must
+# equal the `wasm-bindgen` crate version in core_wasm/Cargo.toml.
+"github:wasm-bindgen/wasm-bindgen" = "0.2.130"
+# Builds and tests client_web (the PWA).
+node = "24.22.2"
 
 [tasks."test:rust"]
 description = "Test the Rust workspace (core + CLI)"
@@ -42,24 +47,69 @@ xcodebuild -quiet -project client_apple/Qot.xcodeproj -scheme Qot \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath target/xcode build
 """
 
+[tasks."test:wasm"]
+description = "Test qot_wasm as JavaScript sees it, in Node"
+run = "cargo test -p qot_wasm --target wasm32-unknown-unknown"
+
+[tasks."test:web"]
+description = "Test the PWA (client_web)"
+depends = ["build:wasm-core", "deps:web"]
+dir = "client_web"
+run = "npm test"
+
+[tasks."e2e:web"]
+description = "The PWA end to end in headless Chromium, against a local server and the CLI"
+depends = ["build:wasm-core", "deps:web"]
+dir = "client_web"
+run = "npm run e2e"
+
 [tasks.test]
 description = "Test everything"
-depends = ["test:rust", "test:server", "test:apple"]
+depends = ["test:rust", "test:wasm", "test:web", "test:server", "test:apple"]
 
 [tasks."lint:rust"]
 description = "rustfmt check and clippy, warnings as errors"
 run = [
   "cargo fmt --all --check",
   "cargo clippy --workspace --all-targets -- -D warnings",
+  "cargo clippy -p qot_wasm --all-targets --target wasm32-unknown-unknown -- -D warnings",
 ]
+
+[tasks."lint:web"]
+description = "Typecheck the PWA"
+depends = ["build:wasm-core", "deps:web"]
+dir = "client_web"
+run = "npm run lint"
 
 [tasks.lint]
 description = "Lint everything"
-depends = ["lint:rust"]
+depends = ["lint:rust", "lint:web"]
 
 [tasks."build:apple-core"]
 description = "Build qot_core for Apple (XCFramework + Swift bindings); rerun after Rust changes"
 run = "scripts/build-apple-core"
+
+[tasks."build:wasm-core"]
+description = "Build qot_core for the browser (client_web/src/core); rerun after Rust changes"
+run = "scripts/build-wasm-core"
+
+[tasks."deps:web"]
+description = "Install the PWA's npm dependencies"
+dir = "client_web"
+run = "npm ci --no-audit --no-fund"
+
+[tasks."build:web"]
+description = "Build the PWA for production into client_web/dist"
+depends = ["deps:web"]
+dir = "client_web"
+run = ["../scripts/build-wasm-core --release", "npm run build"]
+
+[tasks."dev:web"]
+alias = "w"
+description = "Run the PWA's dev server (http://localhost:5173) against the local API"
+depends = ["build:wasm-core", "deps:web"]
+dir = "client_web"
+run = "npm run dev"
 
 [tasks."gen:apple"]
 alias = "xcode"

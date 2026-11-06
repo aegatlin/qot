@@ -1,0 +1,29 @@
+[package]
+name = "qot_wasm"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+description = "qot_core for the browser, through wasm-bindgen"
+
+# Built into client_web, not released on its own.
+[package.metadata.dist]
+dist = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+qot_core = { path = "../core" }
+serde_json = "1.0.154"
+wasm-bindgen = "=0.2.130"
+
+# qot_core needs randomness (UUIDv7 ids, Automerge actor ids). In a browser
+# that is crypto.getRandomValues, which these crates only use when asked to;
+# asking here keeps core/ free of platform features.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }
+uuid = { version = "1.29.0", features = ["js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
