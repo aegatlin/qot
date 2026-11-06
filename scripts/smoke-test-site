@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Checks that a deployed website works.
+#
+#   scripts/smoke-test-site <site-url> [<commit-sha>]
+#
+# With a commit, first waits (up to SMOKE_TIMEOUT seconds, default 1200) until
+# /health reports that commit. Read-only, so safe against production.
+set -euo pipefail
+
+site=${1:?usage: scripts/smoke-test-site <site-url> [<commit-sha>]}
+site=${site%/}
+want=${2:-}
+timeout=${SMOKE_TIMEOUT:-1200}
+interval=${SMOKE_INTERVAL:-15}
+
+fail() { echo "::error::smoke test of $site: $*" >&2; exit 1; }
+
+deadline=$((SECONDS + timeout))
+while :; do
+  body=$(curl -sS --max-time 10 "$site/health" 2>/dev/null || true)
+  commit=$(jq -r '.commit // empty' <<<"$body" 2>/dev/null || true)
+  status=$(jq -r '.status // empty' <<<"$body" 2>/dev/null || true)
+  if [[ $status == ok && ( -z $want || $commit == "$want" ) ]]; then
+    echo "ok: /health is up${want:+ at $want}"
+    break
+  fi
+  (( SECONDS < deadline )) || fail "/health never reported ${want:-ok} within ${timeout}s (last commit '${commit}')"
+  echo "waiting: /health commit '${commit}'${want:+, want $want}"
+  sleep "$interval"
+done
+
+# Every page the apps and the App Store link to answers 200 and is the site.
+for path in / /install /support /privacy /terms; do
+  page=$(curl -sSf --max-time 10 "$site$path") || fail "$path doesn't load"
+  grep -q "Quantum of Thought" <<<"$page" || fail "$path isn't the site"
+done
+echo "ok: /, /install, /support, /privacy, /terms"
+
+code=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "$site/no-such-page")
+[[ $code == 404 ]] || fail "a missing page answers $code, not 404"
+location=$(curl -sS --max-time 10 -o /dev/null -w '%{redirect_url}' "$site/privacy.html")
+[[ $location == "$site/privacy" ]] || fail "/privacy.html redirects to '$location', not /privacy"
+location=$(curl -sS --max-time 10 -o /dev/null -w '%{redirect_url}' "$site/install/")
+[[ $location == "$site/install" ]] || fail "/install/ redirects to '$location', not /install"
+echo "ok: 404s, and .html and trailing slashes redirect to the clean URL"
+
+csp=$(curl -sSI --max-time 10 "$site/" | tr -d '\r' | sed -n 's/^content-security-policy: //Ip')
+[[ $csp == "default-src 'none'"* ]] || fail "the CSP isn't the site's ($csp)"
+echo "ok: CSP"
+
+echo "smoke test passed: $site"

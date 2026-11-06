@@ -123,8 +123,33 @@ jobs:
       - uses: jdx/mise-action@v3
         with:
           install_args: node
+      - name: site_web/Dockerfile pins the Node mise.toml pins
+        run: |
+          docker=$(sed -nE 's/^ARG NODE_VERSION=(.+)/\1/p' site_web/Dockerfile)
+          mise=$(sed -nE 's/^node = "([^"]+)"/\1/p' mise.toml)
+          [ "$docker" = "$mise" ] || { echo "::error::site_web/Dockerfile NODE_VERSION=$docker, mise.toml has $mise"; exit 1; }
       - run: mise run lint:site
       - run: mise run test:site
+
+  # The website's image (site_web/Dockerfile, built from the repo root).
+  docker-site:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: site_web/Dockerfile
+          push: false
+          load: true
+          tags: qot-site
+          cache-from: type=gha,scope=site
+          cache-to: type=gha,mode=max,scope=site
+      - name: The image serves the site
+        run: |
+          docker run -d --name site -p 8080:8080 -e RAILWAY_GIT_COMMIT_SHA=ci qot-site
+          SMOKE_TIMEOUT=30 SMOKE_INTERVAL=1 scripts/smoke-test-site http://localhost:8080 ci
 
   # core_wasm and the PWA (client_web): unit tests against the real core,
   # then end to end in Chromium with the server and the CLI.

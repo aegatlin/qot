@@ -1,0 +1,6 @@
+#!/bin/sh
+# Starts the website's server. Railway sets PORT and RAILWAY_GIT_COMMIT_SHA.
+set -eu
+COMMIT="${RAILWAY_GIT_COMMIT_SHA:-}"
+export COMMIT
+exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
