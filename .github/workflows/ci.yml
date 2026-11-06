@@ -169,12 +169,10 @@ jobs:
       - run: mise run lint:web
       - run: mise run test:web
       - run: mise run build:web
-      - run: cd server_web && mix deps.get
+      # mise-action points MIX_HOME at mise's Elixir directory for the whole
+      # job, where setup-beam's Hex isn't; install Hex and Rebar there.
+      - run: cd server_web && mix local.hex --force && mix local.rebar --force && mix deps.get
       - run: cd client_web && npx playwright install --with-deps chromium
-      # What `mise run e2e:web` runs, but outside mise: inside it, mise points
-      # MIX_HOME at its own Elixir, which CI doesn't install, so Mix wouldn't
-      # find the Hex that setup-beam installed.
-      - run: cargo build -p qot_cli --locked
-      - run: cd client_web && npm run e2e
+      - run: mise run e2e:web
         env:
           CI: "1"
