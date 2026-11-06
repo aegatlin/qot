@@ -7,7 +7,7 @@ members = ["cargo:."]
 # The dist version CI uses; keep it equal to cargo-dist in mise.toml.
 cargo-dist-version = "0.33.1"
 ci = "github"
-# Only tags starting `cli/` release the CLI (cli/v0.1.0); server-v* tags
+# Only tags starting `cli/` release the CLI (cli/v0.1.0); server/v* tags
 # must not trigger it.
 tag-namespace = "cli"
 installers = ["shell", "homebrew"]

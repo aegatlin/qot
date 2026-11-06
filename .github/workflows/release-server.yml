@@ -1,11 +1,13 @@
 name: Release server
 
-# Production deploys from tags: push a `server-v<version>` tag on a commit
+# Production deploys from tags: push a `server/v<version>` tag on a commit
 # that is on main. This runs CI on it, then moves the `production` branch to
 # it; Railway's production environment deploys that branch. Staging deploys
 # every green push to main on its own.
 #
-#   git tag server-v0.1.0 && git push origin server-v0.1.0
+#   git tag server/v0.1.2 && git push origin server/v0.1.2
+#
+# (Before 2026-11-06 the tags were server-v*: server-v0.1.0, server-v0.1.1.)
 #
 # Tagging an older commit and pushing it rolls production back to it. Once
 # production has moved, smoke.yml waits for the new release and checks it.
@@ -16,7 +18,7 @@ name: Release server
 
 on:
   push:
-    tags: ["server-v*"]
+    tags: ["server/v*"]
 
 concurrency:
   group: release-server

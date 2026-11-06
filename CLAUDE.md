@@ -197,7 +197,7 @@ the rules the CLI is tested with:
   asked (`.claude/settings.json` allows `git tag cli/v*` and `git push
   origin cli/v*`), after checking the tag matches the version, since dist
   fails on a mismatch (dist parses `cli/`, not `cli-`; the namespace keeps
-  `server-v*` tags from triggering it). `.github/workflows/cli-release.yml`
+  `server/v*` tags from triggering it). `.github/workflows/cli-release.yml`
   builds macOS (arm64, x86_64) and Linux (arm64, x86_64, glibc and musl)
   with the Rust pinned in `mise.toml` (`.github/cli-release-setup.yml`),
   publishes a GitHub Release with `qot_cli-installer.sh`, and pushes the
@@ -282,7 +282,7 @@ the rules the CLI is tested with:
   the Railway MCP or `railway environment config --json`.
 - **Releasing**: staging deploys every green push to `main` that touches
   `server_web/` (watch pattern). Production deploys the `production` branch,
-  which `.github/workflows/release-server.yml` moves to a `server-v*` tag
+  which `.github/workflows/release-server.yml` moves to a `server/v*` tag
   after CI passes. Production has **no watch pattern** on purpose: Railway
   checks only the files the pushed commit changed, so a tag on a docs-only
   commit would be skipped. Agents can't deploy production; a person pushes
