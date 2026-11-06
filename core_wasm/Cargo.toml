@@ -27,3 +27,5 @@ uuid = { version = "1.29.0", features = ["js"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
+# tests/web.rs replays core/tests/vectors/sync.json.
+base64 = "0.23.1"

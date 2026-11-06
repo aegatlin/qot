@@ -79,7 +79,6 @@ create App IDs or apps.
 - #26 Apple Developer account, App Store Connect, TestFlight (a person)
 - #32 TestFlight builds from `ios/v*` tags
 - #33 Run QotKit's tests on Linux (cloud sessions)
-- #34 Shared sync test vectors for every binding
 - #35 watchOS capture through the iPhone
 
 ## Deferred

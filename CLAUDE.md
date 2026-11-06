@@ -187,6 +187,12 @@ the rules the CLI is tested with:
 - `apply_pulled` moves a note's "pushed" heads only if nothing local was
   waiting, so local edits made before a pull still go up next time.
 - A device pulls back its own pushes; applying them is a no-op.
+- **Shared test vectors** (`core/tests/vectors/sync.json`) pin these rules
+  for every binding: `core/tests/sync_vectors.rs` (Rust, which also
+  regenerates them), `SyncVectorTests` (Swift) and `core_wasm/tests/web.rs`
+  (wasm) replay the same cases. Regenerate only when the rules change on
+  purpose (`cargo test -p qot_core --test sync_vectors -- --ignored
+  regenerate`); a new binding replays them too.
 
 ## CLI (`client_cli`)
 
