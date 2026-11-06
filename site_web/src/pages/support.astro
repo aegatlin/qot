@@ -84,13 +84,15 @@ const faq = [
         <CardTitle className="text-xl">Delete your account</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p>In the terminal, signed in, run the command and type your email to confirm:</p>
+        <p>
+          In the web app, open the account menu and choose Delete account. In the terminal, signed in, run
+          the command. Either way, type your email to confirm.
+        </p>
         <Command command="qot delete-account" />
         <p class="text-muted-foreground">
           That deletes your account and everything the server holds for it: your email address, your synced
           notes and your sign-ins. Notes already on your devices stay there until you delete them or the app.
-          Export first if you want a copy. No terminal? Email us from the address on the account and we'll do
-          it for you.
+          Export first if you want a copy.
         </p>
       </CardContent>
     </Card>

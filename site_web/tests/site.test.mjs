@@ -94,6 +94,8 @@ test("support says how to reach a person, export notes and delete the account", 
   assert.ok(urls(html).some((u) => u.startsWith("mailto:contact@abstractsyntax.llc")));
   assert.match(html, /qot export/);
   assert.match(html, /qot delete-account/);
+  assert.match(html, /web app, open the account menu and choose Delete account/);
+  assert.doesNotMatch(html, /we'll do\s+it for you/);
 });
 
 test("the privacy policy says what the server stores", () => {
