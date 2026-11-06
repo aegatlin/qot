@@ -69,8 +69,12 @@ before the iOS app ships, not after launch. Same hosting shape as the PWA.
 
 Dogfooding on the phone too: capture there is the point. Layout and why:
 [records/2026-11-04-repo-layout-for-clients.md](records/2026-11-04-repo-layout-for-clients.md).
-Bundle id `io.gatlin.qot`, Apple team `9XYH562BTD` (reused from the deleted
-2024 prototype).
+Bundle id `llc.abstractsyntax.qot` and App Group
+`group.llc.abstractsyntax.qot`, in the Abstract Syntax LLC team
+(`H88537CLVC`) with the company's other apps (moved from a personal team on
+2026-11-06). Xcode's automatic signing registers identifiers; the `asc` CLI's
+API key has the Developer role, so it reads App Store Connect but can't
+create App IDs or apps.
 
 - #26 Apple Developer account, App Store Connect, TestFlight (a person)
 - #27 Device sign-in and sync
