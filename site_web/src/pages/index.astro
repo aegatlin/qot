@@ -1,0 +1,119 @@
+---
+import Base from "@/layouts/Base.astro";
+import Terminal from "@/components/Terminal.astro";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+const promises = [
+  {
+    title: "One gesture",
+    body: "Type qot and the thought in any terminal, or open the app and write. No titles, no folders, nothing to decide before the note is saved.",
+  },
+  {
+    title: "Offline first",
+    body: "Every note is saved on the device before anything touches the network. Take notes on a plane; they sync when you land.",
+  },
+  {
+    title: "Everywhere you look",
+    body: "Notes move between your devices in the background, so what you wrote on one is on the others by the time you look.",
+  },
+];
+
+const clients = [
+  { name: "Terminal", detail: "macOS and Linux", status: "available", href: "/install#cli" },
+  { name: "Web app", detail: "Any browser, installable on your phone", status: "available", href: "/install#web" },
+  { name: "iPhone", detail: "Siri, the Action button, Control Center", status: "coming", href: "/install#iphone" },
+  { name: "Mac", detail: "A native app", status: "later", href: "/install#mac" },
+] as const;
+---
+
+<Base description="Quantum of Thought (qot) is a quick note capture tool for the terminal, the web and soon the iPhone. Capture in one gesture, offline first, synced everywhere.">
+  <section class="pt-10 pb-14 text-center sm:pt-16">
+    <img src="/icon.svg" alt="" class="mx-auto h-20 w-20 rounded-[22%] sm:h-24 sm:w-24 dark:ring-1 dark:ring-white/15" />
+    <h1 class="mt-6 text-4xl font-bold tracking-tight sm:text-5xl">Quantum of Thought</h1>
+    <p class="mx-auto mt-4 max-w-md text-lg text-muted-foreground">
+      Quick notes, everywhere you are. Catch the thought in one gesture; find it on every device.
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <a
+        href="/install"
+        class="rounded-md bg-primary px-5 py-2.5 font-medium text-primary-foreground transition-opacity hover:opacity-85"
+      >
+        Install qot
+      </a>
+      <a
+        href="https://app.quantumofthought.com"
+        class="rounded-md border bg-card px-5 py-2.5 font-medium transition-colors hover:bg-accent"
+      >
+        Open the web app
+      </a>
+    </div>
+    <div class="mx-auto mt-12 max-w-md">
+      <Terminal
+        lines={[
+          { command: "qot get milk" },
+          { output: "Created note: get milk" },
+          { command: "qot call the dentist about tuesday" },
+          { output: "Created note: call the dentist about tuesday" },
+          { command: "qot list" },
+          { output: "1. get milk" },
+          { output: "2. call the dentist about tuesday" },
+        ]}
+      />
+    </div>
+  </section>
+
+  <section class="grid gap-4 sm:grid-cols-3">
+    {
+      promises.map(({ title, body }) => (
+        <Card>
+          <CardHeader>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription className="leading-relaxed">{body}</CardDescription>
+          </CardHeader>
+        </Card>
+      ))
+    }
+  </section>
+
+  <section class="mt-16">
+    <h2 class="text-2xl font-semibold tracking-tight">Wherever you are</h2>
+    <p class="mt-2 text-muted-foreground">
+      One account, every client. Sign in once from the terminal and the web app is signed in too.
+    </p>
+    <ul class="mt-6 divide-y rounded-xl border bg-card">
+      {
+        clients.map(({ name, detail, status, href }) => (
+          <li>
+            <a href={href} class="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-accent">
+              <span>
+                <span class="font-medium">{name}</span>
+                <span class="block text-sm text-muted-foreground">{detail}</span>
+              </span>
+              {status === "available" ? (
+                <Badge>Available</Badge>
+              ) : (
+                <Badge variant="outline">{status === "coming" ? "Coming soon" : "Later"}</Badge>
+              )}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="mt-16">
+    <Card>
+      <CardHeader>
+        <CardTitle>Early days</CardTitle>
+        <CardDescription className="leading-relaxed">
+          qot is in daily use by the person who makes it and a few friends. It works, and your notes are
+          yours to <a href="/support#export" class="underline underline-offset-2 hover:text-foreground">export</a> at
+          any time, but expect rough edges. End-to-end encryption is planned and not built yet; the
+          <a href="/privacy" class="underline underline-offset-2 hover:text-foreground">privacy policy</a> says
+          plainly what the server stores until then. qot is open source under the AGPL.
+        </CardDescription>
+      </CardHeader>
+    </Card>
+  </section>
+</Base>

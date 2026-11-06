@@ -115,6 +115,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # The website (site_web): typecheck, build, and check the built pages.
+  site:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+        with:
+          install_args: node
+      - run: mise run lint:site
+      - run: mise run test:site
+
   # core_wasm and the PWA (client_web): unit tests against the real core,
   # then end to end in Chromium with the server and the CLI.
   web:

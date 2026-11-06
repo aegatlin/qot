@@ -1,0 +1,97 @@
+---
+layout: ../layouts/Prose.astro
+title: Privacy policy
+description: What qot stores, where, and who else handles it. The server keeps your email address and your synced notes; until end-to-end encryption ships, it could read them.
+updated: November 6, 2026
+draft: true
+---
+
+qot (Quantum of Thought) is made by Abstract Syntax LLC. This policy covers the qot apps (the
+terminal client, the web app at app.quantumofthought.com and, when it ships, the iPhone app),
+the sync server behind them, and this website. The
+[Abstract Syntax website's policy](https://www.abstractsyntax.llc/privacy) covers that site only.
+
+## The short version
+
+- Your notes are saved on your devices. If you sign in, they are also kept on our server so
+  they can reach your other devices.
+- **Notes are not end-to-end encrypted yet.** They are encrypted on the way to the server, but the
+  server could read them. We don't read them, and nothing we
+  run does. End-to-end encryption, after which the server can't read them at all, is planned.
+- We keep your email address to sign you in. No advertising, no tracking, no selling of anything.
+- You can export everything and delete your account at any time ([Support](/support)).
+
+## What's on your devices
+
+Every note you take is saved on the device first: in the terminal, in qot's data folder; in the
+web app, in your browser's storage for app.quantumofthought.com. Signing out leaves the notes
+there. Deleting the app, the data folder or the site's data in your browser removes them from
+that device.
+
+You can use qot without an account. Notes then never leave the device.
+
+## What the server stores
+
+Only if you sign in:
+
+- **Your email address**, which is your account. We use it to send sign-in emails, and may
+  use it to tell you about important changes to qot or these policies. Nothing else, and never
+  marketing without asking.
+- **Your notes**, as the list of changes your devices sync (each note's text, when it was
+  created, and whether it was deleted). Deleting a note keeps a marker that it was deleted, so
+  that another device doesn't bring it back.
+- **Sign-ins**: for each device, a token that keeps it signed in (stored as a one-way hash),
+  and for each sign-in started, the email it was for and whether it was approved. These expire
+  after 30 days and 15 minutes.
+
+To stop abuse of sign-in emails, the server counts recent sign-in attempts per email address
+and per network address (IP). It keeps those counts in memory for an hour and never writes them
+down. The server doesn't log your requests or your notes; its error logs, kept by our host for a
+limited time, may include your account's id.
+
+## The website
+
+This site sets no cookies, runs no scripts and has no analytics. Pages are served by our host,
+which handles your network address to deliver them.
+
+## Who else handles your data
+
+We use a few companies to run qot. Each handles only what its job needs:
+
+- **Railway** hosts the server, its database and this website.
+- **Resend** delivers sign-in emails, so it sees your email address and the email.
+- **GitHub** and **Homebrew** serve the terminal client's downloads, under their own privacy
+  policies.
+
+We don't sell, rent or share your data with anyone else, and we would only disclose it if the
+law requires us to.
+
+## Keeping it safe
+
+Connections to the server use TLS. Tokens on the server are stored hashed, and the database is
+on our host's private network. Every request is checked against your account, and no account
+can read another's notes.
+
+## Your choices
+
+- **Export**: `qot export` writes every note as JSON. A signed-in device has everything the
+  server has, so the export comes from the device.
+- **Delete**: `qot delete-account` deletes your account, your email address, your synced notes
+  and your sign-ins from the server, immediately. Notes stay on your devices until you delete
+  them. Without a terminal, email us from the account's address and we'll delete it.
+- **Correct or ask**: email us to ask what we hold about you, or anything else in this policy.
+
+## Children
+
+qot is not meant for children under 13, and we don't knowingly hold anything about them. If you
+think a child has made an account, email us and we'll delete it.
+
+## Changes
+
+If this policy changes, we'll update this page and its date. If a change matters (for example,
+anything new the server keeps), we'll email account holders before it takes effect.
+
+## Contact
+
+Abstract Syntax LLC<br />
+[contact@abstractsyntax.llc](mailto:contact@abstractsyntax.llc?subject=qot%20privacy)

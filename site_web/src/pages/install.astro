@@ -1,0 +1,101 @@
+---
+import Base from "@/layouts/Base.astro";
+import Command from "@/components/Command.astro";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+const installer = "curl -LsSf https://github.com/aegatlin/qot/releases/latest/download/qot_cli-installer.sh | sh";
+---
+
+<Base
+  title="Install"
+  description="Install qot: the command-line client for macOS and Linux, and the web app for any browser, installable on your phone."
+>
+  <div class="pt-6">
+    <h1 class="text-3xl font-bold tracking-tight">Install qot</h1>
+    <p class="mt-2 text-muted-foreground">
+      Start with whichever is nearest. Every client works offline on its own; sign in to the same email on
+      each and your notes follow you.
+    </p>
+  </div>
+
+  <div class="mt-10 space-y-6">
+    <Card id="cli" className="scroll-mt-6">
+      <CardHeader>
+        <div class="flex items-center justify-between gap-3">
+          <CardTitle className="text-xl">Terminal</CardTitle>
+          <Badge>macOS and Linux</Badge>
+        </div>
+        <CardDescription>The quickest way to catch a thought while you work.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5 text-sm">
+        <div class="space-y-2">
+          <p>With Homebrew:</p>
+          <Command command="brew install aegatlin/tap/qot" />
+        </div>
+        <div class="space-y-2">
+          <p>Or without it (installs to <code>~/.local/bin</code>):</p>
+          <Command command={installer} />
+        </div>
+        <div class="space-y-2">
+          <p>Then sign in, and take a note:</p>
+          <Command command="qot login you@example.com" />
+          <Command command="qot get milk" />
+          <p class="text-muted-foreground">
+            <code>qot login</code> emails you a link and shows a code. Open the link, type the code, and the
+            terminal is signed in, and so is the browser you opened the link in. Anything after
+            <code>qot</code> is the note; <code>qot list</code> shows them and <code>qot help</code> shows the
+            rest.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card id="web" className="scroll-mt-6">
+      <CardHeader>
+        <div class="flex items-center justify-between gap-3">
+          <CardTitle className="text-xl">Web app</CardTitle>
+          <Badge>Any browser</Badge>
+        </div>
+        <CardDescription>
+          Notes in a tab, or on your phone's Home Screen. It works offline once it has loaded.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        <p>
+          Open <a href="https://app.quantumofthought.com" class="font-medium underline underline-offset-2"
+            >app.quantumofthought.com</a
+          > and sign in with your email. To keep it on your phone like an app:
+        </p>
+        <ul class="list-disc space-y-1.5 pl-5">
+          <li><strong>iPhone and iPad</strong> (Safari): Share, then Add to Home Screen.</li>
+          <li><strong>Android</strong> (Chrome): the ⋮ menu, then Add to Home screen or Install app.</li>
+          <li><strong>Desktop</strong> (Chrome, Edge): the install icon at the end of the address bar.</li>
+        </ul>
+      </CardContent>
+    </Card>
+
+    <Card id="iphone" className="scroll-mt-6">
+      <CardHeader>
+        <div class="flex items-center justify-between gap-3">
+          <CardTitle className="text-xl">iPhone</CardTitle>
+          <Badge variant="outline">Coming soon</Badge>
+        </div>
+        <CardDescription className="leading-relaxed">
+          A native app for capture without opening anything: Siri, the Action button, a Control Center
+          control, and voice notes. Until it's here, the web app on your Home Screen does the job.
+        </CardDescription>
+      </CardHeader>
+    </Card>
+
+    <Card id="mac" className="scroll-mt-6">
+      <CardHeader>
+        <div class="flex items-center justify-between gap-3">
+          <CardTitle className="text-xl">Mac</CardTitle>
+          <Badge variant="outline">Later</Badge>
+        </div>
+        <CardDescription>A native Mac app comes after the iPhone. The terminal client runs on macOS today.</CardDescription>
+      </CardHeader>
+    </Card>
+  </div>
+</Base>
