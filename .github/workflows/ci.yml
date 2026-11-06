@@ -171,6 +171,10 @@ jobs:
       - run: mise run build:web
       - run: cd server_web && mix deps.get
       - run: cd client_web && npx playwright install --with-deps chromium
-      - run: mise run e2e:web
+      # What `mise run e2e:web` runs, but outside mise: inside it, mise points
+      # MIX_HOME at its own Elixir, which CI doesn't install, so Mix wouldn't
+      # find the Hex that setup-beam installed.
+      - run: cargo build -p qot_cli --locked
+      - run: cd client_web && npm run e2e
         env:
           CI: "1"
