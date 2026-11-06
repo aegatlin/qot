@@ -1,0 +1,114 @@
+---
+import Base from "@/layouts/Base.astro";
+import Command from "@/components/Command.astro";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const faq = [
+  {
+    id: "offline",
+    q: "I took a note offline. Is it lost?",
+    a: "No. Every note is saved on the device first. The terminal prints (not synced: …) when it couldn't reach the server, and the note goes up with the next command or the next qot sync. The web app syncs when the connection comes back.",
+  },
+  {
+    id: "sign-in-email",
+    q: "The sign-in email didn't arrive.",
+    a: "Check spam for a message from mail.quantumofthought.com. The link is good for 15 minutes; after that, start again. To keep the inbox safe, one address can start only a few sign-ins an hour.",
+  },
+  {
+    id: "code",
+    q: "Why do I have to type a code from the screen?",
+    a: "So that opening the link signs nobody in. If someone starts a sign-in with your address, or a mail scanner opens the link, nothing happens until the code from the device that asked is typed in. The code is never in the email.",
+  },
+  {
+    id: "sign-out",
+    q: "How do I sign out?",
+    a: "qot logout in the terminal, or the account menu in the web app. Signing out forgets the account on that device; its notes stay on it.",
+  },
+  {
+    id: "self-host",
+    q: "Can I run my own server?",
+    a: "Yes. The server is open source in the same repository. Point the terminal at it with qot login you@example.com --server https://your.server.",
+  },
+];
+---
+
+<Base
+  title="Support"
+  description="Get help with qot: contact, exporting your notes, deleting your account, and common questions."
+>
+  <div class="pt-6">
+    <h1 class="text-3xl font-bold tracking-tight">Support</h1>
+    <p class="mt-2 text-muted-foreground">qot is made by one person. Questions and bug reports are welcome.</p>
+  </div>
+
+  <div class="mt-10 space-y-6 text-sm leading-relaxed">
+    <Card id="contact" className="scroll-mt-6">
+      <CardHeader>
+        <CardTitle className="text-xl">Get in touch</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p>
+          Email <a
+            href="mailto:contact@abstractsyntax.llc?subject=qot"
+            class="font-medium underline underline-offset-2">contact@abstractsyntax.llc</a
+          >. Say which client (terminal, web app, iPhone), what you did, and what you expected to happen. For
+          the terminal, <code>qot status</code> prints the version and server and never shows anything secret.
+        </p>
+        <p class="text-muted-foreground">
+          Bugs and ideas can also go on <a
+            href="https://github.com/aegatlin/qot/issues"
+            class="underline underline-offset-2 hover:text-foreground">GitHub</a
+          >.
+        </p>
+      </CardContent>
+    </Card>
+
+    <Card id="export" className="scroll-mt-6">
+      <CardHeader>
+        <CardTitle className="text-xl">Export your notes</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p>
+          Every signed-in device has all of your notes, so the export comes from the device, not the server. In
+          the terminal:
+        </p>
+        <Command command="qot export > notes.json" />
+        <p class="text-muted-foreground">
+          That is every note as JSON, with its id, when it was created, and its text.
+        </p>
+      </CardContent>
+    </Card>
+
+    <Card id="delete-account" className="scroll-mt-6">
+      <CardHeader>
+        <CardTitle className="text-xl">Delete your account</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p>
+          In the web app, open the account menu and choose Delete account. In the terminal, signed in, run
+          the command. Either way, type your email to confirm.
+        </p>
+        <Command command="qot delete-account" />
+        <p class="text-muted-foreground">
+          That deletes your account and everything the server holds for it: your email address, your synced
+          notes and your sign-ins. Notes already on your devices stay there until you delete them or the app.
+          Export first if you want a copy.
+        </p>
+      </CardContent>
+    </Card>
+
+    <section id="faq">
+      <h2 class="text-xl font-semibold tracking-tight">Common questions</h2>
+      <dl class="mt-4 space-y-5">
+        {
+          faq.map(({ id, q, a }) => (
+            <div id={id} class="scroll-mt-6">
+              <dt class="font-semibold">{q}</dt>
+              <dd class="mt-1 text-muted-foreground">{a}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+  </div>
+</Base>

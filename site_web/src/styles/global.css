@@ -1,0 +1,97 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/*
+ * The shadcn/ui token names the Abstract Syntax site uses, so its components
+ * copy over unchanged, filled with qot's palette (the PWA's, client_web/src/
+ * styles.css): ink and paper, with the amber of the icon's dot as the accent.
+ */
+:root {
+  --background: #fbfaf7;
+  --foreground: #16161d;
+  --card: #ffffff;
+  --card-foreground: #16161d;
+  --primary: #16161d;
+  --primary-foreground: #fbfaf7;
+  --secondary: #f1efe9;
+  --secondary-foreground: #16161d;
+  --muted: #f1efe9;
+  --muted-foreground: #6b6b76;
+  --accent: #f1efe9;
+  --accent-foreground: #16161d;
+  --amber: #a8730f;
+  --border: #e4e2dc;
+  --ring: #16161d;
+  --code: #f1efe9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #16161d;
+    --foreground: #f2f0ea;
+    --card: #1e1e27;
+    --card-foreground: #f2f0ea;
+    --primary: #f2f0ea;
+    --primary-foreground: #16161d;
+    --secondary: #24242e;
+    --secondary-foreground: #f2f0ea;
+    --muted: #24242e;
+    --muted-foreground: #9a9aa6;
+    --accent: #24242e;
+    --accent-foreground: #f2f0ea;
+    --amber: #f5b83d;
+    --border: #2c2c36;
+    --ring: #f2f0ea;
+    --code: #0f0f14;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-amber: var(--amber);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-code: var(--code);
+
+  --radius-sm: calc(0.5rem - 4px);
+  --radius-md: calc(0.5rem - 2px);
+  --radius-lg: 0.5rem;
+  --radius-xl: calc(0.5rem + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    color-scheme: light dark;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Long-form pages (policies) in the site's colours. */
+.prose {
+  --tw-prose-body: var(--color-foreground);
+  --tw-prose-headings: var(--color-foreground);
+  --tw-prose-links: var(--color-foreground);
+  --tw-prose-bold: var(--color-foreground);
+  --tw-prose-bullets: var(--color-muted-foreground);
+  --tw-prose-hr: var(--color-border);
+  --tw-prose-code: var(--color-foreground);
+  --tw-prose-quotes: var(--color-muted-foreground);
+}

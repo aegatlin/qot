@@ -14,7 +14,7 @@ import type { Credentials, Store } from "./store";
 const PUSH_CHUNK = 500;
 
 export const STORE_LOCK = "qot-store";
-const SYNC_LOCK = "qot-sync";
+export const SYNC_LOCK = "qot-sync";
 
 export interface SyncReport {
   pushed: number;

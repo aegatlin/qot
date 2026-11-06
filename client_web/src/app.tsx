@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
-import { type Api, describe, type DeviceStart } from "./api";
+import { type Api, type ApiError, describe, type DeviceStart } from "./api";
 import type { Note } from "./core/qot_wasm";
 import { connectLive } from "./live";
 import { withLock } from "./lock";
 import { age, capture, deleteNote, liveNotes, parseNotes } from "./notes";
-import { adoptTokens, browserChoice, signOut } from "./session";
+import { adoptTokens, browserChoice, confirmsAccount, deleteAccount, signOut } from "./session";
 import type { Credentials, Store } from "./store";
 import { STORE_LOCK, sync, syncErrorText, type SyncError } from "./sync";
 
@@ -161,6 +161,12 @@ export function App({ api, store }: { api: Api; store: Store }) {
     await changed();
   };
 
+  const onAccountDeleted = async () => {
+    setStatus({ kind: "idle" });
+    setBanner("Account deleted. Your notes stay in this browser.");
+    await changed();
+  };
+
   if (path === "/auth/device") {
     const token = new URLSearchParams(location.search).get("token") ?? "";
     return (
@@ -172,7 +178,17 @@ export function App({ api, store }: { api: Api; store: Store }) {
 
   return (
     <Shell
-      right={creds ? <Account creds={creds} status={status} onSignOut={onSignOut} /> : null}
+      right={
+        creds ? (
+          <Account
+            creds={creds}
+            status={status}
+            onSignOut={onSignOut}
+            deleting={(typed) => deleteAccount(store, api, typed)}
+            onDeleted={onAccountDeleted}
+          />
+        ) : null
+      }
     >
       {banner && (
         <p class="banner" role="status">
@@ -205,7 +221,20 @@ function Shell({ children, right }: { children: preact.ComponentChildren; right?
   );
 }
 
-function Account({ creds, status, onSignOut }: { creds: Credentials; status: SyncStatus; onSignOut: () => void }) {
+function Account({
+  creds,
+  status,
+  onSignOut,
+  deleting,
+  onDeleted,
+}: {
+  creds: Credentials;
+  status: SyncStatus;
+  onSignOut: () => void;
+  deleting: (typed: string) => Promise<{ ok: true } | { ok: false; error: ApiError }>;
+  onDeleted: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
   const [label, title] =
     status.kind === "syncing"
       ? ["Syncing…", ""]
@@ -225,10 +254,72 @@ function Account({ creds, status, onSignOut }: { creds: Credentials; status: Syn
           {status.kind === "error" && <p class="muted">{syncErrorText(status.error)}</p>}
           <button onClick={onSignOut}>Sign out of this browser</button>
           <p class="muted">Notes stay on this device.</p>
+          {confirming ? (
+            <DeleteAccount email={creds.email} deleting={deleting} onDeleted={onDeleted} onCancel={() => setConfirming(false)} />
+          ) : (
+            <button class="link danger" onClick={() => setConfirming(true)}>
+              Delete account…
+            </button>
+          )}
         </div>
       </details>
     </div>
   );
+}
+
+/** Like `qot delete-account`: the email typed again confirms it. */
+function DeleteAccount({
+  email,
+  deleting,
+  onDeleted,
+  onCancel,
+}: {
+  email: string;
+  deleting: (typed: string) => Promise<{ ok: true } | { ok: false; error: ApiError }>;
+  onDeleted: () => void;
+  onCancel: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (e: Event) => {
+    e.preventDefault();
+    if (!confirmsAccount(typed, email)) return;
+    setBusy(true);
+    setError(null);
+    const result = await deleting(typed);
+    setBusy(false);
+    if (result.ok) onDeleted();
+    else setError(deleteErrorText(result.error));
+  };
+  return (
+    <form class="delete-account" onSubmit={submit}>
+      <p>
+        This deletes the account and every note synced to it from the server. Other devices are signed out within
+        the hour. Notes in this browser stay.
+      </p>
+      <label>
+        Type {email} to confirm
+        <input type="email" value={typed} autocomplete="off" onInput={(e) => setTyped((e.target as HTMLInputElement).value)} />
+      </label>
+      {error && <p class="error">{error}</p>}
+      <div class="actions">
+        <button type="submit" class="danger" disabled={busy || !confirmsAccount(typed, email)}>
+          {busy ? "Deleting…" : "Delete account"}
+        </button>
+        <button type="button" class="link" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function deleteErrorText(e: ApiError): string {
+  if (e.kind === "offline") return "Not deleted: you're offline.";
+  if (e.kind === "unauthorized") return "Not deleted: this browser is signed out. Sign in again first.";
+  if (e.kind === "failed" && e.error === "confirmation_mismatch") return "Not deleted: that isn't this account's email.";
+  return `Not deleted: ${describe(e)}.`;
 }
 
 function Capture({ onCapture }: { onCapture: (text: string) => void }) {

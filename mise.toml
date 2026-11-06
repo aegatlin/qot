@@ -24,7 +24,7 @@ cargo-dist = "0.33.1"
 # Generates the JS bindings for core_wasm and runs its tests in Node; must
 # equal the `wasm-bindgen` crate version in core_wasm/Cargo.toml.
 "github:wasm-bindgen/wasm-bindgen" = "0.2.130"
-# Builds and tests client_web (the PWA).
+# Builds and tests client_web (the PWA) and site_web (the website).
 node = "24.22.2"
 # wasm-opt: shrinks the release build of core_wasm.
 "github:WebAssembly/binaryen" = "version_129"
@@ -64,9 +64,15 @@ description = "The PWA end to end in headless Chromium, against a local server a
 depends = ["build:wasm-core", "deps:web"]
 run = ["cargo build -p qot_cli", "cd client_web && npm run e2e"]
 
+[tasks."test:site"]
+description = "Build the website (site_web) and check every page, link and the no-scripts rule"
+depends = ["build:site"]
+dir = "site_web"
+run = "npm test"
+
 [tasks.test]
 description = "Test everything"
-depends = ["test:rust", "test:wasm", "test:web", "test:server", "test:apple"]
+depends = ["test:rust", "test:wasm", "test:web", "test:site", "test:server", "test:apple"]
 
 [tasks."lint:rust"]
 description = "rustfmt check and clippy, warnings as errors"
@@ -82,9 +88,15 @@ depends = ["build:wasm-core", "deps:web"]
 dir = "client_web"
 run = "npm run lint"
 
+[tasks."lint:site"]
+description = "Typecheck the website (astro check)"
+depends = ["deps:site"]
+dir = "site_web"
+run = "npm run lint"
+
 [tasks.lint]
 description = "Lint everything"
-depends = ["lint:rust", "lint:web"]
+depends = ["lint:rust", "lint:web", "lint:site"]
 
 [tasks."build:apple-core"]
 description = "Build qot_core for Apple (XCFramework + Swift bindings); rerun after Rust changes"
@@ -110,6 +122,23 @@ alias = "w"
 description = "Run the PWA's dev server (http://localhost:5173) against the local API"
 depends = ["build:wasm-core", "deps:web"]
 dir = "client_web"
+run = "npm run dev"
+
+[tasks."deps:site"]
+description = "Install the website's npm dependencies"
+dir = "site_web"
+run = "npm ci --no-audit --no-fund"
+
+[tasks."build:site"]
+description = "Build the website (www.quantumofthought.com) into site_web/dist"
+depends = ["deps:site"]
+dir = "site_web"
+run = "npm run build"
+
+[tasks."dev:site"]
+description = "Run the website's dev server (http://localhost:4321)"
+depends = ["deps:site"]
+dir = "site_web"
 run = "npm run dev"
 
 [tasks."gen:apple"]

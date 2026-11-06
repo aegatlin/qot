@@ -10,6 +10,8 @@ other devices by the time you look, even if you took it offline.
 | `core_ffi/` | `qot_ffi`: `qot_core` for Swift (and later Kotlin) through UniFFI | Rust |
 | `client_cli/` | `qot`, the command-line client (`qot get milk`) | Rust |
 | `client_apple/` | The iPhone app (Watch, Mac and widgets later), plus `QotKit`, the Swift package they share | Swift, SwiftUI, XcodeGen |
+| `client_web/` | The web app (`app.quantumofthought.com`) | TypeScript, Preact, `qot_core` as WASM |
+| `site_web/` | The website (`www.quantumofthought.com`) | Astro, static |
 | `server_web/` | Accounts, auth and note sync | Elixir, Phoenix, Postgres |
 
 Tools and tasks are pinned in one root `mise.toml`

@@ -1,0 +1,31 @@
+---
+// Long-form Markdown pages (the policies): frontmatter gives title,
+// description, the date and whether the text is still a draft.
+import Base from "./Base.astro";
+
+interface Props {
+  frontmatter: {
+    title: string;
+    description: string;
+    updated: string;
+    draft?: boolean;
+  };
+}
+const { title, description, updated, draft } = Astro.props.frontmatter;
+---
+
+<Base title={title} description={description}>
+  <article class="prose mx-auto max-w-2xl pt-6 prose-headings:tracking-tight prose-a:underline-offset-2 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none">
+    <h1>{title}</h1>
+    <p class="text-sm text-muted-foreground">Last updated {updated}</p>
+    {
+      draft && (
+        <p class="not-prose rounded-lg border border-amber px-4 py-3 text-sm">
+          <strong>Draft.</strong> This text is being reviewed and may change before qot is open to
+          everyone.
+        </p>
+      )
+    }
+    <slot />
+  </article>
+</Base>

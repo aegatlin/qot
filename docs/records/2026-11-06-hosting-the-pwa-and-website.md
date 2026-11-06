@@ -83,6 +83,24 @@ person.
   ties the website's releases to the PWA's, and the two have different
   headers and caching. Not worth it.
 
+## The website's stack (added 2026-11-06)
+
+**Astro**, built to static HTML and CSS with no JavaScript, in `site_web/`.
+Reuse of the Abstract Syntax site (`aegatlin/abstract_syntax`, Next.js with
+Tailwind and shadcn/ui) was the aim, so the look carries over: its shadcn
+components and Tailwind setup are copied, with qot's colours.
+
+Next.js itself was turned down: a static export still ships React's runtime
+and inline scripts, so the strict CSP the PWA has (`script-src 'self'`, no
+inline) would need hashes or `unsafe-inline`, for pages that need no
+JavaScript at all. Astro renders the same React components at build time
+(`@astrojs/react`, nothing hydrated) and writes Markdown pages (MDX) for the
+policies, which was the issue's other ask.
+
+qot gets its own site rather than a page on `abstractsyntax.llc` (like Odd
+Lock's) because it has several clients to install and an account to explain;
+the company site links to it.
+
 ## Not verified
 
 - Railway's price for two small always-on static services (expected to be

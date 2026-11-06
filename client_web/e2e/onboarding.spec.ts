@@ -79,3 +79,36 @@ test("a wrong code says so and signs nothing in", async ({ page }) => {
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("That code doesn't match")).toBeVisible();
 });
+
+test("deleting the account from the browser signs everything out; notes stay", async ({ page }) => {
+  const email = `e2e-delete-${Date.now()}@example.com`;
+  const cli = new Cli();
+  const login = cli.login(email);
+  const code = await login.code;
+  await page.goto(await server.signInLink(email));
+  await page.getByLabel("Code").fill(code);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByTestId("sync-status")).toHaveText("Synced");
+  await login.exited;
+
+  await page.getByLabel("New note").fill("keep this one");
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("sync-status")).toHaveText("Synced");
+
+  await page.getByLabel("Account").click();
+  await page.getByRole("button", { name: "Delete account…" }).click();
+  const confirm = page.getByRole("button", { name: "Delete account", exact: true });
+  await page.getByLabel(`Type ${email} to confirm`).fill("someone@example.com");
+  await expect(confirm).toBeDisabled();
+  await page.getByLabel(`Type ${email} to confirm`).fill(email.toUpperCase());
+  await confirm.click();
+
+  await expect(page.getByText("Account deleted. Your notes stay in this browser.")).toBeVisible();
+  await expect(page.getByLabel("Account")).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Notes" })).toContainText("keep this one");
+
+  // Still signed out after a reload: the session is gone, not just hidden.
+  await page.reload();
+  await expect(page.getByRole("list", { name: "Notes" })).toContainText("keep this one");
+  await expect(page.getByLabel("Account")).toHaveCount(0);
+});

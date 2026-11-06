@@ -70,3 +70,10 @@ code { font-size: .9em; }
 @media (max-width: 30rem) {
   .brand span { display: none; }
 }
+.danger { color: var(--error); }
+button.danger { border-color: var(--error); background: var(--card); }
+button.link.danger { padding: 0; margin-top: .75rem; }
+.delete-account { margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--line); font-size: .85rem; }
+.delete-account p { margin: 0 0 .5rem; }
+.delete-account label { display: grid; gap: .35rem; }
+.delete-account .actions { display: flex; align-items: center; gap: .75rem; margin-top: .5rem; }

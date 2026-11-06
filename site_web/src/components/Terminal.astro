@@ -1,0 +1,28 @@
+---
+// A pretend terminal for the home page: what capturing a note looks like.
+interface Line {
+  command?: string;
+  output?: string;
+}
+interface Props {
+  lines: Line[];
+}
+const { lines } = Astro.props;
+---
+
+<div class="overflow-hidden rounded-xl border bg-[#16161d] text-left font-mono text-sm text-[#f2f0ea] shadow-sm">
+  <div class="flex items-center gap-1.5 border-b border-white/10 px-4 py-2.5" aria-hidden="true">
+    <span class="h-2.5 w-2.5 rounded-full bg-white/15"></span>
+    <span class="h-2.5 w-2.5 rounded-full bg-white/15"></span>
+    <span class="h-2.5 w-2.5 rounded-full bg-white/15"></span>
+  </div>
+  <pre class="overflow-x-auto px-4 py-4 leading-relaxed"><code>{
+    lines.map(({ command, output }) =>
+      command ? (
+        <span class="block"><span class="select-none text-[#f5b83d]">$ </span>{command}</span>
+      ) : (
+        <span class="block text-[#9a9aa6]">{output}</span>
+      ),
+    )
+  }</code></pre>
+</div>

@@ -43,6 +43,7 @@ issue rather than leaving a TODO comment or a note in a doc.
 | `client_cli/` | `qot` binary (Rust), uses `qot_core` directly. |
 | `client_apple/` | Every Apple target in one XcodeGen project; `QotKit/` is the shared SwiftPM package. |
 | `client_web/` | The PWA (`app.quantumofthought.com`): Vite + TypeScript + Preact over `qot_wasm`. |
+| `site_web/` | The website (`www.quantumofthought.com`): Astro, static HTML and CSS. |
 | `server_web/` | Phoenix server: accounts, device sign-in, note sync. |
 | `docs/` | `ROADMAP.md`, `go-to-market.md`, and `records/`: dated research and decision records (see its README). |
 
@@ -108,10 +109,11 @@ secrets:push:<env>` copies a profile to Railway and redeploys. To add or rotate
 one: `fnox -P <env> set KEY` (reads stdin), then push. Never print values.
 
 ```sh
-mise run test          # everything; or test:rust, test:wasm, test:web, test:server, test:apple
-mise run lint          # lint:rust (rustfmt + clippy, also for wasm32), lint:web (tsc)
+mise run test          # everything; or test:rust, test:wasm, test:web, test:site, test:server, test:apple
+mise run lint          # lint:rust (rustfmt + clippy, also for wasm32), lint:web (tsc), lint:site (astro check)
 mise run e2e:web       # PWA + server + CLI in headless Chromium (needs Postgres)
 mise run dev:web       # alias: w; the PWA at http://localhost:5173 against the local server
+mise run dev:site      # the website at http://localhost:4321
 mise run server        # alias: s
 mise run cli-install   # alias: ci; installs `qot`
 mise run gen:apple     # alias: xcode; builds the Apple core, generates the Xcode project
@@ -304,7 +306,7 @@ the rules the CLI is tested with:
 
 ## Web (`client_web`)
 
-- The PWA: capture, list, delete, sync, and the device sign-in page. Same
+- The PWA: capture, list, delete, sync, the device sign-in page, and deleting the account (`deleteAccount` in `session.ts`, like `qot delete-account`: the email typed again, the session forgotten, notes kept). Same
   rules as every client: `qot_wasm` (`core_wasm/`) wraps `qot_core`;
   `scripts/build-wasm-core` (`mise run build:wasm-core`) compiles it and
   generates the JS bindings into `client_web/src/core/` (gitignored); rerun
@@ -345,6 +347,29 @@ the rules the CLI is tested with:
   pushes it) and then smoke-tests (`scripts/smoke-test-web <app> <api>
   [<sha>]`, also run for staging by `smoke-web.yml`; it checks the API's
   CORS for the app too).
+
+## Website (`site_web`)
+
+- `www.quantumofthought.com`: what qot is, `/install` (every client),
+  `/support` (contact, export, account deletion, FAQ), `/privacy` and
+  `/terms` (drafts until a person approves them, #17; `draft: true` in the
+  frontmatter shows a banner). The Abstract Syntax site
+  (`aegatlin/abstract_syntax`, `www.abstractsyntax.llc`) links here.
+- **Astro**, built to plain HTML and CSS with **no JavaScript**: pages in
+  `src/pages/` (`.astro`, or `.mdx` with `layouts/Prose.astro` for long text).
+  The shadcn/ui components (`src/components/ui/`) and `lib/utils.ts` are
+  copied from the Abstract Syntax site and render at build time only through
+  `@astrojs/react`; the config deletes the client bundle it emits anyway. The
+  theme in `src/styles/global.css` keeps shadcn's token names with qot's
+  palette (the PWA's), light and dark from `prefers-color-scheme`.
+- `build.format: "file"`: `/privacy` is `privacy.html`, so the server must
+  try `<path>.html`. `compressHTML` is off because it ate the space before
+  inline tags.
+- No third-party scripts, fonts or trackers; Plausible is a separate decision
+  (#61). `tests/site.test.mjs` (`mise run test:site`) checks the build: every
+  page and internal link, no `<script>`, no JS files, nothing loaded from
+  another origin, and the facts the install, support and privacy pages must
+  state.
 
 ## Server (`server_web`)
 

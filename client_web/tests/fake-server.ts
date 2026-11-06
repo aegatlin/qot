@@ -8,6 +8,8 @@ export class FakeServer {
   offline = false;
   pageSize = 500;
   refreshes = 0;
+  email = "me@example.com";
+  deleted = false;
   private issued = 1;
 
   expireAccessTokens() {
@@ -43,6 +45,15 @@ export class FakeServer {
         const cursor = changes.length ? changes[changes.length - 1]!.seq : since;
         return json(200, { changes, cursor, more: cursor < this.log.length });
       }
+      case "DELETE /api/account":
+        if (!auth || !this.validAccess.has(auth)) return json(401, { error: "unauthorized" });
+        if (String(body.confirm ?? "").trim().toLowerCase() !== this.email)
+          return json(400, { error: "confirmation_mismatch" });
+        this.deleted = true;
+        this.log = [];
+        this.validAccess.clear();
+        this.validRefresh.clear();
+        return json(200, { deleted: true });
       default:
         return json(404, { error: "not found" });
     }

@@ -1,0 +1,32 @@
+{
+  "name": "qot-site",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "lint": "astro check",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "8.1.1",
+    "@astrojs/react": "7.1.1",
+    "@tailwindcss/typography": "0.5.20",
+    "@tailwindcss/vite": "4.3.3",
+    "astro": "7.4.2",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tailwind-merge": "3.7.0",
+    "tailwindcss": "4.3.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.12",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "6.0.3"
+  }
+}

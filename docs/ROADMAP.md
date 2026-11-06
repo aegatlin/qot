@@ -14,7 +14,7 @@ step. Keep the CLAUDE.md "Product" section in sync when priorities change.
 | Sync server | Feature-complete for v1 and live at `api.quantumofthought.com` (staging: `staging-api.`); staging deploys green pushes to `main`, production deploys `server/v*` tags. Sign-in email works. Rate limits, account deletion and export, post-deploy smoke test. |
 | PWA | Built 2026-11-06 (`client_web`, `core_wasm`): capture, list, delete, live sync, offline, sign-in through the PWA, the deploy image and workflows. Not deployed yet: #54 (Railway service and DNS, a person). |
 | iOS app | Started 2026-11-04: `client_apple` (XcodeGen), QotKit over `qot_ffi`; capture, list, delete, device sign-in and sync (live while open, background refresh), sign-out, delete account and export; the store is in the App Group (#27, #28); Siri/Shortcuts/Action button capture, a Control Center control, Lock and Home Screen widgets, on-device dictation (#29–#31); a Watch app that captures through the iPhone (#35). Not on TestFlight yet (#32). |
-| Website | Not started; planned after the PWA and before the iOS app goes to the App Store (#19, #17). |
+| Website | Pages built 2026-11-06 (`site_web`, Astro, no JavaScript): home, install, support, and draft privacy policy and terms. Not deployed: the image and release workflow, then the Railway service and DNS (#19); policy text needs a person (#17). |
 
 ## Now: dogfood the CLI and sync
 
@@ -61,9 +61,12 @@ Lives at `app.quantumofthought.com`, an origin that must never change
 `www.quantumofthought.com`: what qot is, how to install each client, and the
 privacy policy, terms and support page the App Store asks for. So it comes
 before the iOS app ships, not after launch. Same hosting shape as the PWA.
+The Abstract Syntax site (`www.abstractsyntax.llc`) gets a qot card that
+links here, and `/qot` there redirects here.
 
 - #19 The website
 - #17 Privacy policy and terms (a person; an agent can draft)
+- #61 Plausible on the website, or not
 
 ### iOS app
 
