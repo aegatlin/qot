@@ -13,6 +13,8 @@ config :qot, QotWeb.Endpoint,
   secret_key_base: "test_secret_key_base_at_least_64_bytes_long_for_testing_only_use_here",
   server: false
 
+config :qot, :app_url, "https://app.example"
+
 # Use test adapter for emails (doesn't actually send)
 config :qot, Qot.Accounts.Mailer, adapter: Swoosh.Adapters.Test
 config :swoosh, :api_client, false

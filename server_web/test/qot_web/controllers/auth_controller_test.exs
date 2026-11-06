@@ -11,6 +11,11 @@ defmodule QotWeb.AuthControllerTest do
       assert code =~ ~r/^[A-Z]{4}-[A-Z]{4}$/
     end
 
+    test "says where the web app is, so the device can point to it", %{conn: conn} do
+      assert %{"app_url" => "https://app.example"} =
+               conn |> post("/api/auth/device", %{email: "cli@example.com"}) |> json_response(200)
+    end
+
     test "rejects a missing or invalid email", %{conn: conn} do
       assert %{"error" => _} = conn |> post("/api/auth/device", %{}) |> json_response(400)
 

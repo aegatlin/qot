@@ -1,6 +1,7 @@
 import Config
 
-config :qot, :cors_origins, ["http://localhost:5173", "http://localhost:5174"]
+# The PWA's dev server (`mise run dev:web`); APP_URL overrides it.
+config :qot, :app_url, "http://localhost:5173"
 
 config :qot, Qot.Repo,
   username: System.get_env("PGUSER") || System.get_env("USER"),
@@ -13,7 +14,6 @@ config :qot, Qot.Repo,
 
 config :qot, QotWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4000],
-  check_origin: false,
   code_reloader: false,
   debug_errors: true,
   secret_key_base: "dev_secret_key_base_at_least_64_bytes_long_for_development_only_use",

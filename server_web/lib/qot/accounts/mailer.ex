@@ -15,7 +15,7 @@ defmodule Qot.Accounts.Mailer do
   is shown only on the device, never in the email.
   """
   def send_device_login(email, link_token) do
-    url = QotWeb.Endpoint.url() <> "/auth/device?token=" <> link_token
+    url = QotWeb.AppOrigin.sign_in_url(link_token)
 
     new()
     |> to(email)

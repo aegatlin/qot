@@ -19,6 +19,10 @@ pub struct DeviceStart {
     pub user_code: String,
     pub interval: u64,
     pub expires_in: u64,
+    /// The server's web app, if it has one: where the person can see their
+    /// notes next (the browser that approved this sign-in is signed in too).
+    #[serde(default)]
+    pub app_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

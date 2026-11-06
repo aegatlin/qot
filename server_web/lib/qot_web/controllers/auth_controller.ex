@@ -8,14 +8,16 @@ defmodule QotWeb.AuthController do
   @doc """
   POST /api/auth/device {"email": "..."}
   Starts a device sign-in and emails the link. The device shows `user_code`
-  and polls `/api/auth/device/token` every `interval` seconds. Too many
+  and polls `/api/auth/device/token` every `interval` seconds. `app_url` is
+  the web app (null without one), which the device can point to. Too many
   starts for one address or client IP get a 429 with `Retry-After` (and
   `retry_after` in the body), in seconds.
   """
   def start_device_login(conn, %{"email" => email}) when is_binary(email) do
     case Accounts.start_device_login(email, conn.assigns[:client_ip]) do
+      # app_url: where the device can point the person next (the PWA).
       {:ok, started} ->
-        json(conn, started)
+        json(conn, Map.put(started, :app_url, QotWeb.AppOrigin.url()))
 
       {:error, {:rate_limited, seconds}} ->
         conn
@@ -57,6 +59,67 @@ defmodule QotWeb.AuthController do
 
   def poll_device_login(conn, _params) do
     conn |> put_status(:bad_request) |> json(%{error: "invalid_device_code"})
+  end
+
+  @doc """
+  GET /api/auth/device/link?token=...
+  For the PWA's sign-in page: whether an emailed link can still be used, and
+  which account it signs in to. Approves nothing.
+  """
+  def device_link(conn, %{"token" => token}) when is_binary(token) do
+    case Accounts.get_device_login_by_link(token) do
+      {:ok, login} -> json(conn, %{email: login.email})
+      {:error, reason} -> link_error(conn, reason)
+    end
+  end
+
+  def device_link(conn, _params), do: link_error(conn, :not_found)
+
+  @doc """
+  POST /api/auth/device/approve {"token", "user_code", "sign_in_browser"}
+  The PWA's sign-in page: a correct code approves the device that asked and,
+  unless `sign_in_browser` is false, returns tokens for this browser too
+  (docs/records/2026-11-06-sign-in-through-the-pwa.md). A wrong code is a 422
+  `mismatch` and counts towards the five allowed; a used, denied or expired
+  link is a 410 or 404.
+  """
+  def approve_device_login(conn, %{"token" => token, "user_code" => code} = params)
+      when is_binary(token) and is_binary(code) do
+    result =
+      if params["sign_in_browser"] == false,
+        do: Accounts.approve_device_login(token, code),
+        else: Accounts.approve_device_login_and_sign_in(token, code)
+
+    case result do
+      {:ok, %{access_token: access_token, refresh_token: refresh_token, user: user}} ->
+        json(conn, %{
+          access_token: access_token,
+          refresh_token: refresh_token,
+          user: %{id: user.id, email: user.email}
+        })
+
+      {:ok, _login} ->
+        json(conn, %{approved: true})
+
+      {:error, :mismatch} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "mismatch"})
+
+      {:error, reason} ->
+        link_error(conn, reason)
+    end
+  end
+
+  def approve_device_login(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "token and user_code are required"})
+  end
+
+  # :not_found and :expired look the same: the link can't be used.
+  defp link_error(conn, reason) when reason in [:approved, :consumed, :denied] do
+    conn |> put_status(:gone) |> json(%{error: Atom.to_string(reason)})
+  end
+
+  defp link_error(conn, _reason) do
+    conn |> put_status(:not_found) |> json(%{error: "expired"})
   end
 
   defp poll_error(:authorization_pending), do: "authorization_pending"

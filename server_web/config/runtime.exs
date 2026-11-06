@@ -9,6 +9,17 @@ end
 # The deployed commit, reported by /health. Railway sets this on every deploy.
 config :qot, :commit, System.get_env("RAILWAY_GIT_COMMIT_SHA")
 
+# Where the PWA lives (QotWeb.AppOrigin): sign-in links open it, and its
+# origin may call the API. Unset in production, links open the server's own
+# sign-in page and no browser origin is allowed.
+if config_env() != :test do
+  case System.get_env("APP_URL") do
+    nil -> :ok
+    "" -> config :qot, :app_url, nil
+    url -> config :qot, :app_url, url
+  end
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

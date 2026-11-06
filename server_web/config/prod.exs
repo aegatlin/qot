@@ -1,7 +1,5 @@
 import Config
 
-config :qot, :cors_origins, []
-
 config :qot, Qot.Accounts.Mailer, adapter: Swoosh.Adapters.Resend
 
 config :swoosh, :api_client, Swoosh.ApiClient.Req

@@ -2,6 +2,9 @@ defmodule QotWeb.DevicePageController do
   @moduledoc """
   The page an emailed sign-in link opens. Opening it approves nothing: the
   person has to type the code their device is showing.
+
+  With a PWA (`QotWeb.AppOrigin`), links open the PWA's sign-in page instead,
+  and this page sends any link that still arrives here on to it.
   """
 
   use Phoenix.Controller, formats: [:html]
@@ -9,14 +12,20 @@ defmodule QotWeb.DevicePageController do
 
   alias Qot.Accounts
 
-  def show(conn, %{"token" => token}) do
+  def show(conn, %{"token" => token}) when is_binary(token) do
+    if QotWeb.AppOrigin.url(),
+      do: redirect(conn, external: QotWeb.AppOrigin.sign_in_url(token)),
+      else: form_page(conn, token)
+  end
+
+  def show(conn, _params), do: page(conn, 404, expired())
+
+  defp form_page(conn, token) do
     case Accounts.get_device_login_by_link(token) do
       {:ok, _login} -> page(conn, 200, form(token, nil))
       {:error, _} -> page(conn, 404, expired())
     end
   end
-
-  def show(conn, _params), do: page(conn, 404, expired())
 
   def approve(conn, %{"token" => token, "user_code" => user_code}) do
     case Accounts.approve_device_login(token, user_code) do
