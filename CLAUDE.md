@@ -370,6 +370,17 @@ the rules the CLI is tested with:
   page and internal link, no `<script>`, no JS files, nothing loaded from
   another origin, and the facts the install, support and privacy pages must
   state.
+- **Deploys**: the PWA's shape. Railway service `site`, built from
+  `site_web/Dockerfile` with the repo root as context (Node, then Caddy;
+  `NODE_VERSION` must match `mise.toml`, which CI checks). `bin/site` starts
+  Caddy (`site_web/Caddyfile`): `/health` `{status, commit}`, clean URLs
+  (`/privacy` serves `privacy.html`; `.html` and trailing slashes redirect),
+  `404.html`, immutable `/_astro/*`, `no-cache` elsewhere, and a CSP that
+  allows no scripts. Staging (`staging-www.`) deploys green pushes to `main`
+  touching `site_web/`; production (`www.`) deploys the `production-site`
+  branch, which `.github/workflows/release-site.yml` moves to a `site/v*` tag
+  (a person pushes it), then smoke-tests (`scripts/smoke-test-site <url>
+  [<sha>]`, also run for staging by `smoke-site.yml` and on the image in CI).
 
 ## Server (`server_web`)
 

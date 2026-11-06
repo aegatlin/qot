@@ -1,0 +1,76 @@
+name: Smoke test site
+
+# After a deploy of the website, checks that it works (scripts/smoke-test-site):
+# waits until /health reports the deployed commit, then checks every page, the
+# 404, the clean-URL redirects and the CSP.
+#
+# - Staging: after CI passes on a push to main whose commit touched site_web/
+#   (the same rule as Railway's watch pattern).
+# - Production: called by release-site.yml once production-site has moved.
+# - By hand: Actions -> Smoke test site -> Run workflow.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      sha:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+        default: staging
+      sha:
+        description: Commit to wait for (empty = whatever is deployed)
+        type: string
+        required: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: smoke-site-${{ inputs.environment || 'staging' }}
+      cancel-in-progress: true
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.workflow_run.head_sha || inputs.sha || github.sha }}
+      - id: target
+        env:
+          EVENT: ${{ github.event_name }}
+          ENVIRONMENT: ${{ inputs.environment || 'staging' }}
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
+        run: |
+          case "$ENVIRONMENT" in
+            staging) site=https://staging-www.quantumofthought.com ;;
+            production) site=https://www.quantumofthought.com ;;
+            *) echo "::error::unknown environment $ENVIRONMENT"; exit 1 ;;
+          esac
+          deployed=true
+          if [ "$EVENT" = workflow_run ] && git diff --quiet HEAD^ HEAD -- site_web; then
+            echo "$SHA didn't touch site_web/, so Railway didn't deploy it"
+            deployed=false
+          fi
+          {
+            echo "site=$site"
+            echo "sha=$SHA"
+            echo "deployed=$deployed"
+          } >> "$GITHUB_OUTPUT"
+      - if: steps.target.outputs.deployed == 'true'
+        env:
+          SITE: ${{ steps.target.outputs.site }}
+          SHA: ${{ steps.target.outputs.sha }}
+        run: scripts/smoke-test-site "$SITE" "$SHA"

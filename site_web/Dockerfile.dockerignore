@@ -1,0 +1,6 @@
+# Context is the repo root; send only what site_web/Dockerfile copies.
+*
+!site_web
+site_web/node_modules
+site_web/dist
+site_web/.astro
