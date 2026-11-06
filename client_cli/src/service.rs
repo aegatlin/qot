@@ -32,6 +32,13 @@ pub struct SyncReport {
     pub pulled: usize,
 }
 
+/// What `qot status` reports about the local store.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Counts {
+    pub live: usize,
+    pub unsynced: usize,
+}
+
 pub fn data_dir() -> Result<PathBuf, String> {
     if let Some(dir) = std::env::var_os(DATA_DIR_ENV).filter(|d| !d.is_empty()) {
         return Ok(PathBuf::from(dir));
@@ -145,6 +152,18 @@ impl NoteService {
     fn save_state(&self, state: &SyncState) -> Result<(), String> {
         let json = serde_json::to_vec(state).map_err(|e| e.to_string())?;
         std::fs::write(self.state_path(), json).map_err(|e| e.to_string())
+    }
+
+    /// How many live notes this device holds, and how many notes (deleted
+    /// ones included) have changes that haven't been pushed yet. Reads only
+    /// local files.
+    pub fn counts(&self) -> Result<Counts, String> {
+        let notes = self.load_all()?;
+        let state = self.load_state()?;
+        Ok(Counts {
+            live: notes.iter().filter(|n| !n.is_deleted()).count(),
+            unsynced: plan_push(&notes, &state).len(),
+        })
     }
 
     pub fn create(&mut self, content: &str) -> Result<Note, String> {
