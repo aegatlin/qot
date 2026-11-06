@@ -26,6 +26,8 @@ cargo-dist = "0.33.1"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.130"
 # Builds and tests client_web (the PWA).
 node = "24.22.2"
+# wasm-opt: shrinks the release build of core_wasm.
+"github:WebAssembly/binaryen" = "version_129"
 
 [tasks."test:rust"]
 description = "Test the Rust workspace (core + CLI)"
@@ -58,10 +60,9 @@ dir = "client_web"
 run = "npm test"
 
 [tasks."e2e:web"]
-description = "The PWA end to end in headless Chromium, against a local server and the CLI"
+description = "The PWA end to end in headless Chromium, against a local server and the CLI (needs Postgres)"
 depends = ["build:wasm-core", "deps:web"]
-dir = "client_web"
-run = "npm run e2e"
+run = ["cargo build -p qot_cli", "cd client_web && npm run e2e"]
 
 [tasks.test]
 description = "Test everything"

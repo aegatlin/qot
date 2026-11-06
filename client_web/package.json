@@ -1,0 +1,27 @@
+{
+  "name": "qot-web",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "e2e": "playwright test --trace off"
+  },
+  "dependencies": {
+    "phoenix": "1.8.16",
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.19.2",
+    "@types/phoenix": "1.6.8",
+    "fake-indexeddb": "6.2.7",
+    "typescript": "6.0.3",
+    "vite": "8.3.6",
+    "vitest": "5.1.0"
+  }
+}

@@ -1,0 +1,57 @@
+name: Release web
+
+# Production deploys of the PWA (app.quantumofthought.com) from tags: push a
+# `web/v<version>` tag on a commit that is on main. This runs CI on it, then
+# moves the `production-web` branch to it; Railway's production `web`
+# service deploys that branch. Staging deploys every green push to main on
+# its own. Same shape as release-server.yml.
+#
+#   git tag web/v0.1.0 && git push origin web/v0.1.0
+#
+# Tagging an older commit and pushing it rolls the PWA back to it. Once
+# production-web has moved, smoke-web.yml waits for the new release and
+# checks it.
+#
+# Railway's production `web` service must not have a watch pattern, for the
+# same reason as the server's: Railway checks only the files the pushed
+# commit changed.
+
+on:
+  push:
+    tags: ["web/v*"]
+
+concurrency:
+  group: release-web
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  promote:
+    needs: ci
+    runs-on: ubuntu-24.04
+    environment:
+      name: production
+      url: https://app.quantumofthought.com
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: The tagged commit must be on main
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not on main"
+            exit 1
+          }
+      - name: Move production-web to the tag
+        run: git push --force origin "$GITHUB_SHA:refs/heads/production-web"
+
+  smoke:
+    needs: promote
+    uses: ./.github/workflows/smoke-web.yml
+    with:
+      environment: production
+      sha: ${{ github.sha }}

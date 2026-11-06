@@ -27,4 +27,11 @@ rm -rf "$out"
 wasm-bindgen --target web --weak-refs --out-dir "$out" \
   "target/wasm32-unknown-unknown/$profile/qot_wasm.wasm"
 
+# Release: shrink with wasm-opt (binaryen, pinned in mise.toml); it also
+# drops the symbol names the build keeps for wasm-bindgen.
+if [[ "$profile" == wasm-release ]]; then
+  wasm-opt -Oz --strip-debug --strip-producers \
+    "$out/qot_wasm_bg.wasm" -o "$out/qot_wasm_bg.wasm"
+fi
+
 echo "qot_wasm: $(du -h "$out/qot_wasm_bg.wasm" | cut -f1) ($(gzip -c "$out/qot_wasm_bg.wasm" | wc -c | awk '{printf "%.0f KB", $1/1024}') gzipped)"

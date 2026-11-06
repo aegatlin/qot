@@ -1,0 +1,78 @@
+name: Smoke test web
+
+# After a deploy of the PWA, checks that it works and that its API accepts
+# it (scripts/smoke-test-web): waits until the app's /health reports the
+# deployed commit, then checks the app, its config and the API's CORS.
+#
+# - Staging: after CI passes on a push to main whose commit touched what the
+#   web image is built from (the same rule as Railway's watch patterns).
+# - Production: called by release-web.yml once production-web has moved.
+# - By hand: Actions -> Smoke test web -> Run workflow.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      sha:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+        default: staging
+      sha:
+        description: Commit to wait for (empty = whatever is deployed)
+        type: string
+        required: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: smoke-web-${{ inputs.environment || 'staging' }}
+      cancel-in-progress: true
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.workflow_run.head_sha || inputs.sha || github.sha }}
+      - id: target
+        env:
+          EVENT: ${{ github.event_name }}
+          ENVIRONMENT: ${{ inputs.environment || 'staging' }}
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
+        run: |
+          case "$ENVIRONMENT" in
+            staging) app=https://staging-app.quantumofthought.com; api=https://staging-api.quantumofthought.com ;;
+            production) app=https://app.quantumofthought.com; api=https://api.quantumofthought.com ;;
+            *) echo "::error::unknown environment $ENVIRONMENT"; exit 1 ;;
+          esac
+          deployed=true
+          if [ "$EVENT" = workflow_run ] && git diff --quiet HEAD^ HEAD -- client_web core core_wasm Cargo.lock; then
+            echo "$SHA didn't touch the web image's sources, so Railway didn't deploy it"
+            deployed=false
+          fi
+          {
+            echo "app=$app"
+            echo "api=$api"
+            echo "sha=$SHA"
+            echo "deployed=$deployed"
+          } >> "$GITHUB_OUTPUT"
+      - if: steps.target.outputs.deployed == 'true'
+        env:
+          APP: ${{ steps.target.outputs.app }}
+          API: ${{ steps.target.outputs.api }}
+          SHA: ${{ steps.target.outputs.sha }}
+        run: scripts/smoke-test-web "$APP" "$API" "$SHA"

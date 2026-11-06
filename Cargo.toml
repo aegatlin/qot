@@ -12,10 +12,12 @@ inherits = "release"
 lto = "thin"
 
 # The browser downloads qot_wasm, so it is built for size
-# (scripts/build-wasm-core --release).
+# (scripts/build-wasm-core --release, which also runs wasm-opt). Debug info
+# is stripped but symbols aren't: wasm-bindgen reads the target_features
+# section that a full strip removes, and wasm-opt drops the names after.
 [profile.wasm-release]
 inherits = "release"
 opt-level = "s"
 lto = true
 codegen-units = 1
-strip = true
+strip = "debuginfo"
