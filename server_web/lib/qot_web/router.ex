@@ -7,8 +7,7 @@ defmodule QotWeb.Router do
     plug(QotWeb.Plugs.ClientIP)
   end
 
-  # The sign-in page opened from the email. No session or CSRF token: the
-  # form only works with the link token, which a forging site doesn't have.
+  # Old sign-in links, sent on to the PWA (DevicePageController).
   pipeline :page do
     plug(:accepts, ["html"])
     plug(:put_secure_browser_headers)
@@ -37,7 +36,6 @@ defmodule QotWeb.Router do
     pipe_through(:page)
 
     get("/device", DevicePageController, :show)
-    post("/device", DevicePageController, :approve)
   end
 
   scope "/api", QotWeb do

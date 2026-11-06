@@ -10,13 +10,20 @@ end
 config :qot, :commit, System.get_env("RAILWAY_GIT_COMMIT_SHA")
 
 # Where the PWA lives (QotWeb.AppOrigin): sign-in links open it, and its
-# origin may call the API. Unset in production, links open the server's own
-# sign-in page and no browser origin is allowed.
+# origin may call the API. Required in production; dev defaults to the PWA's
+# dev server (config/dev.exs).
 if config_env() != :test do
   case System.get_env("APP_URL") do
-    nil -> :ok
-    "" -> config :qot, :app_url, nil
-    url -> config :qot, :app_url, url
+    nil ->
+      if config_env() == :prod do
+        raise "environment variable APP_URL is missing: the PWA's URL, e.g. https://app.quantumofthought.com"
+      end
+
+    "" ->
+      raise "APP_URL is empty: set it to the PWA's URL, e.g. https://app.quantumofthought.com"
+
+    url ->
+      config :qot, :app_url, url
   end
 end
 

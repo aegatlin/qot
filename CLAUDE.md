@@ -87,9 +87,10 @@ changes end to end, not only with tests:
   <any email> --server http://localhost:4000` in the background with a
   scratch `QOT_DATA_DIR`. Dev logs the email, so take the
   `/auth/device?token=…` link from the server log (in dev it points at the
-  PWA's dev server, `mise run dev:web`; `APP_URL=` empty gives the server's
-  own page) and the `XXXX-XXXX` code
-  from the CLI's output, open the link in Chromium, fill the code and submit.
+  PWA's dev server, `mise run dev:web`) and the `XXXX-XXXX` code from the
+  CLI's output, then open the link in Chromium, fill the code and submit. With
+  no browser, approve it directly: `POST /api/auth/device/approve {token,
+  user_code, sign_in_browser: false}`.
   The CLI then signs in; a second `QOT_DATA_DIR` signed in the same way is a
   second device, which shows sync working (`qot get …` on one, `qot list` on
   the other).
@@ -352,8 +353,7 @@ the rules the CLI is tested with:
      `device_code` (secret, kept on the device) and a `user_code`
      (`XXXX-XXXX`, shown to the person).
   2. The server emails a link to the PWA's `/auth/device?token=…` page
-     (`APP_URL`; without one, the server's own small HTML page at the same
-     path) where the person **types the user code**. Opening the link approves
+     (`APP_URL`) where the person **types the user code**. Opening the link approves
      nothing, so mail scanners that prefetch links are harmless, and someone
      who starts a sign-in with your address can't get in by you clicking an
      email you didn't expect. The code is never in the email. Five wrong codes
@@ -376,8 +376,8 @@ the rules the CLI is tested with:
   sign_in_browser}`: a correct code approves the asking device and, unless
   `sign_in_browser` is false, returns tokens for that browser too, in the
   same transaction. `POST /api/auth/device` returns `app_url` so `qot login`
-  can point to the PWA. With `APP_URL` set, the server's `/auth/device`
-  redirects to the PWA's.
+  can point to the PWA. The server's own `/auth/device` (where links pointed
+  before the PWA) only redirects to the PWA's, so old links never break.
   **Browser origins**: `QotWeb.AppOrigin` (from `APP_URL`, read at runtime)
   is the one origin CORS (`QotWeb.Plugs.CORS`, no credentials) and the
   socket's `check_origin` accept; native clients send no `Origin`.
@@ -426,11 +426,10 @@ the rules the CLI is tested with:
   reading tool versions from `mise.toml`.
 - Dev logs every email (sign-in links included) to the server's console.
 - Production env: `DATABASE_URL`, `JWT_SECRET_KEY`, `RESEND_API_KEY`,
-  `SECRET_KEY_BASE`, `PHX_HOST`. Optional: `APP_URL` (the PWA, e.g.
-  `https://app.quantumofthought.com`: sign-in links open it and its origin may
-  call the API; unset, links open the server's page and no browser origin is
-  allowed),
-  `CLIENT_IP_HEADER` (default `x-real-ip`), `DATABASE_SSL=false` (a database on the host's private network; TLS with
+  `SECRET_KEY_BASE`, `PHX_HOST`, `APP_URL` (the PWA, e.g.
+  `https://app.quantumofthought.com`: sign-in links open it and its origin is
+  the one browser origin allowed; dev defaults to `http://localhost:5173`).
+  Optional: `CLIENT_IP_HEADER` (default `x-real-ip`), `DATABASE_SSL=false` (a database on the host's private network; TLS with
   certificate verification is the default), `ECTO_IPV6=true`, `POOL_SIZE`,
   `PORT`. Dev and test need none.
 - **Release**: `server_web/Dockerfile` builds a `mix release` (Elixir and
