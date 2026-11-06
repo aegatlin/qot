@@ -72,7 +72,7 @@ Dogfooding on the phone too: capture there is the point. Layout and why:
 Bundle id `llc.abstractsyntax.qot` and App Group
 `group.llc.abstractsyntax.qot`, in the Abstract Syntax LLC team
 (`H88537CLVC`) with the company's other apps (moved from a personal team on
-2026-11-06). Xcode's automatic signing registers identifiers; the `asc` CLI's
+2026-11-06); App Store Connect app `6831604070`. Xcode's automatic signing registers identifiers; the `asc` CLI's
 API key has the Developer role, so it reads App Store Connect but can't
 create App IDs or apps.
 
