@@ -189,6 +189,12 @@ the rules the CLI is tested with:
 - `apply_pulled` moves a note's "pushed" heads only if nothing local was
   waiting, so local edits made before a pull still go up next time.
 - A device pulls back its own pushes; applying them is a no-op.
+- **Shared test vectors** (`core/tests/vectors/sync.json`) pin these rules
+  for every binding: `core/tests/sync_vectors.rs` (Rust, which also
+  regenerates them), `SyncVectorTests` (Swift) and `core_wasm/tests/web.rs`
+  (wasm) replay the same cases. Regenerate only when the rules change on
+  purpose (`cargo test -p qot_core --test sync_vectors -- --ignored
+  regenerate`); a new binding replays them too.
 
 ## CLI (`client_cli`)
 
@@ -246,20 +252,56 @@ the rules the CLI is tested with:
   UniFFI and puts both in `QotKit/` (gitignored). Rerun it after any Rust
   change. `project.yml` is the source of the Xcode project; the
   `.xcodeproj` is generated and gitignored, so edit `project.yml`.
-- **QotKit** holds the logic (store, and later API and sync shell) as a
-  plain SwiftPM package, tested with `swift test` (Swift Testing) on the Mac
-  host against the real Rust core. App, widget and intent targets stay thin
-  SwiftUI over it. The generated bindings are internal to QotKit, which
-  exposes its own types (`NoteStore`, `NoteItem`).
-- The store uses the CLI's layout (`notes/<id>.note`, Automerge bytes),
-  currently under the app's Application Support directory.
+- **QotKit** holds the logic as a plain SwiftPM package, tested with `swift
+  test` (Swift Testing) on the Mac host against the real Rust core. App,
+  widget and intent targets stay thin SwiftUI over it. `NoteStore` (files),
+  `ServerAPI` (HTTP over an injectable `HTTPTransport`), `Syncer` (push then
+  pull with `qot_core::sync`, state saved after every step), `Account`
+  (device sign-in, sign-out, delete account), `LiveNudges` (the channel
+  nudge over `URLSessionWebSocketTask`, Phoenix frames in `PhoenixFrame`),
+  `KeychainCredentialStore`. Tests fake the server as a transport
+  (`Tests/QotKitTests/FakeServer.swift`, the twin of the PWA's).
+  `LiveServerTests` runs against a real dev server when
+  `QOT_E2E_SERVER=http://localhost:4000` and `QOT_E2E_SERVER_LOG=<server
+  log>` are set: two devices sign in (approving through the emailed link in
+  the log), sync, and one is nudged live.
+- **The store is in the App Group** (`AppGroup.store()`: `<group
+  container>/qot/`), in the CLI's layout (`notes/<id>.note`, `sync.json`),
+  so intents and widgets share it; notes from the app's old Application
+  Support store are merged in on launch. Every process may write: note
+  read-modify-writes hold `store.lock` and save by merging with what is on
+  disk; a sync holds `sync.lock` (both `flock`). Tokens are in the Keychain
+  with the App Group as access group, readable after first unlock.
+- **Capture surfaces**: `AddNoteIntent` (app target; Siri phrases in
+  `QotShortcuts`, also Shortcuts, the Action button and Spotlight) saves
+  through `Capture` (QotKit: save, then a sync bounded to 3 s) without
+  opening the app. `Shared/` is compiled into the app and the `QotWidgets`
+  extension (`llc.abstractsyntax.qot.widgets`): `OpenCaptureIntent` (the
+  Control Center control; opens the app ready to type). The extension also
+  has a Lock Screen widget and a Home Screen "Latest Notes" widget, which
+  read the App Group store; the app reloads widget timelines whenever its
+  notes change. `qot://capture` opens the app ready to type. Dictation
+  (`Dictation.swift`) transcribes on the device (`requiresOnDeviceRecognition`)
+  into the draft for the person to check; audio is never kept or sent.
+- The app syncs on launch and foreground, after every capture and delete
+  (in the background; capture never waits), on pull-to-refresh, on the
+  channel nudge while open, and in a `BGAppRefreshTask`
+  (`llc.abstractsyntax.qot.sync`). The account sheet signs in against
+  production, staging or any URL (`http://localhost:4000` from the
+  simulator; ATS allows local networking only). Requests send `User-Agent:
+  qot-ios/<version> (iOS <version>; <model>)`.
 - The FFI is synchronous and UniFFI is pinned exactly. Network I/O belongs
   in Swift, not Rust.
 - `mise run test:apple` needs macOS and Xcode; elsewhere it reports itself
   skipped. CI runs it on macOS only when Apple or Rust paths change
   (`.github/workflows/apple.yml`).
-- The Watch doesn't link `qot_core` in v1 (arm64_32 is a Tier 3 Rust
-  target); it hands captures to the iPhone (#35).
+- **The Watch** (`QotWatch`, `llc.abstractsyntax.qot.watchkitapp`, embedded
+  in the iOS app) doesn't link `qot_core` in v1 (arm64_32 is a Tier 3 Rust
+  target): it sends `{id, text}` to the iPhone with WatchConnectivity
+  `transferUserInfo` (queued while apart), and the phone's `WatchReceiver`
+  saves it through QotKit's `Inbox` (drops a transfer delivered twice, by
+  id) and syncs. `QotWatchWidgets` is the complication / Smart Stack
+  widget. Its App IDs get registered the first time the app is archived.
 
 ## Web (`client_web`)
 
