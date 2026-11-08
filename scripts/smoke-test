@@ -12,6 +12,9 @@ set -euo pipefail
 base=${1:?usage: scripts/smoke-test <base-url> [<commit-sha>]}
 base=${base%/}
 want=${2:-}
+# The commit to wait for, or several (space-separated): the first is the one
+# named in messages; any of them counts as deployed.
+want_label=${want%% *}
 timeout=${SMOKE_TIMEOUT:-1200}
 interval=${SMOKE_INTERVAL:-15}
 
@@ -28,14 +31,14 @@ deadline=$((SECONDS + timeout))
 while :; do
   read -r status body < <(request "$base/health")
   commit=$(jq -r '.commit // empty' <<<"$body" 2>/dev/null || true)
-  if [[ $status == 200 && ( -z $want || $commit == "$want" ) ]]; then
-    echo "ok: /health is up${want:+ at $want}"
+  if [[ $status == 200 && ( -z $want || " $want " == *" $commit "* ) ]]; then
+    echo "ok: /health is up${want:+ at $commit}"
     break
   fi
   if (( SECONDS >= deadline )); then
-    fail "/health never reported ${want:-ok} within ${timeout}s (last: $status, commit '${commit}')"
+    fail "/health never reported ${want_label:-ok} within ${timeout}s (last: $status, commit '${commit}')"
   fi
-  echo "waiting: /health is $status, commit '${commit}'${want:+, want $want}"
+  echo "waiting: /health is $status, commit '${commit}'${want:+, want $want_label}"
   sleep "$interval"
 done
 

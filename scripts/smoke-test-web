@@ -12,6 +12,9 @@ api=${2:?usage: scripts/smoke-test-web <app-url> <api-url> [<commit-sha>]}
 app=${app%/}
 api=${api%/}
 want=${3:-}
+# The commit to wait for, or several (space-separated): the first is the one
+# named in messages; any of them counts as deployed.
+want_label=${want%% *}
 timeout=${SMOKE_TIMEOUT:-1200}
 interval=${SMOKE_INTERVAL:-15}
 
@@ -22,12 +25,12 @@ while :; do
   body=$(curl -sS --max-time 10 "$app/health" 2>/dev/null || true)
   commit=$(jq -r '.commit // empty' <<<"$body" 2>/dev/null || true)
   status=$(jq -r '.status // empty' <<<"$body" 2>/dev/null || true)
-  if [[ $status == ok && ( -z $want || $commit == "$want" ) ]]; then
-    echo "ok: /health is up${want:+ at $want}"
+  if [[ $status == ok && ( -z $want || " $want " == *" $commit "* ) ]]; then
+    echo "ok: /health is up${want:+ at $commit}"
     break
   fi
-  (( SECONDS < deadline )) || fail "/health never reported ${want:-ok} within ${timeout}s (last commit '${commit}')"
-  echo "waiting: /health commit '${commit}'${want:+, want $want}"
+  (( SECONDS < deadline )) || fail "/health never reported ${want_label:-ok} within ${timeout}s (last commit '${commit}')"
+  echo "waiting: /health commit '${commit}'${want:+, want $want_label}"
   sleep "$interval"
 done
 

@@ -548,8 +548,14 @@ the rules the CLI is tested with:
   `scripts/smoke-test <url> [<sha>]`): waits until `/health` reports the
   deployed commit (`commit`, from Railway's `RAILWAY_GIT_COMMIT_SHA`), then
   checks that the API answers. Read-only and sends no email, so it is safe
-  against production. Staging runs it after CI passes on `main`;
-  `release-server.yml` runs it for production after promoting.
+  against production. `release-server.yml` runs it for production after
+  promoting. For staging, all three smoke workflows (`smoke.yml`,
+  `smoke-web.yml`, `smoke-site.yml`) run on the GitHub deployment status
+  Railway posts for "qot / staging", **never as `workflow_run` after CI**:
+  Railway's "wait for CI" waits for every Actions run on the commit, so a
+  smoke run waiting for the deploy deadlocked it and Railway skipped the
+  deploy (#68). Each checks that staging runs the last commit that changed
+  its service (or a later one), so a skipped deploy fails the next run.
 - CI (`.github/workflows/ci.yml`) runs on every PR: Rust, server, the
   PWA (wasm, tests, e2e), the website, and the three Docker images, reading
   tool versions from `mise.toml`.

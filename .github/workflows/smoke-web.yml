@@ -4,16 +4,19 @@ name: Smoke test web
 # it (scripts/smoke-test-web): waits until the app's /health reports the
 # deployed commit, then checks the app, its config and the API's CORS.
 #
-# - Staging: after CI passes on a push to main whose commit touched what the
-#   web image is built from (the same rule as Railway's watch patterns).
+# - Staging: on each staging deploy Railway reports. Staging must run the last
+#   commit that changed what the web image is built from (Railway's watch
+#   patterns) or a later one; if Railway skipped that deploy (#68), this
+#   fails instead of passing.
 # - Production: called by release-web.yml once production-web has moved.
 # - By hand: Actions -> Smoke test web -> Run workflow.
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+  # Railway reports each deploy as a GitHub deployment ("qot / staging").
+  # Not workflow_run after CI: Railway's "wait for CI" waits for every
+  # Actions run on the commit, so a smoke run started before Railway
+  # deployed held the deploy until it timed out, and Railway skipped it (#68).
+  deployment_status:
   workflow_call:
     inputs:
       environment:
@@ -40,39 +43,49 @@ jobs:
       group: smoke-web-${{ inputs.environment || 'staging' }}
       cancel-in-progress: true
     if: >-
-      github.event_name != 'workflow_run' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push')
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment.environment == 'qot / staging' &&
+       contains(fromJSON('["success", "failure", "error"]'), github.event.deployment_status.state))
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 2
-          ref: ${{ github.event.workflow_run.head_sha || inputs.sha || github.sha }}
+          # Whole history: staging is checked against the last commit that
+          # changed this service, which may be far back.
+          fetch-depth: 0
+          ref: ${{ github.event.deployment.sha || inputs.sha || github.sha }}
       - id: target
         env:
           EVENT: ${{ github.event_name }}
+          STATE: ${{ github.event.deployment_status.state }}
           ENVIRONMENT: ${{ inputs.environment || 'staging' }}
-          SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
+          SHA: ${{ github.event.deployment.sha || inputs.sha }}
         run: |
           case "$ENVIRONMENT" in
             staging) app=https://staging-app.quantumofthought.com; api=https://staging-api.quantumofthought.com ;;
             production) app=https://app.quantumofthought.com; api=https://api.quantumofthought.com ;;
             *) echo "::error::unknown environment $ENVIRONMENT"; exit 1 ;;
           esac
-          deployed=true
-          if [ "$EVENT" = workflow_run ] && git diff --quiet HEAD^ HEAD -- client_web core core_wasm Cargo.lock; then
-            echo "$SHA didn't touch the web image's sources, so Railway didn't deploy it"
-            deployed=false
+          want=$SHA
+          if [ "$EVENT" = deployment_status ] && [ "$STATE" != success ]; then
+            echo "::error::Railway reports the staging deploy of $SHA as $STATE"; exit 1
+          fi
+          if [ "$EVENT" = deployment_status ]; then
+            # Railway deploys a service only when the pushed commit touches
+            # its paths, and can skip one (#68). So staging must run the last
+            # commit that changed them, or a later one (a manual redeploy);
+            # anything older is a skipped deploy, and the smoke test fails
+            # instead of passing quietly.
+            last=$(git log -1 --format=%H HEAD -- client_web core core_wasm Cargo.lock)
+            want="$last $(git rev-list "$last"..HEAD | tr '\n' ' ')"
+            echo "staging should run $last (the last change to the web image's sources) or later"
           fi
           {
             echo "app=$app"
             echo "api=$api"
-            echo "sha=$SHA"
-            echo "deployed=$deployed"
+            echo "want=$want"
           } >> "$GITHUB_OUTPUT"
-      - if: steps.target.outputs.deployed == 'true'
-        env:
+      - env:
           APP: ${{ steps.target.outputs.app }}
           API: ${{ steps.target.outputs.api }}
-          SHA: ${{ steps.target.outputs.sha }}
+          SHA: ${{ steps.target.outputs.want }}
         run: scripts/smoke-test-web "$APP" "$API" "$SHA"
