@@ -308,6 +308,10 @@ the rules the CLI is tested with:
   platform; layers are SVGs, the PWA's icon split into ring and dot). Each
   target folder carries its own copy (`App/`, `Watch/`, later the Mac);
   keep them identical. Edit in Icon Composer, then copy it over the others.
+- **Export compliance**: `App/Info.plist` sets
+  `ITSAppUsesNonExemptEncryption` to `NO` (only HTTPS and the Keychain, both
+  Apple's), so TestFlight doesn't ask per build. End-to-end encryption (#72)
+  changes that answer.
 - The FFI is synchronous and UniFFI is pinned exactly. Network I/O belongs
   in Swift, not Rust. Automerge comes through `qot_ffi`, never
   automerge-swift: the rules live once, in `qot_core`
