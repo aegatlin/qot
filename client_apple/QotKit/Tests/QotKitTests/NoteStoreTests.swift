@@ -59,6 +59,46 @@ private func tempStore() throws -> (NoteStore, URL) {
         #expect(abs(note.createdAt.timeIntervalSince(before)) < 5)
     }
 
+    @Test func updateChangesTheContentAndKeepsTheNote() throws {
+        let (store, dir) = try tempStore()
+        let note = try store.add("get milk")
+        let edited = try store.update(id: note.id, content: "get oat milk")
+        #expect(edited.id == note.id)
+        #expect(edited.content == "get oat milk")
+        #expect(try NoteStore(directory: dir).list().map(\.content) == ["get oat milk"])
+    }
+
+    @Test func updateMergesWithWhatIsOnDisk() throws {
+        // Another process (an intent, a sync) wrote since this one read: an
+        // edit is applied to the note on disk, not to a stale copy.
+        let (store, dir) = try tempStore()
+        let note = try store.add("milk")
+        let other = try NoteStore(directory: dir)
+        try other.update(id: note.id, content: "oat milk")
+        let edited = try store.update(id: note.id, content: "oat milk, eggs")
+        #expect(edited.content == "oat milk, eggs")
+    }
+
+    @Test func aNoteMayBeEditedToBlank() throws {
+        // The editor saves as you type; clearing a note to retype it is
+        // normal. Whether to discard an empty note is the UI's call.
+        let (store, _) = try tempStore()
+        let note = try store.add("get milk")
+        #expect(try store.update(id: note.id, content: "").content == "")
+    }
+
+    @Test func updatingAnUnknownNoteIsAnError() throws {
+        let (store, _) = try tempStore()
+        #expect(throws: NoteStoreError.self) { try store.update(id: "nope", content: "x") }
+    }
+
+    @Test func updatedAtIsTheLastEdit() throws {
+        let (store, _) = try tempStore()
+        let note = try store.add("get milk")
+        #expect(note.updatedAt >= note.createdAt.addingTimeInterval(-1))
+        #expect(abs(note.updatedAt.timeIntervalSinceNow) < 5)
+    }
+
     @Test func aCorruptNoteFileIsAnErrorNotAnEmptyNote() throws {
         let (store, dir) = try tempStore()
         try store.add("get milk")

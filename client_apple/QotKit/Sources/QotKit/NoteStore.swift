@@ -5,11 +5,14 @@ public struct NoteItem: Identifiable, Equatable, Hashable, Sendable {
     public let id: String
     public let content: String
     public let createdAt: Date
+    /// The last edit, to the second; never before `createdAt`.
+    public let updatedAt: Date
 
-    public init(id: String, content: String, createdAt: Date) {
+    public init(id: String, content: String, createdAt: Date, updatedAt: Date? = nil) {
         self.id = id
         self.content = content
         self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
     }
 }
 
@@ -62,6 +65,20 @@ public final class NoteStore: Sendable {
             .filter { !$0.isDeleted() }
             .map(item)
             .sorted { ($0.createdAt, $0.id) < ($1.createdAt, $1.id) }
+    }
+
+    /// Replaces a note's text, merging the edit into the note as it is on
+    /// disk now (another process may have changed it). Blank is allowed: the
+    /// editor saves as you type.
+    @discardableResult
+    public func update(id: String, content: String) throws -> NoteItem {
+        try withStoreLock {
+            let note = try load(path(id))
+            guard note.content() != content else { return item(note) }
+            let edited = try wrap { try note.update(content: content) }
+            try save(edited)
+            return item(edited)
+        }
     }
 
     /// Marks a note deleted. The file stays, so the delete can sync.
@@ -192,7 +209,8 @@ public final class NoteStore: Sendable {
         NoteItem(
             id: note.id(),
             content: note.content(),
-            createdAt: Date(timeIntervalSince1970: Double(note.createdAtMs()) / 1000))
+            createdAt: Date(timeIntervalSince1970: Double(note.createdAtMs()) / 1000),
+            updatedAt: Date(timeIntervalSince1970: Double(note.updatedAtMs()) / 1000))
     }
 }
 
