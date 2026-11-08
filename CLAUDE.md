@@ -418,6 +418,8 @@ the rules the CLI is tested with:
 ## Website (`site_web`)
 
 - `www.quantumofthought.com`: what qot is, `/install` (every client),
+  `/iphone` (every way to capture on iPhone and Apple Watch; keep it in step
+  with the app's intents, widgets and Siri phrases),
   `/support` (contact, export, account deletion, FAQ), `/privacy` and
   `/terms` (drafts until a person approves them, #17; `draft: true` in the
   frontmatter shows a banner). The Abstract Syntax site

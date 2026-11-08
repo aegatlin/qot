@@ -34,7 +34,7 @@ function resolves(path) {
   );
 }
 
-const ROUTES = ["index.html", "install.html", "support.html", "privacy.html", "terms.html", "404.html"];
+const ROUTES = ["index.html", "install.html", "iphone.html", "support.html", "privacy.html", "terms.html", "404.html"];
 
 test("every page is built", () => {
   for (const route of ROUTES) assert.ok(pages[route], `${route} is missing`);
@@ -87,6 +87,31 @@ test("install shows both ways to get the CLI and the PWA's address", () => {
     /curl -LsSf https:\/\/github\.com\/aegatlin\/qot\/releases\/latest\/download\/qot_cli-installer\.sh \| sh/,
   );
   assert.ok(urls(html).includes("https://app.quantumofthought.com"));
+});
+
+test("the iPhone page names every way to capture", () => {
+  const text = pages["iphone.html"].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  for (const fact of [
+    /Capture a thought in qot/,
+    /Action button/,
+    /Control Center/,
+    /Lock Screen/,
+    /Latest Notes/,
+    /Spotlight/,
+    /Shortcuts/,
+    /Back Tap/,
+    /Apple Watch/,
+    /dictat/i,
+    /Sign in with Apple/,
+    /iOS 26/,
+  ]) {
+    assert.match(text, fact, `iphone.html should mention ${fact}`);
+  }
+});
+
+test("install and the home page link to the iPhone page", () => {
+  assert.ok(urls(pages["install.html"]).includes("/iphone"));
+  assert.ok(urls(pages["index.html"]).includes("/iphone"));
 });
 
 test("support says how to reach a person, export notes and delete the account", () => {

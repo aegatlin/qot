@@ -1,0 +1,218 @@
+---
+import Base from "@/layouts/Base.astro";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+const appStore = "https://apps.apple.com/app/id6831604070";
+
+const phrases = [
+  "Capture a thought in qot",
+  "Capture in qot",
+  "Save a thought in qot",
+  "Tell qot something",
+];
+
+const ways = [
+  {
+    id: "siri",
+    title: "Siri",
+    badge: "Hands-free",
+    lede: "Say the thought out loud. qot saves it without opening.",
+    setup: [
+      "Nothing to set up. Say one of these, and Siri asks “What's the note?”:",
+    ],
+    phrases: true,
+    after:
+      "“Quantum of Thought” works in place of “qot” if Siri mishears it. “Open qot to write” opens a new note instead.",
+  },
+  {
+    id: "action-button",
+    title: "Action button",
+    badge: "One press",
+    lede: "Press and hold the button on the side of your iPhone, say or type the thought, done.",
+    setup: [
+      "Settings → Action Button, swipe to Shortcut, then Choose a Shortcut → qot → Add Note.",
+      "Prefer to land in the editor? Pick New Note instead.",
+    ],
+    after: "On iPhone models with an Action button (iPhone 15 Pro and later).",
+  },
+  {
+    id: "control-center",
+    title: "Control Center",
+    badge: "From anywhere",
+    lede: "Swipe down, tap, and type. qot opens on a fresh note with the keyboard up.",
+    setup: [
+      "Open Control Center, tap + at the top left, then Add a Control. Search for qot and choose New Note.",
+      "The same control can go on the Lock Screen, in place of the flashlight or camera.",
+    ],
+  },
+  {
+    id: "lock-screen",
+    title: "Lock Screen widget",
+    badge: "Glanceable",
+    lede: "A New Note button on the Lock Screen, one tap from a dark screen.",
+    setup: [
+      "Touch and hold the Lock Screen, tap Customize, then the widget area, and add qot's New Note.",
+    ],
+  },
+  {
+    id: "home-screen",
+    title: "Home Screen widget",
+    badge: "Glanceable",
+    lede: "Latest Notes shows your most recently edited notes. Tap it to write another.",
+    setup: [
+      "Touch and hold the Home Screen, tap Edit → Add Widget, search for qot and pick a size: small, medium or large.",
+    ],
+  },
+  {
+    id: "back-tap",
+    title: "Back Tap",
+    badge: "No button needed",
+    lede: "Double- or triple-tap the back of your iPhone to capture, on any model.",
+    setup: [
+      "In the Shortcuts app, make a shortcut with qot's Add Note action (and Ask Each Time for the text).",
+      "Then Settings → Accessibility → Touch → Back Tap → Double Tap, and choose that shortcut.",
+    ],
+  },
+  {
+    id: "spotlight",
+    title: "Spotlight and Shortcuts",
+    badge: "Build your own",
+    lede: "Add Note and New Note are actions like any other.",
+    setup: [
+      "Swipe down on the Home Screen and type “qot” or “add note” to run them from Spotlight.",
+      "In the Shortcuts app, Add Note takes any text: chain it after Dictate Text, a Focus change or a time of day.",
+    ],
+  },
+];
+---
+
+<Base
+  title="qot on iPhone"
+  description="Every way to capture a note with qot on iPhone and Apple Watch: Siri, the Action button, Control Center, Lock Screen and Home Screen widgets, Back Tap, Shortcuts and dictation."
+>
+  <div class="pt-6">
+    <h1 class="text-3xl font-bold tracking-tight">qot on iPhone</h1>
+    <p class="mt-2 text-muted-foreground">
+      A thought is gone in seconds, so qot meets it wherever your hand already is: a word to Siri, a press of the
+      Action button, a swipe into Control Center, a tap on your watch. Every note is saved on the phone first and
+      reaches your other devices on its own.
+    </p>
+    <div class="mt-6 flex flex-wrap items-center gap-3">
+      <a
+        href={appStore}
+        class="rounded-md bg-primary px-5 py-2.5 font-medium text-primary-foreground transition-opacity hover:opacity-85"
+      >
+        Get qot on the App Store
+      </a>
+      <span class="text-sm text-muted-foreground">iPhone with iOS 26, Apple Watch with watchOS 26</span>
+    </div>
+  </div>
+
+  <section class="mt-12">
+    <h2 class="text-2xl font-semibold tracking-tight">Set up</h2>
+    <ol class="mt-4 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
+      <li>Install qot and open it. You can take notes straight away; they stay on the phone until you sign in.</li>
+      <li>
+        Tap the account button at the top right and choose <strong>Sign in with Apple</strong>, or sign in with your
+        email. To use qot in the <a href="/install#web" class="underline underline-offset-2">web app</a> or the
+        <a href="/install#cli" class="underline underline-offset-2">terminal</a> too, share your email with qot
+        rather than hiding it: those sign in by email, and the same email is the same account.
+      </li>
+      <li>Pick two or three of the ways below. You'll soon find the one your hand reaches for.</li>
+    </ol>
+  </section>
+
+  <section class="mt-12">
+    <h2 class="text-2xl font-semibold tracking-tight">Ways to capture</h2>
+    <div class="mt-6 space-y-6">
+      {
+        ways.map((way) => (
+          <Card id={way.id} className="scroll-mt-6">
+            <CardHeader>
+              <div class="flex items-center justify-between gap-3">
+                <CardTitle className="text-xl">{way.title}</CardTitle>
+                <Badge variant="outline">{way.badge}</Badge>
+              </div>
+              <CardDescription className="leading-relaxed">{way.lede}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm leading-relaxed">
+              {way.setup.map((line) => (
+                <p>{line}</p>
+              ))}
+              {way.phrases && (
+                <ul class="list-disc space-y-1 pl-5">
+                  {phrases.map((p) => (
+                    <li>“{p}”</li>
+                  ))}
+                </ul>
+              )}
+              {way.after && <p class="text-muted-foreground">{way.after}</p>}
+            </CardContent>
+          </Card>
+        ))
+      }
+
+      <Card id="app" className="scroll-mt-6">
+        <CardHeader>
+          <div class="flex items-center justify-between gap-3">
+            <CardTitle className="text-xl">In the app</CardTitle>
+            <Badge variant="outline">Write and edit</Badge>
+          </div>
+          <CardDescription className="leading-relaxed">
+            Your notes, newest edit first, grouped by day like Apple Notes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm leading-relaxed">
+          <p>
+            Tap the compose button at the bottom right and start typing; the first line becomes the title. A note
+            saves as you type, and one you leave empty is discarded. Tap any note to edit it, search from the top of
+            the list, and swipe left to delete.
+          </p>
+          <p>
+            Tap the microphone below a note to dictate. Speech is transcribed on the iPhone itself: the audio never
+            leaves it and isn't kept, only the words you choose to save.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card id="watch" className="scroll-mt-6">
+        <CardHeader>
+          <div class="flex items-center justify-between gap-3">
+            <CardTitle className="text-xl">Apple Watch</CardTitle>
+            <Badge variant="outline">On your wrist</Badge>
+          </div>
+          <CardDescription className="leading-relaxed">
+            Raise your wrist, tap, speak. The note goes to your iPhone and on from there.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm leading-relaxed">
+          <p>
+            qot comes with a Watch app; install it from the Watch app on your iPhone if it isn't there already. Open
+            it, tap the field, and dictate, scribble or type.
+          </p>
+          <p>
+            Add the <strong>New Note</strong> complication to a watch face or the Smart Stack to start a note in one
+            tap. Notes taken while your watch is away from your iPhone wait on the watch and arrive when they're
+            back together.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  </section>
+
+  <section class="mt-12">
+    <h2 class="text-2xl font-semibold tracking-tight">Offline, then everywhere</h2>
+    <div class="mt-4 space-y-3 text-sm leading-relaxed text-muted-foreground">
+      <p>
+        However you capture, the note is saved on your iPhone before anything touches the network, so a note taken
+        with no signal is never lost. With a connection, the note reaches your other devices
+        within a few seconds; without one, it goes up the next time qot syncs.
+      </p>
+      <p>
+        qot also syncs when you open it, while it's open, and now and then in the background, so a note typed in the
+        terminal or the web app is usually on your phone before you look.
+      </p>
+    </div>
+  </section>
+</Base>

@@ -120,7 +120,7 @@ struct LatestNotesWidget: Widget {
             LatestNotesView(entry: entry)
         }
         .configurationDisplayName("Latest Notes")
-        .description("Your newest notes. Tap to write one.")
+        .description("Your most recently edited notes. Tap to write one.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

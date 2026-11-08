@@ -78,14 +78,25 @@ const installer = "curl -LsSf https://github.com/aegatlin/qot/releases/latest/do
     <Card id="iphone" className="scroll-mt-6">
       <CardHeader>
         <div class="flex items-center justify-between gap-3">
-          <CardTitle className="text-xl">iPhone</CardTitle>
-          <Badge variant="outline">Coming soon</Badge>
+          <CardTitle className="text-xl">iPhone and Apple Watch</CardTitle>
+          <Badge>iOS 26</Badge>
         </div>
         <CardDescription className="leading-relaxed">
-          A native app for capture without opening anything: Siri, the Action button, a Control Center
-          control, and voice notes. Until it's here, the web app on your Home Screen does the job.
+          Capture without opening anything: Siri, the Action button, Control Center, widgets, Back Tap,
+          dictation, and your watch.
         </CardDescription>
       </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <p>
+          <a href="https://apps.apple.com/app/id6831604070" class="font-medium underline underline-offset-2"
+            >Get qot on the App Store</a
+          >, open it, and sign in with Apple or your email.
+        </p>
+        <p class="text-muted-foreground">
+          <a href="/iphone" class="underline underline-offset-2">Every way to capture on iPhone</a> walks through
+          setting up each one.
+        </p>
+      </CardContent>
     </Card>
 
     <Card id="mac" className="scroll-mt-6">

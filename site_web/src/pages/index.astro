@@ -22,12 +22,12 @@ const promises = [
 const clients = [
   { name: "Terminal", detail: "macOS and Linux", status: "available", href: "/install#cli" },
   { name: "Web app", detail: "Any browser, installable on your phone", status: "available", href: "/install#web" },
-  { name: "iPhone", detail: "Siri, the Action button, Control Center", status: "coming", href: "/install#iphone" },
+  { name: "iPhone and Apple Watch", detail: "Siri, the Action button, Control Center, widgets", status: "available", href: "/iphone" },
   { name: "Mac", detail: "A native app", status: "later", href: "/install#mac" },
 ] as const;
 ---
 
-<Base description="Quantum of Thought (qot) is a quick note capture tool for the terminal, the web and soon the iPhone. Capture in one gesture, offline first, synced everywhere.">
+<Base description="Quantum of Thought (qot) is a quick note capture tool for the terminal, the web, the iPhone and Apple Watch. Capture in one gesture, offline first, synced everywhere.">
   <section class="pt-10 pb-14 text-center sm:pt-16">
     <img src="/icon.svg" alt="" class="mx-auto h-20 w-20 rounded-[22%] sm:h-24 sm:w-24 dark:ring-1 dark:ring-white/15" />
     <h1 class="mt-6 text-4xl font-bold tracking-tight sm:text-5xl">Quantum of Thought</h1>
@@ -93,7 +93,7 @@ const clients = [
               {status === "available" ? (
                 <Badge>Available</Badge>
               ) : (
-                <Badge variant="outline">{status === "coming" ? "Coming soon" : "Later"}</Badge>
+                <Badge variant="outline">Later</Badge>
               )}
             </a>
           </li>
