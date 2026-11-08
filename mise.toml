@@ -14,8 +14,6 @@
 
 [tools]
 rust = { version = "1.98.1", components = "clippy,rustfmt", targets = "aarch64-apple-ios,aarch64-apple-ios-sim,wasm32-unknown-unknown" }
-# Generates client_apple's Xcode project; macOS only (it has no Linux build).
-xcodegen = { version = "2.46.0", os = ["macos"] }
 erlang = "29.1.2"
 elixir = "1.20.5-otp-29"
 # Builds and publishes CLI releases (`dist`); .github/workflows/release-cli.yml
@@ -44,7 +42,6 @@ run = """
 if [ "$(uname)" != Darwin ]; then echo "test:apple skipped: needs macOS and Xcode"; exit 0; fi
 scripts/build-apple-core
 (cd client_apple/QotKit && swift test)
-(cd client_apple && xcodegen generate --quiet)
 xcodebuild -quiet -project client_apple/Qot.xcodeproj -scheme Qot \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath target/xcode build
 """
@@ -141,12 +138,10 @@ depends = ["deps:site"]
 dir = "site_web"
 run = "npm run dev"
 
-[tasks."gen:apple"]
-alias = "xcode"
-description = "Build the Apple core and generate client_apple/Qot.xcodeproj; then open it in Xcode"
+[tasks.xcode]
+description = "Build the Apple core, then open client_apple/Qot.xcodeproj in Xcode"
 depends = ["build:apple-core"]
-dir = "client_apple"
-run = "xcodegen generate"
+run = "open client_apple/Qot.xcodeproj"
 
 [tasks.server]
 alias = "s"

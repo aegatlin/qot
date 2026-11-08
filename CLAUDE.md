@@ -41,7 +41,7 @@ issue rather than leaving a TODO comment or a note in a doc.
 | `core_ffi/` | `qot_ffi` (Rust): `qot_core` for Swift/Kotlin via UniFFI. Adapts types only; no rules. |
 | `core_wasm/` | `qot_wasm` (Rust): `qot_core` for the browser via wasm-bindgen. Adapts types only; no rules. |
 | `client_cli/` | `qot` binary (Rust), uses `qot_core` directly. |
-| `client_apple/` | Every Apple target in one XcodeGen project; `QotKit/` is the shared SwiftPM package. |
+| `client_apple/` | Every Apple target in one committed Xcode project; `QotKit/` is the shared SwiftPM package. |
 | `client_web/` | The PWA (`app.quantumofthought.com`): Vite + TypeScript + Preact over `qot_wasm`. |
 | `site_web/` | The website (`www.quantumofthought.com`): Astro, static HTML and CSS. |
 | `server_web/` | Phoenix server: accounts, device sign-in, note sync. |
@@ -55,7 +55,7 @@ one committed `Cargo.lock`, one `target/`).
 
 ## Tooling
 
-One root `mise.toml` pins every tool (Rust, Erlang, Elixir, XcodeGen, Node,
+One root `mise.toml` pins every tool (Rust, Erlang, Elixir, Node,
 wasm-bindgen, binaryen) and holds every
 task, named `<action>:<component>` with the bare action running all of them.
 A new component adds its tools and tasks there. Server env vars are
@@ -116,7 +116,7 @@ mise run dev:web       # alias: w; the PWA at http://localhost:5173 against the 
 mise run dev:site      # the website at http://localhost:4321
 mise run server        # alias: s
 mise run cli-install   # alias: ci; installs `qot`
-mise run gen:apple     # alias: xcode; builds the Apple core, generates the Xcode project
+mise run xcode         # builds the Apple core, opens the Xcode project
 ```
 
 ## Conventions
@@ -251,8 +251,19 @@ the rules the CLI is tested with:
 - `scripts/build-apple-core` (`mise run build:apple-core`) compiles
   `qot_ffi` for iPhone, simulator and Mac, generates the Swift bindings with
   UniFFI and puts both in `QotKit/` (gitignored). Rerun it after any Rust
-  change. `project.yml` is the source of the Xcode project; the
-  `.xcodeproj` is generated and gitignored, so edit `project.yml`.
+  change.
+- **`Qot.xcodeproj` is committed and is the source of truth**, edited in
+  Xcode or through the Xcode MCP tools, not by hand in the pbxproj
+  (`docs/records/2026-11-08-apple-native-project.md`). Targets use
+  synchronized folders, so adding a file doesn't touch the project. The
+  `Qot` scheme is shared and archives. Signing: `Config/Signing.xcconfig`
+  sets the team; a gitignored `Config/Local.xcconfig` overrides it. New
+  targets (Mac, more extensions) come from File > New Target.
+- **Xcode Cloud** builds for TestFlight; `ci_scripts/ci_post_clone.sh`
+  installs the Rust pinned in `mise.toml` and builds the core first.
+  GitHub Actions (`apple.yml`) stays the PR check, since Xcode Cloud
+  doesn't build pull requests from forks. Workflows are configured in Xcode
+  or App Store Connect, not in the repo.
 - **QotKit** holds the logic as a plain SwiftPM package, tested with `swift
   test` (Swift Testing) on the Mac host against the real Rust core. App,
   widget and intent targets stay thin SwiftUI over it. `NoteStore` (files),

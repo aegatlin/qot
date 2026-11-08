@@ -1,0 +1,810 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		052146AE2CC11A092DA63A79 /* QotKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0CD1AEB7DCF0C7965F819D34 /* QotKit */; };
+		43F5C99E09B650B7AB8F85C3 /* QotWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = D1BFE85CAE4993F3B99FC6C0 /* QotWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		6D666489B0B1BBEB075D8695 /* QotWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 940111B4A2BD86994BCBECF0 /* QotWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A05820175ED00F92657876F6 /* QotKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9840E352DDED32FB8BE7EDC0 /* QotKit */; };
+		B26137A50D26D161345CC03F /* QotWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BF0FCBC55BE575FC208E4735 /* QotWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1205E552FBB920FE27F4E3B8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 321B07D5EEF5434546717BD8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CE3F1966188007206AFBC977;
+			remoteInfo = QotWidgets;
+		};
+		49EDF85981382C797652F513 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 321B07D5EEF5434546717BD8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7661948927DFF3421CB0ADB4;
+			remoteInfo = QotWatchWidgets;
+		};
+		5174AB5276E9CD474FF941C3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 321B07D5EEF5434546717BD8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B57BB1E8D25C6EEA9DB855C1;
+			remoteInfo = QotWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1F0EA4493F5B80A7078B30BF /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				43F5C99E09B650B7AB8F85C3 /* QotWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		63F4242862FCB09DF30139BD /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				6D666489B0B1BBEB075D8695 /* QotWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CD6DB998871F70F89BA0E2EB /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B26137A50D26D161345CC03F /* QotWatchWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0E78C974FA543E6969FF7AB4 /* QotKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = QotKit; path = QotKit; sourceTree = SOURCE_ROOT; };
+		4D6E54890EBA80738E4FEEDC /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		940111B4A2BD86994BCBECF0 /* QotWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = QotWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BF0FCBC55BE575FC208E4735 /* QotWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QotWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1BFE85CAE4993F3B99FC6C0 /* QotWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QotWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E4A5389EACA24E15800570C1 /* Qot.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Qot.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1E881CC16DD790DB99F647D9 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B57BB1E8D25C6EEA9DB855C1 /* QotWatch */;
+		};
+		47255AD3A67E5A300896D301 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = CE3F1966188007206AFBC977 /* QotWidgets */;
+		};
+		B71F5EA10C40E7AA6422C33A /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 74B51C36C093717AD465A2A0 /* Qot */;
+		};
+		EEB8D655747E2688B84EE3CD /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7661948927DFF3421CB0ADB4 /* QotWatchWidgets */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		5B12AB13F60FF24CC386E908 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		660845AF0484D5A53B99A815 /* Watch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1E881CC16DD790DB99F647D9 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Watch;
+			sourceTree = "<group>";
+		};
+		8DB1F2EF54F6BFF22690E1D6 /* App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B71F5EA10C40E7AA6422C33A /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A4D1EA56133FA83B9DA0303B /* Widgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				47255AD3A67E5A300896D301 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Widgets;
+			sourceTree = "<group>";
+		};
+		EB1B0217BBE91D63DFDB7ECC /* WatchWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EEB8D655747E2688B84EE3CD /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = WatchWidgets;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		184AD91F127CAE5ACE01D4C3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				052146AE2CC11A092DA63A79 /* QotKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1FEFA6DF595D3CBB6D05E044 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A05820175ED00F92657876F6 /* QotKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		572429C52E5455A768FA6C4D /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				0E78C974FA543E6969FF7AB4 /* QotKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		6AB2EF57DC670E29A47EC582 = {
+			isa = PBXGroup;
+			children = (
+				8DB1F2EF54F6BFF22690E1D6 /* App */,
+				964D887E5ABD846892CCA9A5 /* Config */,
+				572429C52E5455A768FA6C4D /* Packages */,
+				5B12AB13F60FF24CC386E908 /* Shared */,
+				660845AF0484D5A53B99A815 /* Watch */,
+				EB1B0217BBE91D63DFDB7ECC /* WatchWidgets */,
+				A4D1EA56133FA83B9DA0303B /* Widgets */,
+				A9371E8300E653CE843C1263 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		964D887E5ABD846892CCA9A5 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				4D6E54890EBA80738E4FEEDC /* Signing.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		A9371E8300E653CE843C1263 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E4A5389EACA24E15800570C1 /* Qot.app */,
+				D1BFE85CAE4993F3B99FC6C0 /* QotWatch.app */,
+				BF0FCBC55BE575FC208E4735 /* QotWatchWidgets.appex */,
+				940111B4A2BD86994BCBECF0 /* QotWidgets.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		74B51C36C093717AD465A2A0 /* Qot */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C83BBB2BB33378CA35C261E /* Build configuration list for PBXNativeTarget "Qot" */;
+			buildPhases = (
+				DC96AC4F3795CC4A6C431C91 /* Sources */,
+				5C7E49EE475A55F125E0AD97 /* Resources */,
+				1FEFA6DF595D3CBB6D05E044 /* Frameworks */,
+				63F4242862FCB09DF30139BD /* Embed Foundation Extensions */,
+				1F0EA4493F5B80A7078B30BF /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4B88B3E5CB11CB93D88B64E5 /* PBXTargetDependency */,
+				FD079D7220802708BE5664B7 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				8DB1F2EF54F6BFF22690E1D6 /* App */,
+				5B12AB13F60FF24CC386E908 /* Shared */,
+			);
+			name = Qot;
+			packageProductDependencies = (
+				9840E352DDED32FB8BE7EDC0 /* QotKit */,
+			);
+			productName = Qot;
+			productReference = E4A5389EACA24E15800570C1 /* Qot.app */;
+			productType = "com.apple.product-type.application";
+		};
+		7661948927DFF3421CB0ADB4 /* QotWatchWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9040FAB7496FE452EFD9FC8F /* Build configuration list for PBXNativeTarget "QotWatchWidgets" */;
+			buildPhases = (
+				592C057119DC6335B59A72A6 /* Sources */,
+				A1F50F4EFDB23731260DC4F8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				EB1B0217BBE91D63DFDB7ECC /* WatchWidgets */,
+			);
+			name = QotWatchWidgets;
+			packageProductDependencies = (
+			);
+			productName = QotWatchWidgets;
+			productReference = BF0FCBC55BE575FC208E4735 /* QotWatchWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		B57BB1E8D25C6EEA9DB855C1 /* QotWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EFF63A8E26A0A7A53D5B36A4 /* Build configuration list for PBXNativeTarget "QotWatch" */;
+			buildPhases = (
+				5F34E1358825909F4A11C0C8 /* Sources */,
+				813B5D6FFDD5AEC3D5F11C88 /* Resources */,
+				CD6DB998871F70F89BA0E2EB /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2BD27A0516D0BD706E5015C9 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				660845AF0484D5A53B99A815 /* Watch */,
+			);
+			name = QotWatch;
+			packageProductDependencies = (
+			);
+			productName = QotWatch;
+			productReference = D1BFE85CAE4993F3B99FC6C0 /* QotWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		CE3F1966188007206AFBC977 /* QotWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F167985B1E1DDE363F7446D0 /* Build configuration list for PBXNativeTarget "QotWidgets" */;
+			buildPhases = (
+				1CE152DECA3086C70BA02A5E /* Sources */,
+				E135B0F070E1C19C2E3CCCA9 /* Resources */,
+				184AD91F127CAE5ACE01D4C3 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5B12AB13F60FF24CC386E908 /* Shared */,
+				A4D1EA56133FA83B9DA0303B /* Widgets */,
+			);
+			name = QotWidgets;
+			packageProductDependencies = (
+				0CD1AEB7DCF0C7965F819D34 /* QotKit */,
+			);
+			productName = QotWidgets;
+			productReference = 940111B4A2BD86994BCBECF0 /* QotWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		321B07D5EEF5434546717BD8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					74B51C36C093717AD465A2A0 = {
+						DevelopmentTeam = H88537CLVC;
+						ProvisioningStyle = Automatic;
+					};
+					7661948927DFF3421CB0ADB4 = {
+						DevelopmentTeam = H88537CLVC;
+						ProvisioningStyle = Automatic;
+					};
+					B57BB1E8D25C6EEA9DB855C1 = {
+						DevelopmentTeam = H88537CLVC;
+						ProvisioningStyle = Automatic;
+					};
+					CE3F1966188007206AFBC977 = {
+						DevelopmentTeam = H88537CLVC;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = C94BEB6AC7B9368043E75039 /* Build configuration list for PBXProject "Qot" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6AB2EF57DC670E29A47EC582;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				29338AF5F16024B676C7D6AA /* XCLocalSwiftPackageReference "QotKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A9371E8300E653CE843C1263 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				74B51C36C093717AD465A2A0 /* Qot */,
+				CE3F1966188007206AFBC977 /* QotWidgets */,
+				B57BB1E8D25C6EEA9DB855C1 /* QotWatch */,
+				7661948927DFF3421CB0ADB4 /* QotWatchWidgets */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5C7E49EE475A55F125E0AD97 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		813B5D6FFDD5AEC3D5F11C88 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1F50F4EFDB23731260DC4F8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E135B0F070E1C19C2E3CCCA9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1CE152DECA3086C70BA02A5E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		592C057119DC6335B59A72A6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5F34E1358825909F4A11C0C8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC96AC4F3795CC4A6C431C91 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2BD27A0516D0BD706E5015C9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7661948927DFF3421CB0ADB4 /* QotWatchWidgets */;
+			targetProxy = 49EDF85981382C797652F513 /* PBXContainerItemProxy */;
+		};
+		4B88B3E5CB11CB93D88B64E5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CE3F1966188007206AFBC977 /* QotWidgets */;
+			targetProxy = 1205E552FBB920FE27F4E3B8 /* PBXContainerItemProxy */;
+		};
+		FD079D7220802708BE5664B7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B57BB1E8D25C6EEA9DB855C1 /* QotWatch */;
+			targetProxy = 5174AB5276E9CD474FF941C3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		08B6A6CF196FF9B2D518C00E /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4D6E54890EBA80738E4FEEDC /* Signing.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		08D929234CAE237C368D1C13 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4D6E54890EBA80738E4FEEDC /* Signing.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		2A3BA828E8B95634E872D407 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = WatchWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = llc.abstractsyntax.qot.watchkitapp.widgets;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Release;
+		};
+		322FA2851FAEA26194FCCC09 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Watch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = llc.abstractsyntax.qot.watchkitapp;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Release;
+		};
+		3681B15E25DBA19786EDAC56 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/Qot.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = qot;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = llc.abstractsyntax.qot;
+				PRODUCT_NAME = Qot;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6F15AD5AC1C6180F6E44553F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Watch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = llc.abstractsyntax.qot.watchkitapp;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Debug;
+		};
+		7D3AD49E13837B54B0473C2B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/Qot.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = qot;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = llc.abstractsyntax.qot;
+				PRODUCT_NAME = Qot;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		863D692E0F8D55591B3E92C2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Widgets/QotWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Widgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = llc.abstractsyntax.qot.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9E8C8BF3631B6ECC220F69F7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = WatchWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = llc.abstractsyntax.qot.watchkitapp.widgets;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Debug;
+		};
+		E0C5DBC7126846F3C2A49DB5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Widgets/QotWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Widgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = llc.abstractsyntax.qot.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9040FAB7496FE452EFD9FC8F /* Build configuration list for PBXNativeTarget "QotWatchWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9E8C8BF3631B6ECC220F69F7 /* Debug */,
+				2A3BA828E8B95634E872D407 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9C83BBB2BB33378CA35C261E /* Build configuration list for PBXNativeTarget "Qot" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7D3AD49E13837B54B0473C2B /* Debug */,
+				3681B15E25DBA19786EDAC56 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C94BEB6AC7B9368043E75039 /* Build configuration list for PBXProject "Qot" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				08D929234CAE237C368D1C13 /* Debug */,
+				08B6A6CF196FF9B2D518C00E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		EFF63A8E26A0A7A53D5B36A4 /* Build configuration list for PBXNativeTarget "QotWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6F15AD5AC1C6180F6E44553F /* Debug */,
+				322FA2851FAEA26194FCCC09 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F167985B1E1DDE363F7446D0 /* Build configuration list for PBXNativeTarget "QotWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				863D692E0F8D55591B3E92C2 /* Debug */,
+				E0C5DBC7126846F3C2A49DB5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		29338AF5F16024B676C7D6AA /* XCLocalSwiftPackageReference "QotKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = QotKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0CD1AEB7DCF0C7965F819D34 /* QotKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = QotKit;
+		};
+		9840E352DDED32FB8BE7EDC0 /* QotKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = QotKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 321B07D5EEF5434546717BD8 /* Project object */;
+}

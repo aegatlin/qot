@@ -1,0 +1,6 @@
+// Signing for every target: the Abstract Syntax LLC team. Simulator builds
+// need no team. To build for your own device, create Config/Local.xcconfig
+// (gitignored) and set DEVELOPMENT_TEAM to your team there.
+DEVELOPMENT_TEAM = H88537CLVC
+
+#include? "Local.xcconfig"
