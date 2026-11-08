@@ -28,3 +28,6 @@ client_web/test-results/
 site_web/node_modules/
 site_web/dist/
 site_web/.astro/
+
+# Xcode tools (e.g. previews) may build into the project folder.
+client_apple/build/

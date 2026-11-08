@@ -32,6 +32,38 @@ private func account(_ server: FakeServer, signedIn creds: Credentials? = nil) t
         #expect(server.with { $0.polls } == 3)
     }
 
+    @Test func signingInWithAppleSavesCredentials() async throws {
+        let server = FakeServer()
+        let (account, credentials, _) = try account(server)
+        let creds = try await account.signInWithApple(
+            identityToken: "apple-token", nonce: "nonce-1", server: base)
+        #expect(creds == signedIn(base))
+        #expect(try credentials.load() == creds)
+        let sent = try #require(server.with { $0.requests.last?.httpBody })
+        let json = try #require(try JSONSerialization.jsonObject(with: sent) as? [String: String])
+        #expect(json == ["identity_token": "apple-token", "nonce": "nonce-1"])
+    }
+
+    @Test func aRejectedAppleSignInSavesNothing() async throws {
+        let server = FakeServer()
+        let (account, credentials, _) = try account(server)
+        await #expect(throws: SignInError.self) {
+            try await account.signInWithApple(identityToken: "forged", nonce: "n", server: base)
+        }
+        #expect(try credentials.load() == nil)
+    }
+
+    @Test func anAppleSignInOnATakenEmailSaysWhy() async throws {
+        let server = FakeServer()
+        let (account, _, _) = try account(server)
+        do {
+            try await account.signInWithApple(identityToken: "taken-email", nonce: "n", server: base)
+            Issue.record("expected an error")
+        } catch let error as SignInError {
+            #expect(error.localizedDescription.contains("email"))
+        }
+    }
+
     @Test func aSignInThatFailsStopsPolling() async throws {
         let server = FakeServer()
         let (account, credentials, _) = try account(server)

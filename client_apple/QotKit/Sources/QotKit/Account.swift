@@ -6,11 +6,17 @@ public enum SignInError: Error, Equatable, LocalizedError {
     /// The server's reason the sign-in will never succeed (e.g. too many
     /// wrong codes).
     case failed(String)
+    /// Sign in with Apple shared an email that already has a qot account,
+    /// which can't be linked (Apple didn't verify the email, or that account
+    /// is linked to another Apple ID).
+    case emailInUse
 
     public var errorDescription: String? {
         switch self {
         case .expired: "The sign-in expired. Start again."
         case .failed(let why): "The sign-in failed: \(why)"
+        case .emailInUse:
+            "That email already has a qot account. Sign in with your email instead."
         }
     }
 }
@@ -90,6 +96,22 @@ public struct Account: Sendable {
                 return creds
             }
         }
+    }
+
+    /// Signs in with Apple's identity token and the raw nonce whose SHA-256
+    /// went in the request to Apple, then saves the session. A new session
+    /// starts sync afresh.
+    @discardableResult
+    public func signInWithApple(identityToken: String, nonce: String, server: URL)
+        async throws -> Credentials
+    {
+        let signedIn = try await api(server).signInWithApple(identityToken: identityToken, nonce: nonce)
+        let creds = Credentials(
+            server: server, userId: signedIn.userId, email: signedIn.email,
+            accessToken: signedIn.accessToken, refreshToken: signedIn.refreshToken)
+        try store.forgetSyncState()
+        try credentials.save(creds)
+        return creds
     }
 
     /// Revokes the session on the server if it can be reached, then forgets

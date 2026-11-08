@@ -1,3 +1,5 @@
+import AuthenticationServices
+import CryptoKit
 import QotKit
 import SwiftUI
 
@@ -120,7 +122,8 @@ private struct ExportFile: Transferable {
     }
 }
 
-/// Email, then the code to type on the emailed page; waits for approval.
+/// Sign in with Apple, or the email device sign-in (email, then the code to
+/// type on the emailed page; waits for approval).
 private struct SignInView: View {
     let model: AppModel
     @State private var email = ""
@@ -130,6 +133,9 @@ private struct SignInView: View {
     @State private var working = false
     @State private var problem: String?
     @State private var waiting: Task<Void, Never>?
+    /// The raw nonce of the Apple request in flight; Apple gets its SHA-256.
+    @State private var nonce = ""
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Form {
@@ -156,6 +162,17 @@ private struct SignInView: View {
                 }
             } else {
                 Section {
+                    SignInWithAppleButton(.signIn, onRequest: appleRequest, onCompletion: appleDone)
+                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                        .frame(height: 50)
+                        .listRowInsets(EdgeInsets())
+                        .disabled(working)
+                } footer: {
+                    Text(
+                        "To use qot on your other devices, share your email with qot rather than hiding it: the app on the web and the command line sign in with that email."
+                    )
+                }
+                Section {
                     TextField("you@example.com", text: $email)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
@@ -164,8 +181,10 @@ private struct SignInView: View {
                         .onSubmit(start)
                     Button(working ? "Sending…" : "Email me a sign-in link", action: start)
                         .disabled(working || !email.contains("@"))
+                } header: {
+                    Text("Or use your email")
                 } footer: {
-                    Text("Sign in to sync your notes with your other devices.")
+                    Text("We email you a link to approve this iPhone, as `qot login` does.")
                 }
                 Section("Server") {
                     Picker("Server", selection: $server) {
@@ -216,6 +235,50 @@ private struct SignInView: View {
                 problem = error.localizedDescription
             }
         }
+    }
+
+    private func appleRequest(_ request: ASAuthorizationAppleIDRequest) {
+        nonce = Self.randomNonce()
+        request.requestedScopes = [.email]
+        request.nonce = Self.sha256(nonce)
+    }
+
+    private func appleDone(_ result: Result<ASAuthorization, Error>) {
+        problem = nil
+        switch result {
+        case .failure(let error as ASAuthorizationError) where error.code == .canceled:
+            return
+        case .failure(let error):
+            problem = error.localizedDescription
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                let tokenData = credential.identityToken,
+                let token = String(data: tokenData, encoding: .utf8),
+                let url = serverURL
+            else {
+                problem = "Apple didn't return a sign-in token. Try again."
+                return
+            }
+            working = true
+            Task {
+                defer { working = false }
+                do {
+                    try await model.signInWithApple(identityToken: token, nonce: nonce, server: url)
+                } catch {
+                    problem = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private static func randomNonce() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        return bytes.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func sha256(_ text: String) -> String {
+        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     private func reset() {

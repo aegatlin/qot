@@ -328,6 +328,12 @@ the rules the CLI is tested with:
   production, staging or any URL (`http://localhost:4000` from the
   simulator; ATS allows local networking only). Requests send `User-Agent:
   qot-ios/<version> (iOS <version>; <model>)`.
+- **Sign in with Apple** is the account sheet's main sign-in
+  (`SignInWithAppleButton`, email scope, a nonce whose SHA-256 goes to
+  Apple; `Account.signInWithApple` posts the token to `/api/auth/apple`); the
+  email device sign-in stays below it. The App ID needs the Sign in with
+  Apple capability (`com.apple.developer.applesignin` in
+  `App/Qot.entitlements`) before Xcode Cloud can export.
 - **App icon**: `AppIcon.icon` (Icon Composer: one icon for every Apple
   platform; layers are SVGs, the PWA's icon split into ring and dot). Each
   target folder carries its own copy (`App/`, `Watch/`, later the Mac);

@@ -83,6 +83,22 @@ final class FakeServer: HTTPTransport, Sendable {
                     "user": ["id": 42, "email": "me@example.com"],
                 ]
             )
+        case "POST /api/auth/apple":
+            guard let token = body["identity_token"] as? String, body["nonce"] is String else {
+                return (400, ["error": "identity_token and nonce are required"])
+            }
+            switch token {
+            case "apple-token":
+                return (
+                    200,
+                    [
+                        "access_token": "access-1", "refresh_token": "refresh-1",
+                        "user": ["id": 42, "email": "me@example.com"],
+                    ]
+                )
+            case "taken-email": return (409, ["error": "email_in_use"])
+            default: return (401, ["error": "invalid_token"])
+            }
         case "POST /api/auth/refresh":
             guard let token = body["refresh_token"] as? String, s.validRefresh.contains(token)
             else { return (401, ["error": "Invalid or expired refresh token"]) }

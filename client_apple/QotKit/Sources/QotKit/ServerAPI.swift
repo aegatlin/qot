@@ -132,19 +132,36 @@ public struct ServerAPI: SyncAPI {
             "POST", "/api/auth/device/token", json: ["device_code": deviceCode])
         switch status {
         case 200:
-            let user = body["user"] as? [String: Any] ?? [:]
-            guard let access = body["access_token"] as? String,
-                let refresh = body["refresh_token"] as? String,
-                let userId = user["id"].map({ "\($0)" }),
-                let email = user["email"] as? String
-            else { throw APIError.server("Unexpected reply from server.") }
-            return .approved(
-                SignedIn(accessToken: access, refreshToken: refresh, userId: userId, email: email))
+            return .approved(try signedIn(body))
         case 400 where body["error"] as? String == "authorization_pending":
             return .pending
         default:
             return .failed(errorText(body))
         }
+    }
+
+    /// `POST /api/auth/apple`: Apple's identity token for this app and the
+    /// raw nonce (the server checks the token carries its SHA-256).
+    public func signInWithApple(identityToken: String, nonce: String) async throws -> SignedIn {
+        let (status, body) = try await call(
+            "POST", "/api/auth/apple", json: ["identity_token": identityToken, "nonce": nonce])
+        switch status {
+        case 200: return try signedIn(body)
+        case 409: throw SignInError.emailInUse
+        case 422: throw SignInError.failed("Apple didn't share an email address.")
+        case 503: throw SignInError.failed("Apple can't be reached right now. Try again.")
+        default: throw SignInError.failed(errorText(body))
+        }
+    }
+
+    private func signedIn(_ body: [String: Any]) throws -> SignedIn {
+        let user = body["user"] as? [String: Any] ?? [:]
+        guard let access = body["access_token"] as? String,
+            let refresh = body["refresh_token"] as? String,
+            let userId = user["id"].map({ "\($0)" }),
+            let email = user["email"] as? String
+        else { throw APIError.server("Unexpected reply from server.") }
+        return SignedIn(accessToken: access, refreshToken: refresh, userId: userId, email: email)
     }
 
     public func refresh(refreshToken: String) async throws -> String {
