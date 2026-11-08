@@ -21,6 +21,18 @@ defmodule Qot.Accounts do
   end
 
   @doc """
+  Whether a user with this id still exists. Access tokens outlive a deleted
+  account by up to an hour, so authentication checks this too.
+  """
+  @spec user_exists?(String.t()) :: boolean()
+  def user_exists?(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} -> Repo.exists?(from(u in User, where: u.id == ^uuid))
+      :error -> false
+    end
+  end
+
+  @doc """
   Gets a user by email.
   Returns {:ok, user} or {:error, :not_found}
   """

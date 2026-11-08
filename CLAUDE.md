@@ -438,7 +438,8 @@ the rules the CLI is tested with:
   is the one origin CORS (`QotWeb.Plugs.CORS`, no credentials) and the
   socket's `check_origin` accept; native clients send no `Origin`.
   `RequireAuth` checks Bearer tokens for HTTP; WebSocket connect params carry
-  the JWT, verified before channel join. The pure rules live in
+  the JWT, verified before channel join. Both also check the user still
+  exists, so a deleted account's tokens (valid up to an hour) get 401. The pure rules live in
   `Qot.Accounts.DeviceLogin` (status, code checks).
 - **Account deletion**: `DELETE /api/account {confirm: <the account's
   email>}` removes the user, refresh tokens, change log and sign-ins

@@ -111,4 +111,9 @@ test("deleting the account from the browser signs everything out; notes stay", a
   await page.reload();
   await expect(page.getByRole("list", { name: "Notes" })).toContainText("keep this one");
   await expect(page.getByLabel("Account")).toHaveCount(0);
+  // The terminal signed in to the same account: its access token is still
+  // within its hour, but the server refuses it, so it is told it is signed out.
+  const sync = cli.run("sync");
+  expect(sync.status).not.toBe(0);
+  expect(sync.stderr).toContain("not signed in");
 });

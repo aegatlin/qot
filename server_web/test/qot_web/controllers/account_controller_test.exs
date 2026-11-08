@@ -19,9 +19,17 @@ defmodule QotWeb.AccountControllerTest do
              |> json_response(200)
 
     assert {:error, :not_found} = Accounts.get_user(auth.user_id)
-    # The access token outlives the account, but there is nothing behind it.
-    assert %{"changes" => []} = conn |> get("/api/sync/pull") |> json_response(200)
+  end
+
+  test "a token issued before deletion is refused, so its devices sign out",
+       %{conn: conn, auth: auth} do
+    note = %{note_id: Ecto.UUID.generate(), data: Base.encode64("x")}
+    :ok = Accounts.delete_user(auth.user_id)
+
+    # The JWT is still within its hour, but the account behind it is gone.
+    assert conn |> get("/api/sync/pull") |> json_response(401)
     assert conn |> post("/api/sync/push", %{changes: [note]}) |> json_response(401)
+    assert conn |> delete("/api/account", %{confirm: "leaving@example.com"}) |> json_response(401)
   end
 
   test "refuses without the right confirmation", %{conn: conn, auth: auth} do
@@ -32,14 +40,6 @@ defmodule QotWeb.AccountControllerTest do
              conn |> delete("/api/account", %{}) |> json_response(400)
 
     assert {:ok, _} = Accounts.get_user(auth.user_id)
-  end
-
-  test "an already deleted account is not found", %{conn: conn, auth: auth} do
-    :ok = Accounts.delete_user(auth.user_id)
-
-    assert conn
-           |> delete("/api/account", %{confirm: "leaving@example.com"})
-           |> json_response(404)
   end
 
   test "needs a token", %{auth: auth} do
