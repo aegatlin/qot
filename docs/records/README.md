@@ -42,3 +42,4 @@ was considered and turned down.
 | 2026-11-08 | [A committed, Apple-native Xcode project](2026-11-08-apple-native-project.md) | decided |
 | 2026-11-08 | [Issues are the backlog; the roadmap is retired](2026-11-08-issues-are-the-backlog.md) | decided |
 | 2026-11-08 | [Why the Apple apps don't use automerge-swift](2026-11-08-why-not-automerge-swift.md) | decided |
+| 2026-11-08 | [Sign in with Apple on Apple devices](2026-11-08-sign-in-with-apple.md) | decided |
