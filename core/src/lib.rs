@@ -15,7 +15,7 @@
 pub mod sync;
 
 use automerge::{
-    AutoCommit, ChangeHash, ObjType, ROOT, ReadDoc, ScalarValue, Value,
+    ActorId, AutoCommit, ChangeHash, ObjType, ROOT, ReadDoc, ScalarValue, Value,
     transaction::{CommitOptions, Transactable},
 };
 use std::fmt;
@@ -140,7 +140,7 @@ impl Note {
     }
 
     fn update_at(&self, new_content: &str, secs: u64) -> NoteResult<Note> {
-        let mut doc = self.doc.clone();
+        let mut doc = self.branch();
         let text = match doc.get(ROOT, CONTENT)? {
             Some((_, text)) => text,
             None => return Err(NoteError("note has no content".into())),
@@ -151,9 +151,18 @@ impl Note {
 
     /// Marks the note deleted. The document is kept so the delete can sync.
     pub fn delete(&self) -> NoteResult<Note> {
-        let mut doc = self.doc.clone();
+        let mut doc = self.branch();
         doc.put(ROOT, DELETED, true)?;
         Ok(sealed(doc))
+    }
+
+    /// A copy to make an edit on, with a fresh actor: two edits made from
+    /// the same `Note` value would otherwise both be (actor, seq n+1), and
+    /// merging them fails ("duplicate seq").
+    fn branch(&self) -> AutoCommit {
+        let mut doc = self.doc.clone();
+        doc.set_actor(ActorId::random());
+        doc
     }
 
     pub fn merge(&self, other: &Note) -> NoteResult<Note> {
@@ -284,6 +293,28 @@ mod tests {
         doc.commit();
         let note = Note::from_bytes(&doc.save()).unwrap();
         assert_eq!(note.updated_at_ms(), note.created_at_ms().unwrap());
+    }
+
+    #[test]
+    fn two_edits_from_the_same_note_merge() {
+        // Each edit gets its own actor, so edits branching from one value
+        // never share a seq (Automerge's "duplicate seq" on merge).
+        let note = Note::new("milk");
+        let a = note.update("oat milk").unwrap();
+        let b = note.update("milk and eggs").unwrap();
+        let merged = a.merge(&b).unwrap();
+        assert!(merged.content().contains("oat"), "{}", merged.content());
+        assert!(merged.content().contains("eggs"), "{}", merged.content());
+    }
+
+    #[test]
+    fn an_edit_and_a_delete_from_the_same_note_merge() {
+        let note = Note::new("milk");
+        let edited = note.update("oat milk").unwrap();
+        let deleted = note.delete().unwrap();
+        let merged = edited.merge(&deleted).unwrap();
+        assert!(merged.is_deleted());
+        assert_eq!(merged.content(), "oat milk");
     }
 
     #[test]

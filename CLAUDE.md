@@ -168,6 +168,9 @@ mise run xcode         # builds the Apple core, opens the Xcode project
 - **Every `Note` holds a fully committed document.** An uncommitted edit gets
   committed with a fresh timestamp whenever heads are read, so the same note
   would report different heads on every call and incremental sync would break.
+- **Every edit starts on a fresh actor** (`branch()`), so two edits made
+  from the same `Note` value merge instead of failing with "duplicate seq".
+  Commits carry their time (Unix seconds), which is `updated_at_ms()`.
 - Sync primitives: `heads()`, `changes_since(heads)` (empty heads = the whole
   note; unknown heads are an error, not "send everything") and
   `apply_changes(bytes)` (idempotent). The automerge-repo sync stack is
