@@ -78,6 +78,11 @@ impl Note {
         self.0.created_at_ms().unwrap_or(0)
     }
 
+    /// When the note was last edited, in Unix milliseconds (to the second).
+    pub fn updated_at_ms(&self) -> u64 {
+        self.0.updated_at_ms()
+    }
+
     pub fn update(&self, content: String) -> QotResult<Arc<Note>> {
         Ok(wrap(self.0.update(&content)?))
     }
@@ -241,6 +246,12 @@ mod tests {
     fn created_at_comes_from_the_id() {
         let note = Note::new("x".into());
         assert!(note.created_at_ms() > 1_700_000_000_000);
+    }
+
+    #[test]
+    fn updated_at_is_the_last_edit() {
+        let note = Note::new("x".into());
+        assert!(note.updated_at_ms() >= note.created_at_ms() / 1000 * 1000);
     }
 
     #[test]

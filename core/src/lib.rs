@@ -15,7 +15,8 @@
 pub mod sync;
 
 use automerge::{
-    AutoCommit, ChangeHash, ObjType, ROOT, ReadDoc, ScalarValue, Value, transaction::Transactable,
+    AutoCommit, ChangeHash, ObjType, ROOT, ReadDoc, ScalarValue, Value,
+    transaction::{CommitOptions, Transactable},
 };
 use std::fmt;
 use uuid::Uuid;
@@ -47,9 +48,23 @@ pub type NoteResult<T> = Result<T, NoteError>;
 /// Every `Note` holds a fully committed document. An uncommitted edit would be
 /// committed with a fresh timestamp each time heads are read, so the same note
 /// would report different heads on every call.
-fn sealed(mut doc: AutoCommit) -> Note {
-    doc.commit();
+///
+/// Each commit carries its time (Unix seconds, Automerge's convention), which
+/// is where a note's last-edited time comes from. Merges and applied changes
+/// commit nothing new, so they keep the times their changes were made at.
+fn sealed(doc: AutoCommit) -> Note {
+    sealed_at(doc, now_secs())
+}
+
+fn sealed_at(mut doc: AutoCommit, secs: u64) -> Note {
+    doc.commit_with(CommitOptions::default().with_time(secs as i64));
     Note { doc }
+}
+
+/// The current time in Unix seconds, from the clock UUIDv7 ids already use
+/// (in the browser too, through uuid's `js` feature).
+fn now_secs() -> u64 {
+    uuid::Timestamp::now(uuid::NoContext).to_unix().0
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +104,23 @@ impl Note {
         Some(secs * 1000 + u64::from(nanos) / 1_000_000)
     }
 
+    /// When the note was last edited, in Unix milliseconds (to the second):
+    /// the latest time among its changes, never before it was created. Notes
+    /// saved before commits carried a time report their creation time.
+    pub fn updated_at_ms(&self) -> u64 {
+        // `document()` takes `&mut` to commit pending edits; a `Note` has
+        // none, so a clone reads the same history.
+        let mut doc = self.doc.clone();
+        let latest = doc
+            .document()
+            .get_changes(&[])
+            .iter()
+            .map(|c| c.timestamp().max(0) as u64 * 1000)
+            .max()
+            .unwrap_or(0);
+        latest.max(self.created_at_ms().unwrap_or(0))
+    }
+
     pub fn content(&self) -> String {
         match self.doc.get(ROOT, CONTENT) {
             Ok(Some((_, text))) => self.doc.text(text).unwrap_or_default(),
@@ -104,13 +136,17 @@ impl Note {
     }
 
     pub fn update(&self, new_content: &str) -> NoteResult<Note> {
+        self.update_at(new_content, now_secs())
+    }
+
+    fn update_at(&self, new_content: &str, secs: u64) -> NoteResult<Note> {
         let mut doc = self.doc.clone();
         let text = match doc.get(ROOT, CONTENT)? {
             Some((_, text)) => text,
             None => return Err(NoteError("note has no content".into())),
         };
         doc.update_text(&text, new_content)?;
-        Ok(sealed(doc))
+        Ok(sealed_at(doc, secs))
     }
 
     /// Marks the note deleted. The document is kept so the delete can sync.
@@ -205,6 +241,49 @@ mod tests {
             .as_millis() as u64;
         let at = Note::new("x").created_at_ms().unwrap();
         assert!(at >= before && at < before + 5_000);
+    }
+
+    fn now_ms() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64
+    }
+
+    #[test]
+    fn a_new_note_was_last_edited_when_it_was_made() {
+        let before = now_ms() / 1000 * 1000;
+        let at = Note::new("x").updated_at_ms();
+        assert!(at >= before && at < before + 5_000, "{at} vs {before}");
+    }
+
+    #[test]
+    fn an_edit_moves_the_last_edited_time() {
+        let note = Note::new("x");
+        let later = note.created_at_ms().unwrap() / 1000 + 60;
+        let edited = note.update_at("y", later).unwrap();
+        assert_eq!(edited.updated_at_ms(), later * 1000);
+        assert!(note.updated_at_ms() < edited.updated_at_ms());
+    }
+
+    #[test]
+    fn a_merge_keeps_the_latest_edit_time() {
+        let note = Note::new("x");
+        let later = note.created_at_ms().unwrap() / 1000 + 60;
+        let edited = note.update_at("y", later).unwrap();
+        assert_eq!(note.merge(&edited).unwrap().updated_at_ms(), later * 1000);
+    }
+
+    #[test]
+    fn a_note_with_untimed_changes_was_last_edited_when_it_was_made() {
+        // Notes saved before commits carried a time have only time-0 changes.
+        let mut doc = AutoCommit::new();
+        let id = Uuid::now_v7().to_string();
+        doc.put(ROOT, ID, id.as_str()).unwrap();
+        doc.put_object(ROOT, CONTENT, ObjType::Text).unwrap();
+        doc.commit();
+        let note = Note::from_bytes(&doc.save()).unwrap();
+        assert_eq!(note.updated_at_ms(), note.created_at_ms().unwrap());
     }
 
     #[test]

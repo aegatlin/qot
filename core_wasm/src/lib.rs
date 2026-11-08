@@ -70,6 +70,12 @@ impl Note {
         self.0.created_at_ms().unwrap_or(0) as f64
     }
 
+    /// When the note was last edited, in Unix milliseconds (to the second).
+    #[wasm_bindgen(getter, js_name = updatedAtMs)]
+    pub fn updated_at_ms(&self) -> f64 {
+        self.0.updated_at_ms() as f64
+    }
+
     pub fn update(&self, content: &str) -> Result<Note, JsError> {
         throw(self.0.update(content).map(Note).map_err(|e| e.to_string()))
     }

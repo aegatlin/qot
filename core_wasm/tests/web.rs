@@ -17,6 +17,14 @@ fn notes_are_created_edited_and_deleted() {
 }
 
 #[wasm_bindgen_test]
+fn edits_carry_the_browser_clock() {
+    // A commit's time comes from the clock in the browser too, not 0.
+    let note = Note::new("x");
+    assert!(note.updated_at_ms() >= (note.created_at_ms() / 1000.0).floor() * 1000.0);
+    assert!(note.updated_at_ms() > 1_700_000_000_000.0);
+}
+
+#[wasm_bindgen_test]
 fn ids_are_random_in_the_browser() {
     // Exercises getrandom's wasm_js backend.
     assert_ne!(Note::new("a").id(), Note::new("a").id());
