@@ -304,6 +304,10 @@ the rules the CLI is tested with:
   production, staging or any URL (`http://localhost:4000` from the
   simulator; ATS allows local networking only). Requests send `User-Agent:
   qot-ios/<version> (iOS <version>; <model>)`.
+- **App icon**: `AppIcon.icon` (Icon Composer: one icon for every Apple
+  platform; layers are SVGs, the PWA's icon split into ring and dot). Each
+  target folder carries its own copy (`App/`, `Watch/`, later the Mac);
+  keep them identical. Edit in Icon Composer, then copy it over the others.
 - The FFI is synchronous and UniFFI is pinned exactly. Network I/O belongs
   in Swift, not Rust. Automerge comes through `qot_ffi`, never
   automerge-swift: the rules live once, in `qot_core`
