@@ -15,6 +15,11 @@ defmodule QotWeb.NotesChannelTest do
     assert :error = connect(QotWeb.UserSocket, %{})
   end
 
+  test "a token whose account was deleted is refused", %{auth: auth} do
+    :ok = Qot.Accounts.delete_user(auth.user_id)
+    assert :error = connect(QotWeb.UserSocket, %{"token" => auth.access_token})
+  end
+
   test "a user cannot join another user's topic", %{socket: socket} do
     assert {:error, %{reason: "unauthorized"}} =
              subscribe_and_join(socket, "notes:user:#{Ecto.UUID.generate()}", %{})

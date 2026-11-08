@@ -1,6 +1,7 @@
 defmodule QotWeb.UserSocket do
   use Phoenix.Socket
 
+  alias Qot.Accounts
   alias Qot.Accounts.Token
 
   # Channel routes
@@ -8,12 +9,12 @@ defmodule QotWeb.UserSocket do
 
   @impl true
   def connect(%{"token" => token}, socket, _connect_info) do
-    case Token.verify_jwt(token) do
-      {:ok, %{"user_id" => user_id}} ->
-        {:ok, assign(socket, :user_id, user_id)}
-
-      {:error, _reason} ->
-        :error
+    # A deleted account's token is still valid for up to an hour; refuse it.
+    with {:ok, %{"user_id" => user_id}} <- Token.verify_jwt(token),
+         true <- Accounts.user_exists?(user_id) do
+      {:ok, assign(socket, :user_id, user_id)}
+    else
+      _ -> :error
     end
   end
 
