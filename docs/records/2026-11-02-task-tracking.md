@@ -1,6 +1,6 @@
 # Where todos live
 
-Status: decided
+Status: decided (the roadmap part superseded by 2026-11-08-issues-are-the-backlog.md)
 Date: 2026-11-02
 Question: Where do todos go (code, ops, and things only a person can do), so
 that after a month away the next one is easy to find, for you and for

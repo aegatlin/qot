@@ -52,7 +52,7 @@ signing team; for your own device, set `DEVELOPMENT_TEAM` in
 
 ## Roadmap
 
-Launch todos and what comes after: [docs/ROADMAP.md](docs/ROADMAP.md).
+The backlog is the open [GitHub issues](https://github.com/aegatlin/qot/issues).
 Pricing and the free/paid line: [docs/go-to-market.md](docs/go-to-market.md).
 
 ## License

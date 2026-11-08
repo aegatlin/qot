@@ -17,8 +17,8 @@ terms, support) comes after the PWA and before iOS reaches the App Store.
 
 The current goal is dogfooding (the developer and a few friends using it
 daily), not a public launch. Work that only matters for strangers or at
-real user volume (backups, pricing, error reporting) is deferred;
-`docs/ROADMAP.md` lists it.
+real user volume (backups, pricing, error reporting) is deferred: those
+issues are closed as not planned, to reopen when a launch makes them matter.
 
 qot is an **Abstract Syntax LLC** product: every outside account (Apple,
 Railway, later Stripe and the rest) belongs to the company, never to a
@@ -28,8 +28,10 @@ personal account, and identifiers follow it (`llc.abstractsyntax.*`).
 
 Todos are **GitHub issues**: code, ops and human-only tasks alike (`gh issue
 list`, or in cloud sessions, which block GraphQL, `gh api
-repos/aegatlin/qot/issues`; issues for a person say "Who: a person"). `docs/ROADMAP.md` orders
-them into steps; `docs/records/` keeps research and decisions. When a PR
+repos/aegatlin/qot/issues`; issues for a person say "Who: a person"). Open issues are the whole
+backlog; there is no separate roadmap
+(`docs/records/2026-11-08-issues-are-the-backlog.md`). `docs/records/` keeps
+research and decisions. When a PR
 finishes an issue, say `Fixes #N`. When work reveals a new todo, open an
 issue rather than leaving a TODO comment or a note in a doc.
 
@@ -45,7 +47,7 @@ issue rather than leaving a TODO comment or a note in a doc.
 | `client_web/` | The PWA (`app.quantumofthought.com`): Vite + TypeScript + Preact over `qot_wasm`. |
 | `site_web/` | The website (`www.quantumofthought.com`): Astro, static HTML and CSS. |
 | `server_web/` | Phoenix server: accounts, device sign-in, note sync. |
-| `docs/` | `ROADMAP.md`, `go-to-market.md`, and `records/`: dated research and decision records (see its README). |
+| `docs/` | `go-to-market.md` and `records/`: dated research and decision records (see its README). |
 
 Folders are **per build toolchain, not per device**: a new device is a new
 target in an existing folder unless it needs a new toolchain
