@@ -112,7 +112,7 @@ Check before relying on it.
 - **Railway sealed variables** are write-only: never returned by the API or
   `railway run`. With fnox as the source of truth, sealing production's
   secrets costs nothing and removes Railway as a place to read them back.
-  Worth doing.
+  Worth doing (#6, deferred while dogfooding: closed as not planned).
 
 ## Practices
 

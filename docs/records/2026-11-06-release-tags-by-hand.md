@@ -38,7 +38,7 @@ day: the `.claude/settings.json` rule that let a local Claude Code push
 
 - **Tag-on-bump** (turned down for now): a workflow on every push to `main`
   reads each component's version (`client_cli/Cargo.toml`,
-  `server_web/mix.exs`, `client_apple/project.yml`) and creates the
+  `server_web/mix.exs`, the Xcode project's `MARKETING_VERSION`) and creates the
   `<component>/vX.Y.Z` tag when it doesn't exist. It fits every current and
   planned component, would let a cloud agent release by merging a version
   bump, and is a known pattern (release-please, release-plz and Changesets

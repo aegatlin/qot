@@ -85,7 +85,7 @@ anyway.
 | Outside contributions lock the licence | Real: each contributor's code is theirs, so relicensing or shipping on the App Store needs their consent | Rule 2: CLA, or don't take code PRs |
 | Companies won't touch AGPL | Irrelevant: qot sells to individuals, not to companies embedding the code | — |
 | Secrets in git history become public | One-time risk at the flip | Scan history before going public (`fnox.toml` is age-encrypted; Railway config isn't in the repo) |
-| Visible half-finished work, public critique | Mostly psychological | Accept it; the roadmap already says what's deferred |
+| Visible half-finished work, public critique | Mostly psychological | Accept it; deferred work is visible as issues closed as not planned |
 
 ## The license
 

@@ -31,9 +31,20 @@ list`, or in cloud sessions, which block GraphQL, `gh api
 repos/aegatlin/qot/issues`; issues for a person say "Who: a person"). Open issues are the whole
 backlog; there is no separate roadmap
 (`docs/records/2026-11-08-issues-are-the-backlog.md`). `docs/records/` keeps
-research and decisions. When a PR
-finishes an issue, say `Fixes #N`. When work reveals a new todo, open an
+research and decisions. When work reveals a new todo, open an
 issue rather than leaving a TODO comment or a note in a doc.
+
+**Claiming an issue.** The open PRs are what is in progress; nothing else
+marks it (no assignees, no labels).
+
+1. Before starting an issue, look for an open PR that already names it
+   (`gh api 'repos/aegatlin/qot/pulls?state=open'`, then search the bodies
+   for `#N`). If one exists, someone is on it: pick something else or ask.
+   Re-read the issue too: it may have closed since you listed it.
+2. With your first commit (a failing test is a good one), push the branch
+   and open a **draft PR** whose body says `Fixes #N` (or `Part of #N`),
+   long before the work is done, so the issue shows it is taken. Fill in the
+   description as the work lands.
 
 ## Repo layout
 
@@ -58,8 +69,9 @@ one committed `Cargo.lock`, one `target/`).
 ## Tooling
 
 One root `mise.toml` pins every tool (Rust, Erlang, Elixir, Node,
-wasm-bindgen, binaryen) and holds every
-task, named `<action>:<component>` with the bare action running all of them.
+wasm-bindgen, binaryen, cargo-dist) and holds every
+task, named `<action>:<component>`; the bare `test` and `lint` run all of
+their components.
 A new component adds its tools and tasks there. Server env vars are
 deliberately not `required` in `mise.toml`, which would stop CLI tasks from
 running without them; local overrides go in a gitignored `mise.local.toml`.
@@ -82,7 +94,8 @@ changes end to end, not only with tests:
 - **Server + PWA + CLI: `mise run e2e:web`** (Playwright, `client_web/e2e/`)
   starts the server with `APP_URL` pointing at the built PWA, signs in from
   the CLI by typing its code into the PWA's sign-in page, and checks notes
-  moving both ways live, offline capture and a wrong code. Extend it rather
+  moving both ways live, offline capture, a wrong code and deleting the
+  account from the browser. Extend it rather
   than clicking through by hand.
 - **Server + CLI, the whole sign-in and sync loop, by hand.** Start the server
   in the background (`cd server_web && mise exec -- mix setup`, then
@@ -101,7 +114,7 @@ changes end to end, not only with tests:
   local server and screenshot or read them.
 
 Not against staging or production: signing in there needs a real inbox
-(#11), and agents don't create accounts on production.
+(a test inbox was part of #11, deferred), and agents don't create accounts on production.
 
 **Secrets** for deployed environments live in `fnox.toml`, age-encrypted and
 committed, one profile per environment (`staging`, `production`). Decrypting
@@ -116,6 +129,7 @@ mise run lint          # lint:rust (rustfmt + clippy, also for wasm32), lint:web
 mise run e2e:web       # PWA + server + CLI in headless Chromium (needs Postgres)
 mise run dev:web       # alias: w; the PWA at http://localhost:5173 against the local server
 mise run dev:site      # the website at http://localhost:4321
+mise run build:web     # or build:site, build:wasm-core, build:apple-core
 mise run server        # alias: s
 mise run cli-install   # alias: ci; installs `qot`
 mise run xcode         # builds the Apple core, opens the Xcode project
@@ -124,6 +138,11 @@ mise run xcode         # builds the Apple core, opens the Xcode project
 ## Conventions
 
 - **TDD.** Write the failing test first, then the code.
+- **Docs change with the code.** Agents act on what CLAUDE.md, the READMEs,
+  `docs/records/` and comments say, so stale text is a bug. A change that
+  makes any of them wrong fixes them in the same PR (records: mark the old
+  part superseded, see `docs/records/README.md`), and a retired file is
+  deleted, not left behind.
 - **Functional core, imperative shell.** Logic lives in pure functions over
   immutable values that are tested without I/O; storage, network and UI are a
   thin shell around them. In `qot_core` every operation on a `Note` returns a
@@ -215,8 +234,8 @@ the rules the CLI is tested with:
   have changes not pushed yet, the data dir and the version; offline, and
   never prints tokens. Every request sends `User-Agent:
   qot-cli/<version> (<os>; <arch>)`.
-- Capture never waits on the network: `add`/`get …`, `delete` and `list`
-  run a best-effort sync with a 3 s timeout when signed in, and print
+- Capture never waits on the network: `add` (and the bare form, `qot get
+  milk`), `delete`, `list` and `export` run a best-effort sync with a 3 s timeout when signed in, and print
   `(not synced: …)` to stderr when offline. The note is saved first.
 - Store layout under the data dir: `notes/<id>.note` (Automerge bytes),
   `sync.json` (`SyncState`), `credentials.json` (tokens, mode 0600).
@@ -487,8 +506,9 @@ the rules the CLI is tested with:
   checks that the API answers. Read-only and sends no email, so it is safe
   against production. Staging runs it after CI passes on `main`;
   `release-server.yml` runs it for production after promoting.
-- CI (`.github/workflows/ci.yml`) runs Rust and server checks on every PR,
-  reading tool versions from `mise.toml`.
+- CI (`.github/workflows/ci.yml`) runs on every PR: Rust, server, the
+  PWA (wasm, tests, e2e), the website, and the three Docker images, reading
+  tool versions from `mise.toml`.
 - Dev logs every email (sign-in links included) to the server's console.
 - Production env: `DATABASE_URL`, `JWT_SECRET_KEY`, `RESEND_API_KEY`,
   `SECRET_KEY_BASE`, `PHX_HOST`, `APP_URL` (the PWA, e.g.

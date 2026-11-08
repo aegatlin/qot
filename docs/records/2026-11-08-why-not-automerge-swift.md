@@ -80,7 +80,8 @@ architecture:
 
 - Install only Rust in Xcode Cloud, not every tool in `mise.toml` (done
   2026-11-08 after build 5).
-- Pin Rust with `rust-toolchain.toml` so CI needs rustup, not mise (proposed).
+- Pin Rust with `rust-toolchain.toml` so CI needs rustup, not mise (an idea,
+  not tracked; it would add a second pin beside `mise.toml`).
 - If it still hurts: publish `QotFFI.xcframework` as a release asset from
   GitHub Actions and point QotKit at it as a remote `binaryTarget` with a
   checksum, which is exactly what automerge-swift does for itself.

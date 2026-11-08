@@ -1,7 +1,8 @@
 import Foundation
 
 /// Where every Apple target (the app, its intents and widgets, later the
-/// Watch) finds the shared note store and session.
+/// Mac) finds the shared note store and session. The Watch doesn't: it
+/// hands notes to the phone over WatchConnectivity.
 public enum AppGroup {
     public static let id = "group.llc.abstractsyntax.qot"
 

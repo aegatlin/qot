@@ -3,9 +3,9 @@ name: Release server
 # Production deploys from tags: push a `server/v<version>` tag on a commit
 # that is on main. This runs CI on it, then moves the `production` branch to
 # it; Railway's production environment deploys that branch. Staging deploys
-# every green push to main on its own.
+# every green push to main that touches server_web/ on its own.
 #
-#   git tag server/v0.1.2 && git push origin server/v0.1.2
+#   git tag server/vX.Y.Z && git push origin server/vX.Y.Z   # the next version
 #
 # (Before 2026-11-06 the tags were server-v*: server-v0.1.0, server-v0.1.1.)
 #

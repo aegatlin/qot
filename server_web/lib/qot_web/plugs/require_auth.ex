@@ -2,8 +2,8 @@ defmodule QotWeb.Plugs.RequireAuth do
   @moduledoc """
   Plug to require JWT authentication for protected routes.
   Extracts and verifies the JWT from the Authorization header, and checks
-  that its user still exists: a deleted account's tokens stay valid until
-  they expire, and its devices should get 401 (signed out) meanwhile.
+  that its user still exists, so a deleted account's unexpired tokens get
+  401 and its devices treat themselves as signed out.
   """
 
   import Plug.Conn

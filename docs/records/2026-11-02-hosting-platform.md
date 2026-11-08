@@ -85,6 +85,8 @@ What follows from that:
   equivalent is an app-scoped deploy token plus allowlisting `api.fly.io` /
   `api.machines.dev` and installing flyctl in a setup script. **Not yet
   tested in a cloud session**: try it when the pipeline is up.
+  (Since then: not done, and cloud sessions deliberately have no Railway
+  access and don't deploy; see CLAUDE.md, "Cloud sessions".)
 
 Net: Railway is a little better for cloud sessions (deploys and previews come
 from GitHub with nothing for the agent to authenticate, plus a hosted OAuth
@@ -126,8 +128,8 @@ multi-region nodes close to users, revisit.
   (89 days) schedules per volume; restore creates a new volume in the same
   project and environment. Railway still calls the feature "under
   development". "Wiping a volume deletes all backups". So also keep an
-  off-platform `pg_dump` (roadmap: "Postgres backups, and one tested
-  restore").
+  off-platform `pg_dump` (#8, deferred while dogfooding: closed as not
+  planned, to reopen at launch).
 - **Wait for CI** holds a deploy until GitHub Actions check suites finish
   (failed → skipped, two-hour timeout). It isn't meant for must-run steps,
   so run migrations as a pre-deploy command or on boot, not in a workflow.
