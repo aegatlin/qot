@@ -75,37 +75,37 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0E78C974FA543E6969FF7AB4 /* QotKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = QotKit; path = QotKit; sourceTree = SOURCE_ROOT; };
+		0E78C974FA543E6969FF7AB4 /* QotKit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = QotKit; sourceTree = SOURCE_ROOT; };
 		4D6E54890EBA80738E4FEEDC /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
-		940111B4A2BD86994BCBECF0 /* QotWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = QotWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		940111B4A2BD86994BCBECF0 /* QotWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QotWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF0FCBC55BE575FC208E4735 /* QotWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QotWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1BFE85CAE4993F3B99FC6C0 /* QotWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QotWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E4A5389EACA24E15800570C1 /* Qot.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Qot.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E4A5389EACA24E15800570C1 /* Qot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Qot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		1E881CC16DD790DB99F647D9 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		1E881CC16DD790DB99F647D9 /* Exceptions for "Watch" folder in "QotWatch" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = B57BB1E8D25C6EEA9DB855C1 /* QotWatch */;
 		};
-		47255AD3A67E5A300896D301 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		47255AD3A67E5A300896D301 /* Exceptions for "Widgets" folder in "QotWidgets" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = CE3F1966188007206AFBC977 /* QotWidgets */;
 		};
-		B71F5EA10C40E7AA6422C33A /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		B71F5EA10C40E7AA6422C33A /* Exceptions for "App" folder in "Qot" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = 74B51C36C093717AD465A2A0 /* Qot */;
 		};
-		EEB8D655747E2688B84EE3CD /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		EEB8D655747E2688B84EE3CD /* Exceptions for "WatchWidgets" folder in "QotWatchWidgets" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -117,21 +117,13 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		5B12AB13F60FF24CC386E908 /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
 			path = Shared;
 			sourceTree = "<group>";
 		};
 		660845AF0484D5A53B99A815 /* Watch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				1E881CC16DD790DB99F647D9 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
+				1E881CC16DD790DB99F647D9 /* Exceptions for "Watch" folder in "QotWatch" target */,
 			);
 			path = Watch;
 			sourceTree = "<group>";
@@ -139,11 +131,7 @@
 		8DB1F2EF54F6BFF22690E1D6 /* App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				B71F5EA10C40E7AA6422C33A /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
+				B71F5EA10C40E7AA6422C33A /* Exceptions for "App" folder in "Qot" target */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -151,11 +139,7 @@
 		A4D1EA56133FA83B9DA0303B /* Widgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				47255AD3A67E5A300896D301 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
+				47255AD3A67E5A300896D301 /* Exceptions for "Widgets" folder in "QotWidgets" target */,
 			);
 			path = Widgets;
 			sourceTree = "<group>";
@@ -163,11 +147,7 @@
 		EB1B0217BBE91D63DFDB7ECC /* WatchWidgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				EEB8D655747E2688B84EE3CD /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
+				EEB8D655747E2688B84EE3CD /* Exceptions for "WatchWidgets" folder in "QotWatchWidgets" target */,
 			);
 			path = WatchWidgets;
 			sourceTree = "<group>";
@@ -255,8 +235,8 @@
 				FD079D7220802708BE5664B7 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				8DB1F2EF54F6BFF22690E1D6 /* App */,
 				5B12AB13F60FF24CC386E908 /* Shared */,
+				8DB1F2EF54F6BFF22690E1D6 /* App */,
 			);
 			name = Qot;
 			packageProductDependencies = (
@@ -341,7 +321,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2720;
 				TargetAttributes = {
 					74B51C36C093717AD465A2A0 = {
 						DevelopmentTeam = H88537CLVC;
@@ -472,6 +452,7 @@
 			baseConfigurationReference = 4D6E54890EBA80738E4FEEDC /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -503,9 +484,12 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = H88537CLVC;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -520,6 +504,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
@@ -532,6 +517,7 @@
 			baseConfigurationReference = 4D6E54890EBA80738E4FEEDC /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -563,9 +549,12 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = H88537CLVC;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -587,6 +576,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
