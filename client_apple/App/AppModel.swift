@@ -50,15 +50,28 @@ final class AppModel {
 
     // MARK: - Notes
 
-    /// Saves a note. Returns whether it was saved, so the field can clear.
-    func add(_ content: String) -> Bool {
-        let saved = perform { _ = try $0.add(content) }
-        if saved { syncInBackground() }
-        return saved
+    /// Saves a new note and returns it (nil if it couldn't be saved).
+    func create(_ content: String) -> NoteItem? {
+        var created: NoteItem?
+        if perform({ created = try $0.add(content) }) { syncSoon() }
+        return created
     }
 
-    func delete(_ note: NoteItem) {
-        if perform({ try $0.delete(id: note.id) }) { syncInBackground() }
+    /// Saves an edit. The editor calls this as you type, so the sync waits
+    /// for a pause in typing.
+    @discardableResult
+    func update(id: String, content: String) -> NoteItem? {
+        var edited: NoteItem?
+        if perform({ edited = try $0.update(id: id, content: content) }) { syncSoon() }
+        return edited
+    }
+
+    func delete(id: String) {
+        if perform({ try $0.delete(id: id) }) { syncInBackground() }
+    }
+
+    func note(id: String) -> NoteItem? {
+        notes.first { $0.id == id }
     }
 
     func reload() {
@@ -94,7 +107,20 @@ final class AppModel {
     // MARK: - Sync
 
     func syncInBackground() {
+        pendingSync?.cancel()
         Task { await sync() }
+    }
+
+    private var pendingSync: Task<Void, Never>?
+
+    /// Syncs once typing pauses for a moment, not on every saved keystroke.
+    func syncSoon() {
+        pendingSync?.cancel()
+        pendingSync = Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            await sync()
+        }
     }
 
     /// Syncs if signed in. A request while one runs runs once more after it,

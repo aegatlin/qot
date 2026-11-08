@@ -305,6 +305,11 @@ the rules the CLI is tested with:
   read-modify-writes hold `store.lock` and save by merging with what is on
   disk; a sync holds `sync.lock` (both `flock`). Tokens are in the Keychain
   with the App Group as access group, readable after first unlock.
+- **The app is Notes-shaped** (`NotesView`, `NoteEditor`): notes grouped by
+  last edit (Today, Yesterday, …; the rules are `NoteList` in QotKit, title =
+  first line), search, swipe to delete, compose in the bottom toolbar; the
+  editor saves as you type (`NoteStore.update`, sync after a pause) and
+  discards a note left empty. HIG controls only.
 - **Capture surfaces**: `AddNoteIntent` (app target; Siri phrases in
   `QotShortcuts`, also Shortcuts, the Action button and Spotlight) saves
   through `Capture` (QotKit: save, then a sync bounded to 3 s) without

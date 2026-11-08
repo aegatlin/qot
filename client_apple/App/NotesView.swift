@@ -1,124 +1,175 @@
 import QotKit
 import SwiftUI
 
-/// Capture at the top, newest notes below. Opening the app puts the cursor
-/// in the field, so capturing is: open, type, return.
+/// Where the notes list can go: an existing note, or a new one (keyed so
+/// each compose opens a fresh editor).
+enum Route: Hashable {
+    case note(String)
+    case new(UUID)
+}
+
+/// The notes list, as in Apple Notes: notes grouped by when they were last
+/// edited, search, swipe to delete, and the compose button in the bottom
+/// toolbar. Capture surfaces open a new note ready to type.
 struct NotesView: View {
     @Bindable var model: AppModel
-    @State private var draft = ""
+    @State private var path: [Route] = []
+    @State private var query = ""
     @State private var showingAccount = false
-    @State private var dictation = Dictation()
-    /// The draft as it was when dictation started; what's heard goes after it.
-    @State private var beforeDictation = ""
-    @FocusState private var focused: Bool
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    HStack(alignment: .firstTextBaseline) {
-                        TextField("Capture a thought", text: $draft, axis: .vertical)
-                            .focused($focused)
-                            .submitLabel(.done)
-                            .onSubmit(save)
-                            .onChange(of: draft) { _, new in
-                                // Return in a vertical field inserts a newline;
-                                // treat it as "save" like the CLI's one-liner.
-                                if new.hasSuffix("\n") {
-                                    draft.removeLast()
-                                    save()
-                                }
+        NavigationStack(path: $path) {
+            list
+                .navigationTitle("Notes")
+                .navigationDestination(for: Route.self) { route in
+                    switch route {
+                    case .note(let id): NoteEditor(model: model, noteID: id)
+                    case .new: NoteEditor(model: model, noteID: nil)
+                    }
+                }
+                .searchable(text: $query)
+                .refreshable { await model.sync() }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Account", systemImage: "person.crop.circle") {
+                            showingAccount = true
+                        }
+                    }
+                    ToolbarSpacer(.flexible, placement: .bottomBar)
+                    ToolbarItem(placement: .bottomBar) {
+                        ListStatus(model: model).fixedSize()
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                    ToolbarSpacer(.flexible, placement: .bottomBar)
+                    ToolbarItem(placement: .bottomBar) {
+                        Button("New Note", systemImage: "square.and.pencil", action: compose)
+                    }
+                }
+        }
+        .sheet(isPresented: $showingAccount) { AccountView(model: model) }
+        // The Control Center control, the widgets and "New Note" open the
+        // app ready to type.
+        .onOpenURL { _ in compose() }
+        .onReceive(NotificationCenter.default.publisher(for: OpenCaptureIntent.focusCapture)) { _ in
+            compose()
+        }
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })
+        ) {
+            Button("OK") { model.error = nil }
+        } message: {
+            Text(model.error ?? "")
+        }
+    }
+
+    @ViewBuilder private var list: some View {
+        let matching = NoteList.search(model.notes, for: query)
+        let sections = NoteList.sections(matching, now: .now, calendar: .current)
+        List {
+            ForEach(sections, id: \.title) { section in
+                Section(section.title) {
+                    ForEach(section.notes) { note in
+                        NavigationLink(value: Route.note(note.id)) {
+                            NoteRow(note: note)
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button("Delete", systemImage: "trash", role: .destructive) {
+                                model.delete(id: note.id)
                             }
-                        Button {
-                            if !dictation.listening { beforeDictation = draft }
-                            Task { await dictation.toggle() }
-                        } label: {
-                            Image(systemName: dictation.listening ? "stop.circle.fill" : "mic")
-                                .symbolEffect(.pulse, isActive: dictation.listening)
                         }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel(dictation.listening ? "Stop dictating" : "Dictate a note")
-                    }
-                } footer: {
-                    if let problem = dictation.problem {
-                        Text(problem)
-                    } else if dictation.listening {
-                        Text("Listening… tap stop, check the text, then return to save.")
-                    }
-                }
-                Section {
-                    ForEach(model.notes) { note in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(note.content)
-                            Text(note.createdAt, format: .relative(presentation: .named))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        .contextMenu {
+                            Button("Delete", systemImage: "trash", role: .destructive) {
+                                model.delete(id: note.id)
+                            }
                         }
                     }
-                    .onDelete { offsets in
-                        offsets.map { model.notes[$0] }.forEach(model.delete)
-                    }
-                } footer: {
-                    SyncStatus(model: model)
                 }
             }
-            .refreshable { await model.sync() }
-            .navigationTitle("qot")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Account", systemImage: "person.crop.circle") { showingAccount = true }
+        }
+        .listStyle(.insetGrouped)
+        .overlay {
+            if model.notes.isEmpty {
+                ContentUnavailableView {
+                    Label("No Notes", systemImage: "note.text")
+                } description: {
+                    Text("Tap \(Image(systemName: "square.and.pencil")) to write one.")
                 }
-            }
-            .sheet(isPresented: $showingAccount) { AccountView(model: model) }
-            .onAppear { focused = true }
-            .onChange(of: dictation.transcript) { _, heard in
-                guard dictation.listening || !heard.isEmpty else { return }
-                draft = [beforeDictation, heard].filter { !$0.isEmpty }.joined(separator: " ")
-            }
-            // The Control Center control, the widgets and "New Note" open
-            // the app ready to type.
-            .onOpenURL { _ in openCapture() }
-            .onReceive(NotificationCenter.default.publisher(for: OpenCaptureIntent.focusCapture)) { _ in
-                openCapture()
-            }
-            .alert(
-                "Something went wrong",
-                isPresented: Binding(
-                    get: { model.error != nil }, set: { if !$0 { model.error = nil } })
-            ) {
-                Button("OK") { model.error = nil }
-            } message: {
-                Text(model.error ?? "")
+            } else if matching.isEmpty {
+                ContentUnavailableView.search(text: query)
             }
         }
     }
 
-    private func save() {
-        guard !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        if dictation.listening { dictation.stop() }
-        if model.add(draft) { draft = "" }
-    }
-
-    private func openCapture() {
+    private func compose() {
         showingAccount = false
-        focused = true
+        path = [.new(UUID())]
     }
 }
 
-/// One quiet line under the notes: whether they've reached the server.
-struct SyncStatus: View {
+/// A note in the list: its title, then when it was edited and a preview.
+struct NoteRow: View {
+    let note: NoteItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(NoteList.title(of: note.content))
+                .font(.headline)
+                .lineLimit(1)
+            HStack(spacing: 6) {
+                Text(Self.edited(note.updatedAt))
+                let preview = NoteList.preview(of: note.content)
+                Text(preview.isEmpty ? "No additional text" : preview)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .font(.subheadline)
+        }
+        .padding(.vertical, 2)
+    }
+
+    /// As Notes shows it: the time today, the weekday this week, else the date.
+    static func edited(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return date.formatted(date: .omitted, time: .shortened)
+        }
+        if let days = calendar.dateComponents([.day], from: date, to: .now).day, days < 7 {
+            return date.formatted(.dateTime.weekday(.wide))
+        }
+        return date.formatted(date: .numeric, time: .omitted)
+    }
+}
+
+/// The bottom toolbar's middle: how many notes, and whether they've reached
+/// the server.
+struct ListStatus: View {
     let model: AppModel
 
     var body: some View {
-        if model.session == nil {
-            Text("Notes stay on this device until you sign in.")
-        } else if let problem = model.syncProblem {
-            Label("Not synced: \(problem)", systemImage: "icloud.slash")
-        } else if model.syncing {
-            Text("Syncing…")
-        } else if model.unsynced > 0 {
-            Text("\(model.unsynced) not synced yet")
+        VStack(spacing: 0) {
+            Text(model.notes.count == 1 ? "1 Note" : "\(model.notes.count) Notes")
+                .font(.caption)
+            if let detail {
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var detail: String? {
+        if model.session == nil {
+            return "On this iPhone only"
+        } else if model.syncProblem != nil {
+            return "Not synced"
+        } else if model.syncing {
+            return "Syncing…"
+        } else if model.unsynced > 0 {
+            return "\(model.unsynced) not synced yet"
+        }
+        return nil
     }
 }
 
