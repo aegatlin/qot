@@ -113,6 +113,47 @@ defmodule QotWeb.AuthController do
     conn |> put_status(:bad_request) |> json(%{error: "token and user_code are required"})
   end
 
+  @doc """
+  POST /api/auth/apple {"identity_token", "nonce"}
+  Sign in with Apple (docs/records/2026-11-08-sign-in-with-apple.md): Apple's
+  identity token and the raw nonce the app sent to Apple. Returns the same
+  tokens as a device sign-in. An identity token that fails any check is a 401
+  `invalid_token`; an email that belongs to an account it can't be linked to
+  is a 409 `email_in_use`; no linked account and no email is a 422
+  `email_required`; Apple's keys out of reach is a 503.
+  """
+  def sign_in_with_apple(conn, %{"identity_token" => token, "nonce" => nonce})
+      when is_binary(token) and is_binary(nonce) do
+    case Accounts.sign_in_with_apple(token, nonce) do
+      {:ok, %{access_token: access_token, refresh_token: refresh_token, user: user}} ->
+        json(conn, %{
+          access_token: access_token,
+          refresh_token: refresh_token,
+          user: %{id: user.id, email: user.email}
+        })
+
+      {:error, :invalid_token} ->
+        conn |> put_status(:unauthorized) |> json(%{error: "invalid_token"})
+
+      {:error, :email_in_use} ->
+        conn |> put_status(:conflict) |> json(%{error: "email_in_use"})
+
+      {:error, :no_email} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "email_required"})
+
+      {:error, :keys_unavailable} ->
+        conn |> put_status(:service_unavailable) |> json(%{error: "apple_unavailable"})
+
+      {:error, reason} ->
+        Logger.error("Sign in with Apple failed: #{inspect(reason)}")
+        conn |> put_status(:internal_server_error) |> json(%{error: "Failed to sign in"})
+    end
+  end
+
+  def sign_in_with_apple(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "identity_token and nonce are required"})
+  end
+
   # :not_found and :expired look the same: the link can't be used.
   defp link_error(conn, reason) when reason in [:approved, :consumed, :denied] do
     conn |> put_status(:gone) |> json(%{error: Atom.to_string(reason)})

@@ -29,3 +29,8 @@ config :joken, default_signer: "test-only-jwt-signing-key"
 # make tests fail depending on what else ran. Tests of the limits start their
 # own limiter or set lower ones.
 config :qot, :sign_in_limits, %{email: {1000, 3600}, ip: {1000, 3600}}
+
+# Sign in with Apple against a test key (test/support/apple_test_keys.ex),
+# never Apple's servers; refetching on an unknown kid isn't throttled.
+config :qot, :apple_keys_source, Qot.AppleTestKeys
+config :qot, :apple_keys_min_refetch_ms, 0

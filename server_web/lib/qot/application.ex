@@ -7,6 +7,7 @@ defmodule Qot.Application do
       Qot.Repo,
       {Phoenix.PubSub, name: Qot.PubSub},
       Qot.Accounts.SignInLimiter,
+      Qot.Accounts.AppleKeys,
       QotWeb.Endpoint
     ]
 

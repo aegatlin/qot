@@ -5,7 +5,17 @@ defmodule Qot.Accounts do
 
   import Ecto.Query, warn: false
   alias Qot.Repo
-  alias Qot.Accounts.{DeviceLogin, Mailer, SignInLimit, SignInLimiter, Token, User}
+
+  alias Qot.Accounts.{
+    AppleIdentity,
+    AppleKeys,
+    DeviceLogin,
+    Mailer,
+    SignInLimit,
+    SignInLimiter,
+    Token,
+    User
+  }
 
   ## User functions
 
@@ -232,6 +242,82 @@ defmodule Qot.Accounts do
     case Repo.one(from(d in DeviceLogin, where: ^by, lock: "FOR UPDATE")) do
       nil -> {:error, :not_found}
       login -> {:ok, login}
+    end
+  end
+
+  ## Sign in with Apple
+
+  @doc """
+  Signs in with Apple's identity token and the raw nonce the app sent to
+  Apple (docs/records/2026-11-08-sign-in-with-apple.md): the user linked to
+  that Apple account, else the account with its verified email (now linked),
+  else a new one. Returns tokens, like a device sign-in.
+
+  Errors: `:invalid_token` (bad signature, issuer, audience, expiry, nonce or
+  key), `:keys_unavailable` (Apple's keys couldn't be fetched),
+  `:email_in_use` and `:no_email` (see `AppleIdentity.account/3`).
+  """
+  @spec sign_in_with_apple(String.t(), String.t()) ::
+          {:ok, %{access_token: String.t(), refresh_token: String.t(), user: %User{}}}
+          | {:error, :invalid_token | :keys_unavailable | :email_in_use | :no_email | term()}
+  def sign_in_with_apple(identity_token, raw_nonce) do
+    with {:ok, identity} <- verify_apple_token(identity_token, raw_nonce),
+         {:ok, user} <- apple_account(identity) do
+      issue_tokens(user)
+    end
+  end
+
+  defp verify_apple_token(identity_token, raw_nonce) do
+    client_ids = Application.fetch_env!(:qot, :apple_client_ids)
+    now = System.os_time(:second)
+
+    with {:ok, kid} <- AppleIdentity.kid(identity_token),
+         {:ok, jwk} <- AppleKeys.get(kid),
+         {:ok, identity} <- AppleIdentity.verify(identity_token, jwk, raw_nonce, client_ids, now) do
+      {:ok, identity}
+    else
+      {:error, :keys_unavailable} -> {:error, :keys_unavailable}
+      {:error, _reason} -> {:error, :invalid_token}
+    end
+  end
+
+  # Two first sign-ins at once can race to link or create: the loser hits a
+  # unique index, and trying again finds the winner's account.
+  defp apple_account(identity, retries \\ 1) do
+    case Repo.transaction(fn -> apple_account_once(identity) end) do
+      {:error, %Ecto.Changeset{}} when retries > 0 -> apple_account(identity, retries - 1)
+      result -> result
+    end
+  end
+
+  defp apple_account_once(identity) do
+    by_sub = Repo.get_by(User, apple_sub: identity.sub)
+
+    by_email =
+      if identity.email do
+        email = String.downcase(identity.email)
+
+        Repo.one(
+          from(u in User,
+            where: fragment("lower(?)", u.email) == ^email,
+            order_by: u.inserted_at,
+            limit: 1,
+            lock: "FOR UPDATE"
+          )
+        )
+      end
+
+    result =
+      case AppleIdentity.account(identity, by_sub, by_email) do
+        {:existing, user} -> {:ok, user}
+        {:link, user} -> user |> User.apple_changeset(%{apple_sub: identity.sub}) |> Repo.update()
+        {:create, attrs} -> %User{} |> User.apple_changeset(attrs) |> Repo.insert()
+        {:error, reason} -> {:error, reason}
+      end
+
+    case result do
+      {:ok, user} -> user
+      {:error, reason} -> Repo.rollback(reason)
     end
   end
 

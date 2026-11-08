@@ -468,12 +468,24 @@ the rules the CLI is tested with:
   the JWT, verified before channel join. Both also check the user still
   exists, so a deleted account's tokens (valid up to an hour) get 401. The pure rules live in
   `Qot.Accounts.DeviceLogin` (status, code checks).
+- **Sign in with Apple** (`docs/records/2026-11-08-sign-in-with-apple.md`):
+  `POST /api/auth/apple {identity_token, nonce}` (the raw nonce) returns the
+  device sign-in's tokens. The server checks the token itself (RS256 against
+  Apple's keys, `iss`, `aud` in `APPLE_CLIENT_IDS`, `exp`, `nonce` = SHA-256
+  hex of the raw one), then signs in the user with that `users.apple_sub`,
+  else links the account with the same verified email (case-insensitive),
+  else creates one. Pure rules in `Qot.Accounts.AppleIdentity`; Apple's keys
+  are cached by `Qot.Accounts.AppleKeys` (refetched for an unknown `kid`, at
+  most once a minute). Tests sign tokens with `Qot.AppleTestKeys`
+  (`test/support/`), never Apple. No email, so no rate limit. Errors: 401
+  `invalid_token`, 409 `email_in_use` (unverified email or an account linked
+  to another Apple ID), 422 `email_required`, 503 `apple_unavailable`.
 - **Account deletion**: `DELETE /api/account {confirm: <the account's
   email>}` removes the user, refresh tokens, change log and sign-ins
   (`Qot.Accounts.delete_user/1`) and closes the user's sockets. A
   server-side export would only be opaque change blobs, so export is the
   client's job.
-- **Contexts**: `Qot.Accounts` (users, device sign-in, tokens), `Qot.Sync`
+- **Contexts**: `Qot.Accounts` (users, device sign-in, Sign in with Apple, tokens), `Qot.Sync`
   (the change log, always scoped by `user_id`).
 - **Per-user isolation**: every sync call takes `user_id` from the token;
   channels are `notes:user:#{user_id}`, joinable only by that user.
@@ -514,7 +526,9 @@ the rules the CLI is tested with:
   `SECRET_KEY_BASE`, `PHX_HOST`, `APP_URL` (the PWA, e.g.
   `https://app.quantumofthought.com`: sign-in links open it and its origin is
   the one browser origin allowed; dev defaults to `http://localhost:5173`).
-  Optional: `CLIENT_IP_HEADER` (default `x-real-ip`), `DATABASE_SSL=false` (a database on the host's private network; TLS with
+  Optional: `APPLE_CLIENT_IDS` (comma-separated client ids an Apple identity
+  token may be for; default `llc.abstractsyntax.qot`),
+  `CLIENT_IP_HEADER` (default `x-real-ip`), `DATABASE_SSL=false` (a database on the host's private network; TLS with
   certificate verification is the default), `ECTO_IPV6=true`, `POOL_SIZE`,
   `PORT`. Dev and test need none.
 - **Release**: `server_web/Dockerfile` builds a `mix release` (Elixir and

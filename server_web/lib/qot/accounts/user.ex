@@ -7,8 +7,19 @@ defmodule Qot.Accounts.User do
 
   schema "users" do
     field(:email, :string)
+    # The Apple account's `sub`, once the user has signed in with Apple.
+    field(:apple_sub, :string)
 
     timestamps(type: :utc_datetime)
+  end
+
+  @doc "A new user from Sign in with Apple, or an existing one linked to it."
+  def apple_changeset(user, attrs) do
+    user
+    |> changeset(attrs)
+    |> cast(attrs, [:apple_sub])
+    |> validate_required([:apple_sub])
+    |> unique_constraint(:apple_sub)
   end
 
   @doc false

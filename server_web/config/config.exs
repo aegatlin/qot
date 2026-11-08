@@ -18,4 +18,8 @@ config :qot, :sign_in_limits, %{email: {5, 3600}, ip: {20, 3600}}
 # QotWeb.Plugs.ClientIP). Unset: the peer address is the client.
 config :qot, :client_ip_header, nil
 
+# Sign in with Apple: the client ids (bundle ids, later a Services ID for the
+# web) an identity token may be for. APPLE_CLIENT_IDS overrides it at runtime.
+config :qot, :apple_client_ids, ["llc.abstractsyntax.qot"]
+
 import_config "#{config_env()}.exs"

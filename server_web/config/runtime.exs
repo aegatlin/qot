@@ -27,6 +27,22 @@ if config_env() != :test do
   end
 end
 
+# Sign in with Apple: the client ids an identity token may be for, comma
+# separated. Optional; config.exs has the iOS app's bundle id.
+case System.get_env("APPLE_CLIENT_IDS") do
+  nil ->
+    :ok
+
+  ids ->
+    case ids |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == "")) do
+      [] ->
+        raise "APPLE_CLIENT_IDS is empty: unset it, or list client ids, e.g. llc.abstractsyntax.qot"
+
+      ids ->
+        config :qot, :apple_client_ids, ids
+    end
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
