@@ -313,7 +313,12 @@ the rules the CLI is tested with:
   `transferUserInfo` (queued while apart), and the phone's `WatchReceiver`
   saves it through QotKit's `Inbox` (drops a transfer delivered twice, by
   id) and syncs. `QotWatchWidgets` is the complication / Smart Stack
-  widget. Its App IDs get registered the first time the app is archived.
+  widget. Its App IDs (`…watchkitapp`, `…watchkitapp.widgets`) are
+  registered. A new target's App ID must exist before Xcode Cloud can
+  export: cloud signing can't register one, and a local archive won't
+  either (targets without capabilities get the wildcard development
+  profile). Register it with Distribute App > Custom > App Store Connect >
+  Export from a local archive, or on developer.apple.com.
 
 ## Web (`client_web`)
 
