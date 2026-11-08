@@ -23,7 +23,7 @@ public enum NoteList {
     /// in Notes' sections: Today, Yesterday, Previous 7 Days, Previous 30
     /// Days, then each earlier month of this year, then each earlier year.
     public static func sections(_ notes: [NoteItem], now: Date, calendar: Calendar) -> [Section] {
-        let sorted = notes.sorted { ($0.updatedAt, $0.id) > ($1.updatedAt, $1.id) }
+        let sorted = byLastEdit(notes)
         var result: [Section] = []
         for note in sorted {
             let title = sectionTitle(for: note.updatedAt, now: now, calendar: calendar)
@@ -34,6 +34,12 @@ public enum NoteList {
             }
         }
         return result
+    }
+
+    /// Newest edit first; ties (edits are to the second) go to the newer id,
+    /// which is UUIDv7, so the newer note.
+    public static func byLastEdit(_ notes: [NoteItem]) -> [NoteItem] {
+        notes.sorted { ($0.updatedAt, $0.id) > ($1.updatedAt, $1.id) }
     }
 
     /// Notes whose text contains the query, ignoring case and accents. A

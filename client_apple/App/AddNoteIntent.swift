@@ -2,7 +2,7 @@ import AppIntents
 import QotKit
 import WidgetKit
 
-/// Saves a note without opening the app: Siri ("Add a note in qot"),
+/// Saves a note without opening the app: Siri ("Capture a thought in qot"),
 /// Shortcuts, the Action button (via a shortcut) and Spotlight. Saves first,
 /// then syncs for at most 3 seconds, like `qot get …`.
 struct AddNoteIntent: AppIntent {
@@ -37,16 +37,19 @@ struct AddNoteIntent: AppIntent {
 }
 
 /// Siri phrases that work with no setup, and the shortcuts Spotlight and
-/// the Action button offer.
+/// the Action button offer. No phrase says "note": Siri hands "add a note
+/// in qot" to Apple Notes, whose Siri extension then crashed ("something
+/// went wrong", 2026-11-09). "Quantum of Thought" also works as the app's
+/// name (`INAlternativeAppNames` in Info.plist).
 struct QotShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: AddNoteIntent(),
             phrases: [
-                "Add a note in \(.applicationName)",
-                "Add a \(.applicationName) note",
                 "Capture a thought in \(.applicationName)",
-                "New \(.applicationName) note",
+                "Capture in \(.applicationName)",
+                "Save a thought in \(.applicationName)",
+                "Tell \(.applicationName) something",
             ],
             shortTitle: "Add Note",
             systemImageName: "square.and.pencil")

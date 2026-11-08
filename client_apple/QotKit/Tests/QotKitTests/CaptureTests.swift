@@ -67,4 +67,14 @@ private func capture(_ transport: HTTPTransport, signedIn creds: Credentials? = 
         for i in 1...5 { try store.add("note \(i)") }
         #expect(try store.latest(3).map(\.content) == ["note 5", "note 4", "note 3"])
     }
+
+    @Test func anEditedNoteIsLatest() throws {
+        // Edit times are to the second: wait past one so the edit is later.
+        let store = try NoteStore(directory: tempDir())
+        let first = try store.add("note 1")
+        try store.add("note 2")
+        Thread.sleep(forTimeInterval: 1.1)
+        try store.update(id: first.id, content: "note 1, edited")
+        #expect(try store.latest(2).map(\.content) == ["note 1, edited", "note 2"])
+    }
 }

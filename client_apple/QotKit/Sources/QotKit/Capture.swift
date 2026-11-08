@@ -75,8 +75,9 @@ public enum NotesChanged {
 }
 
 extension NoteStore {
-    /// The newest live notes, newest first (for widgets).
+    /// The most recently edited live notes, newest edit first (for widgets),
+    /// in the same order as the app's list.
     public func latest(_ count: Int) throws -> [NoteItem] {
-        Array(try list().suffix(count).reversed())
+        Array(NoteList.byLastEdit(try list()).prefix(count))
     }
 }
