@@ -234,6 +234,13 @@ the rules the CLI is tested with:
   have changes not pushed yet, the data dir and the version; offline, and
   never prints tokens. Every request sends `User-Agent:
   qot-cli/<version> (<os>; <arch>)`.
+- `qot edit <n>` (alias `e`) opens note `n` (numbered as in `qot list`)
+  in `$VISUAL`, else `$EDITOR`, else `vi`, run through `sh` so values like
+  `code --wait` work. The edit is made against the version the editor was
+  shown and merged into the note on disk, so a change synced in meanwhile is
+  kept. Unchanged text saves nothing; emptied text is refused (deleting is
+  `qot delete`'s job); a failing editor leaves the note alone. Rules in
+  `edit.rs` (pure), tests in `tests/edit_test.rs`.
 - Capture never waits on the network: `add` (and the bare form, `qot get
   milk`), `delete`, `list` and `export` run a best-effort sync with a 3 s timeout when signed in, and print
   `(not synced: …)` to stderr when offline. The note is saved first.

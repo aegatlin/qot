@@ -162,6 +162,40 @@ fn a_new_note_is_pushed_when_signed_in() {
 }
 
 #[test]
+fn an_edit_is_pushed_when_signed_in() {
+    let server = MockServer::start();
+    let push = server.mock(|when, then| {
+        when.method(POST)
+            .path("/api/sync/push")
+            .header("authorization", "Bearer good");
+        then.status(200).json_body(json!({ "cursor": 1 }));
+    });
+    empty_pull(&server);
+
+    let qot = Qot::new();
+    qot.sign_in(&server);
+    qot.cmd().args(["get", "milk"]).assert().success();
+    assert_eq!(push.calls(), 1);
+
+    let editor = qot.dir.path().join("ed.sh");
+    std::fs::write(&editor, "#!/bin/sh\nprintf 'get oat milk' > \"$1\"\n").unwrap();
+    std::fs::set_permissions(&editor, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+    qot.cmd()
+        .args(["edit", "1"])
+        .env("EDITOR", &editor)
+        .env_remove("VISUAL")
+        .assert()
+        .success();
+    // The edit went up as a second push, with nothing left waiting.
+    assert_eq!(push.calls(), 2);
+    qot.cmd()
+        .arg("sync")
+        .assert()
+        .success()
+        .stdout("Synced: 0 sent, 0 received\n");
+}
+
+#[test]
 fn a_note_from_another_device_shows_up_in_list() {
     let other = qot_core::Note::new("from the phone");
     let server = MockServer::start();

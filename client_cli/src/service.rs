@@ -184,20 +184,37 @@ impl NoteService {
     }
 
     pub fn delete_by_index(&mut self, index: usize) -> Result<String, String> {
-        let live: Vec<qot_core::Note> = self
+        let note = self.live_note(index)?;
+        let deleted = note.delete().map_err(|e| e.to_string())?;
+        self.save(&deleted)?;
+        Ok(note.content())
+    }
+
+    /// The live note at `index` as `qot list` numbers them (from 1).
+    pub fn live_note(&self, index: usize) -> Result<qot_core::Note, String> {
+        let mut live: Vec<qot_core::Note> = self
             .load_all()?
             .into_iter()
             .filter(|n| !n.is_deleted())
             .collect();
-
         if index == 0 || index > live.len() {
             return Err(format!("Index {} out of range (1-{})", index, live.len()));
         }
+        Ok(live.swap_remove(index - 1))
+    }
 
-        let note = &live[index - 1];
-        let deleted = note.delete().map_err(|e| e.to_string())?;
-        self.save(&deleted)?;
-        Ok(note.content())
+    /// Saves `text` as an edit of `base` (the note as it was shown in the
+    /// editor), merged into the note as it is on disk now, so a change that
+    /// synced in while the editor was open is kept.
+    pub fn save_edit(&mut self, base: &qot_core::Note, text: &str) -> Result<Note, String> {
+        let current = match self.storage.get(&base.id()).map_err(|e| e.to_string())? {
+            Some(bytes) => qot_core::Note::from_bytes(&bytes)
+                .map_err(|e| format!("note {} is unreadable: {e}", base.id()))?,
+            None => base.clone(),
+        };
+        let saved = edited(&current, base, text).map_err(|e| e.to_string())?;
+        self.save(&saved)?;
+        Ok(view(&saved))
     }
 
     fn save(&self, note: &qot_core::Note) -> Result<(), String> {
@@ -220,6 +237,17 @@ impl NoteService {
         }
         Ok(notes)
     }
+}
+
+/// An edit made against `base` (what the editor was shown), merged into
+/// `current` (the note now). `update` diffs from the note it's called on, so
+/// diffing from `base` keeps changes `current` has that `base` lacked.
+fn edited(
+    current: &qot_core::Note,
+    base: &qot_core::Note,
+    text: &str,
+) -> qot_core::NoteResult<qot_core::Note> {
+    current.merge(&base.update(text)?)
 }
 
 /// Runs `call` with the access token, refreshing it once if it was refused.
@@ -284,6 +312,46 @@ fn view(note: &qot_core::Note) -> Note {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_edit_keeps_a_change_that_arrived_while_editing() {
+        // Opened at "milk"; meanwhile another device made it "oat milk";
+        // the editor's result adds a line to what it was shown.
+        let base = qot_core::Note::new("milk");
+        let other_device = qot_core::Note::from_bytes(&base.to_bytes()).unwrap();
+        let current = base
+            .merge(&other_device.update("oat milk").unwrap())
+            .unwrap();
+        let saved = edited(&current, &base, "milk\neggs").unwrap();
+        assert_eq!(saved.content(), "oat milk\neggs");
+    }
+
+    #[test]
+    fn edit_by_index_saves_and_lists_the_new_text() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
+        service.create("first").unwrap();
+        sleep(Duration::from_millis(10));
+        service.create("second").unwrap();
+        let base = service.live_note(2).unwrap();
+        assert_eq!(base.content(), "second");
+        let note = service.save_edit(&base, "second, edited").unwrap();
+        assert_eq!(note.content, "second, edited");
+        let contents: Vec<_> = service
+            .list()
+            .unwrap()
+            .into_iter()
+            .map(|n| n.content)
+            .collect();
+        assert_eq!(contents, ["first", "second, edited"]);
+    }
+
+    #[test]
+    fn live_note_index_out_of_range_is_an_error() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
+        assert!(service.live_note(1).unwrap_err().contains("out of range"));
+    }
 
     #[test]
     fn rfc3339_formats_unix_seconds_in_utc() {

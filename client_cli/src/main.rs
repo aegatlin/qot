@@ -1,5 +1,6 @@
 mod api;
 mod credentials;
+mod edit;
 mod service;
 mod storage;
 
@@ -23,6 +24,7 @@ const QUICK_SYNC: Duration = Duration::from_secs(3);
     qot get milk          # Create a new note (implicit)\n  \
     qot add buy eggs      # Create a new note (explicit)\n  \
     qot list              # Show all notes\n  \
+    qot edit 2            # Edit note #2 in $VISUAL / $EDITOR\n  \
     qot delete 2          # Delete note #2\n  \
     qot login me@x.com    # Sign in to sync between devices\n  \
     qot sync              # Sync now\n  \
@@ -50,6 +52,12 @@ enum Commands {
     /// List all notes with their indices
     #[command(visible_alias = "l")]
     List,
+    /// Edit a note in $VISUAL or $EDITOR (default vi)
+    #[command(visible_alias = "e")]
+    Edit {
+        /// The index number shown in 'qot list' (e.g., 1, 2, 3)
+        index: usize,
+    },
     /// Delete a note by its index number
     #[command(visible_alias = "d")]
     Delete {
@@ -88,6 +96,7 @@ fn main() {
             quick_sync(&mut notes);
             list_notes(&mut notes);
         }
+        Some(Commands::Edit { index }) => edit_note(&mut notes, index),
         Some(Commands::Delete { index }) => {
             delete_note(&mut notes, index);
             quick_sync(&mut notes);
@@ -136,6 +145,32 @@ fn list_notes(notes: &mut NoteService) {
             }
         }
         Err(e) => fail(&format!("Error listing notes: {e}")),
+    }
+}
+
+/// Opens the note in the person's editor and saves what they wrote. The
+/// note on disk is only touched once the editor has exited cleanly.
+fn edit_note(notes: &mut NoteService, index: usize) {
+    let base = notes
+        .live_note(index)
+        .unwrap_or_else(|e| fail(&format!("Error editing note: {e}")));
+    let original = base.content();
+    let command = edit::editor_command(std::env::var("VISUAL").ok(), std::env::var("EDITOR").ok());
+    let file = std::env::temp_dir().join(format!("qot-{}-{}.txt", base.id(), std::process::id()));
+    let written = edit::open_in_editor(&command, &file, &edit::file_text(&original))
+        .unwrap_or_else(|e| fail(&e));
+    match edit::outcome(&original, &written) {
+        edit::Outcome::Unchanged => println!("No changes."),
+        edit::Outcome::Empty => fail(&format!(
+            "The note is empty, so it wasn't saved. To delete it, run: qot delete {index}"
+        )),
+        edit::Outcome::Changed(text) => {
+            match notes.save_edit(&base, &text) {
+                Ok(note) => println!("Edited: {}", note.content),
+                Err(e) => fail(&format!("Error saving note: {e}")),
+            }
+            quick_sync(notes);
+        }
     }
 }
 
