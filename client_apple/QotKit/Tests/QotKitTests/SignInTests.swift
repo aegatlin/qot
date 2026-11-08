@@ -64,6 +64,15 @@ private func account(_ server: FakeServer, signedIn creds: Credentials? = nil) t
         }
     }
 
+    @Test func aServerWithoutSignInWithAppleSaysSo() async throws {
+        // A server deployed before /api/auth/apple answers 404.
+        let server = FakeServer()
+        let (account, _, _) = try account(server)
+        await #expect(throws: SignInError.appleUnsupported) {
+            try await account.signInWithApple(identityToken: "old-server", nonce: "n", server: base)
+        }
+    }
+
     @Test func aSignInThatFailsStopsPolling() async throws {
         let server = FakeServer()
         let (account, credentials, _) = try account(server)

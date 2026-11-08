@@ -97,6 +97,7 @@ final class FakeServer: HTTPTransport, Sendable {
                     ]
                 )
             case "taken-email": return (409, ["error": "email_in_use"])
+            case "old-server": return (404, [:])
             default: return (401, ["error": "invalid_token"])
             }
         case "POST /api/auth/refresh":

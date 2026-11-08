@@ -147,6 +147,7 @@ public struct ServerAPI: SyncAPI {
             "POST", "/api/auth/apple", json: ["identity_token": identityToken, "nonce": nonce])
         switch status {
         case 200: return try signedIn(body)
+        case 404: throw SignInError.appleUnsupported
         case 409: throw SignInError.emailInUse
         case 422: throw SignInError.failed("Apple didn't share an email address.")
         case 503: throw SignInError.failed("Apple can't be reached right now. Try again.")

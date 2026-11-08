@@ -10,6 +10,8 @@ public enum SignInError: Error, Equatable, LocalizedError {
     /// which can't be linked (Apple didn't verify the email, or that account
     /// is linked to another Apple ID).
     case emailInUse
+    /// The server predates Sign in with Apple (no `/api/auth/apple`).
+    case appleUnsupported
 
     public var errorDescription: String? {
         switch self {
@@ -17,6 +19,8 @@ public enum SignInError: Error, Equatable, LocalizedError {
         case .failed(let why): "The sign-in failed: \(why)"
         case .emailInUse:
             "That email already has a qot account. Sign in with your email instead."
+        case .appleUnsupported:
+            "This server doesn't support Sign in with Apple yet. Sign in with your email, or choose another server."
         }
     }
 }
