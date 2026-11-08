@@ -373,9 +373,18 @@ the rules the CLI is tested with:
   and must equal the crate version.
 - Layout: pure logic in `notes.ts`, `session.ts`, `config.ts` and the core;
   the shell is `api.ts` (HTTP), `store.ts` (IndexedDB, the CLI's layout:
-  notes by id, `sync` and `credentials` in `meta`), `sync.ts` (push then
-  pull, state saved after each step), `live.ts` (the Phoenix channel nudge),
-  `app.tsx` (Preact). Errors are `Result` values (`result.ts`).
+  notes by id, `sync` and `credentials` in `meta`), `local.ts` (capture,
+  edit, delete: each a read-modify-write under the store lock), `sync.ts`
+  (push then pull, state saved after each step), `live.ts` (the Phoenix
+  channel nudge), `app.tsx` (Preact). Errors are `Result` values
+  (`result.ts`).
+- The UI is a Notes-style list (title = first line, preview, newest edit
+  first, search) beside capture, and an editor at `/notes/<id>` (two panes
+  when wide). Edits save as you type (debounced) as the editor's diff from
+  the version it was typed over, merged into the stored note
+  (`applyEdit`), so a change synced in meanwhile is kept; the editor shows
+  the stored note again once it has no unsaved typing. Leaving an emptied
+  note deletes it.
 - Tabs share one IndexedDB: Web Locks (`lock.ts`) serialise syncs and every
   read-modify-write of a note; a `BroadcastChannel` tells other tabs to
   reload.

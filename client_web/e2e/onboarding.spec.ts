@@ -45,6 +45,83 @@ test("sign in from the CLI, and the browser that approves is signed in too", asy
   await expect.poll(() => cli.run("list").stdout, { timeout: 10_000 }).not.toContain("get milk");
 });
 
+test("edit a note in the browser, see it in the terminal and on another device", async ({ page, browser }) => {
+  const email = `e2e-edit-${Date.now()}@example.com`;
+  const cli = new Cli();
+  const login = cli.login(email);
+  const code = await login.code;
+  await page.goto(await server.signInLink(email));
+  await page.getByLabel("Code").fill(code);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByTestId("sync-status")).toHaveText("Synced");
+  await login.exited;
+
+  // Wide screen: the list and the open note side by side.
+  expect(cli.run("get", "milk").status).toBe(0);
+  const list = page.getByRole("list", { name: "Notes" });
+  await list.getByRole("link", { name: /get milk/ }).click({ timeout: 10_000 });
+  await expect(page).toHaveURL(/\/notes\//);
+  const editor = page.getByLabel("Edit note");
+  await expect(editor).toHaveValue("get milk");
+  await expect(editor).toBeFocused();
+  await editor.fill("get oat milk\nand eggs");
+  // Saved as you type: the list shows the title and preview, the CLI the text.
+  await expect(list.getByRole("link", { name: /get oat milk.*and eggs/ })).toBeVisible();
+  await expect.poll(() => cli.run("list").stdout, { timeout: 10_000 }).toContain("get oat milk\nand eggs");
+
+  // A second device, phone-sized: signs in from the PWA itself.
+  const phoneContext = await browser.newContext({ viewport: { width: 390, height: 800 } });
+  const phone = await phoneContext.newPage();
+  await phone.goto("/");
+  await phone.getByLabel("Email").fill(email);
+  await phone.getByRole("button", { name: "Sign in" }).click();
+  const phoneCode = await phone.getByTestId("user-code").textContent();
+  const approve = await phoneContext.newPage();
+  await approve.goto(await server.signInLink(email));
+  await approve.getByLabel("Code").fill(phoneCode!);
+  await approve.getByRole("button", { name: "Sign in" }).click();
+  await approve.close();
+  await expect(phone.getByTestId("sync-status")).toHaveText("Synced", { timeout: 15_000 });
+
+  // Narrow: the note replaces the list, and back returns to it.
+  const phoneList = phone.getByRole("list", { name: "Notes" });
+  await phoneList.getByRole("link", { name: /get oat milk/ }).click();
+  await expect(phoneList).toBeHidden();
+  const phoneEditor = phone.getByLabel("Edit note");
+  await expect(phoneEditor).toHaveValue("get oat milk\nand eggs");
+  await phoneEditor.press("End");
+  await phoneEditor.pressSequentially("\nand bread");
+
+  // The open note on the first device catches up live, since nothing is
+  // being typed there.
+  await expect(editor).toHaveValue("get oat milk\nand eggs\nand bread", { timeout: 15_000 });
+  await phone.getByRole("button", { name: "‹ Notes" }).click();
+  await expect(phoneList).toBeVisible();
+  await expect.poll(() => cli.run("list").stdout, { timeout: 10_000 }).toContain("and bread");
+
+  // Search filters the list.
+  expect(cli.run("get", "call", "mom").status).toBe(0);
+  await expect(list).toContainText("call mom", { timeout: 10_000 });
+  await page.getByLabel("Search notes").fill("bread");
+  await expect(list.getByRole("link")).toHaveCount(1);
+  await page.getByLabel("Search notes").fill("");
+
+  // Delete from the editor.
+  await list.getByRole("link", { name: /call mom/ }).click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(list).not.toContainText("call mom");
+  await expect.poll(() => cli.run("list").stdout, { timeout: 10_000 }).not.toContain("call mom");
+
+  // Emptying a note and leaving it discards it.
+  await list.getByRole("link", { name: /get oat milk/ }).click();
+  await editor.fill("");
+  await page.getByRole("button", { name: "‹ Notes" }).click();
+  await expect(page.getByText("No notes yet")).toBeVisible();
+  await expect.poll(() => cli.run("list").stdout, { timeout: 10_000 }).toContain("No notes yet");
+  await expect(phone.getByText("No notes yet")).toBeVisible({ timeout: 15_000 });
+  await phoneContext.close();
+});
+
 test("the app opens and captures offline, then syncs when back", async ({ page, context }) => {
   const email = `e2e-off-${Date.now()}@example.com`;
   const cli = new Cli();

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { Api } from "../src/api";
 import { Note, syncCursor } from "../src/core/qot_wasm";
+import { saveEdit } from "../src/local";
 import { liveNotes, parseNotes } from "../src/notes";
 import { openStore, type Store } from "../src/store";
 import { sync } from "../src/sync";
@@ -62,6 +63,22 @@ describe("sync", () => {
     await sync(laptop, api);
     await sync(phone, api);
     expect(await contents(phone)).toEqual([]);
+  });
+
+  test("an edit syncs, and edits made on two devices at once both survive", async () => {
+    const [laptop, phone] = [await device(), await device()];
+    const note = await add(laptop, "get milk");
+    await sync(laptop, api);
+    await sync(phone, api);
+
+    const onPhone = Note.fromBytes((await phone.note(note.id))!);
+    expect((await saveEdit(phone, onPhone, "get oat milk")).ok).toBe(true);
+    expect((await saveEdit(laptop, note, "get milk\nand eggs")).ok).toBe(true);
+    await sync(phone, api);
+    await sync(laptop, api);
+    await sync(phone, api);
+    expect(await contents(laptop)).toEqual(["get oat milk\nand eggs"]);
+    expect(await contents(phone)).toEqual(["get oat milk\nand eggs"]);
   });
 
   test("a second sync with nothing new sends nothing", async () => {

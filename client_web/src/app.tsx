@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { type Api, type ApiError, describe, type DeviceStart } from "./api";
 import type { Note } from "./core/qot_wasm";
 import { connectLive } from "./live";
-import { withLock } from "./lock";
-import { age, capture, deleteNote, liveNotes, parseNotes } from "./notes";
+import { deleteLocal, discardIfEmpty, saveEdit, saveNew } from "./local";
+import { age, type Edit, filterNotes, liveNotes, parseNotes } from "./notes";
+import type { Result } from "./result";
 import { adoptTokens, browserChoice, confirmsAccount, deleteAccount, signOut } from "./session";
 import type { Credentials, Store } from "./store";
-import { STORE_LOCK, sync, syncErrorText, type SyncError } from "./sync";
+import { sync, syncErrorText, type SyncError } from "./sync";
 
 type SyncStatus = { kind: "idle" } | { kind: "syncing" } | { kind: "synced" } | { kind: "error"; error: SyncError };
 
@@ -118,35 +119,59 @@ export function App({ api, store }: { api: Api; store: Store }) {
   const credsRef = useRef(creds);
   credsRef.current = creds;
 
-  const go = (to: string) => {
-    history.pushState(null, "", to);
+  const go = (to: string, state: unknown = null) => {
+    history.pushState(state, "", to);
     setPath(location.pathname);
   };
 
-  const onCapture = async (text: string) => {
-    const note = capture(text);
-    if (!note) return;
-    try {
-      await withLock(STORE_LOCK, () => store.putNotes([{ id: note.id, bytes: note.toBytes() }]));
-    } catch (e) {
-      setLoadError(`not saved: ${e instanceof Error ? e.message : e}`);
-      return;
+  // A note is open at /notes/<id>, one history entry above the list: opened
+  // from the list it pushes one (switching notes side by side replaces it),
+  // so "back" pops to the list; opened from a link or a reload, back
+  // replaces the entry with the list instead.
+  const openId = path.startsWith("/notes/") ? decodeURIComponent(path.slice("/notes/".length)) : null;
+  const openNote = (id: string) => {
+    const to = `/notes/${encodeURIComponent(id)}`;
+    if (openId) {
+      history.replaceState(history.state, "", to);
+      setPath(location.pathname);
+    } else go(to, { fromList: true });
+  };
+  const closeNote = () => {
+    if ((history.state as { fromList?: boolean } | null)?.fromList) history.back();
+    else {
+      history.replaceState(null, "", "/");
+      setPath("/");
     }
-    await changed();
+  };
+
+  // Local changes save first, then tell other tabs and sync in the background.
+  const afterChange = () => {
+    changed();
     runSync();
   };
 
+  const onCapture = async (text: string) => {
+    const saved = await saveNew(store, text);
+    if (!saved.ok) return setLoadError(`not saved: ${saved.error}`);
+    if (saved.value) afterChange();
+  };
+
   const onDelete = async (id: string) => {
-    const result = await withLock(STORE_LOCK, async () => {
-      const current = parseNotes(await store.allNotes());
-      if (!current.ok) return current;
-      const deleted = deleteNote(current.value, id);
-      if (deleted.ok) await store.putNotes([{ id, bytes: deleted.value.toBytes() }]);
-      return deleted;
-    }).catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+    if (id === openId) closeNote();
+    const result = await deleteLocal(store, id);
     if (!result.ok) setLoadError(`not deleted: ${result.error}`);
-    await changed();
-    runSync();
+    afterChange();
+  };
+
+  const onSaveEdit = async (base: Note, text: string) => {
+    const result = await saveEdit(store, base, text);
+    if (result.ok && result.value) afterChange();
+    return result;
+  };
+
+  const onLeaveNote = async (id: string) => {
+    const discarded = await discardIfEmpty(store, id);
+    if (discarded.ok && discarded.value) afterChange();
   };
 
   const onSignedIn = async (message: string) => {
@@ -176,8 +201,11 @@ export function App({ api, store }: { api: Api; store: Store }) {
     );
   }
 
+  const open = openId && notes ? notes.find((n) => n.id === openId) : undefined;
+
   return (
     <Shell
+      wide
       right={
         creds ? (
           <Account
@@ -199,16 +227,47 @@ export function App({ api, store }: { api: Api; store: Store }) {
         </p>
       )}
       {loadError && <p class="error">{loadError}</p>}
-      <Capture onCapture={onCapture} />
-      {notes === null ? null : <NoteList notes={notes} onDelete={onDelete} />}
-      {!creds && <SignIn api={api} store={store} onSignedIn={onSignedIn} />}
+      <div class={`panes${openId ? " editing" : ""}`}>
+        <div class="list-pane">
+          <Capture onCapture={onCapture} />
+          {notes === null ? null : <NoteList notes={notes} openId={openId} onOpen={openNote} onDelete={onDelete} />}
+          {!creds && <SignIn api={api} store={store} onSignedIn={onSignedIn} />}
+        </div>
+        <section class="editor-pane" aria-label="Note">
+          {!openId ? (
+            <p class="muted placeholder">Choose a note to read or edit it.</p>
+          ) : notes === null ? null : open && !open.isDeleted ? (
+            <Editor
+              key={openId}
+              note={open}
+              save={onSaveEdit}
+              onLeave={() => onLeaveNote(openId)}
+              onBack={closeNote}
+              onDelete={() => onDelete(openId)}
+            />
+          ) : (
+            <div class="gone">
+              <BackButton onBack={closeNote} />
+              <p class="muted">This note was deleted.</p>
+            </div>
+          )}
+        </section>
+      </div>
     </Shell>
   );
 }
 
-function Shell({ children, right }: { children: preact.ComponentChildren; right?: preact.ComponentChildren }) {
+function Shell({
+  children,
+  right,
+  wide,
+}: {
+  children: preact.ComponentChildren;
+  right?: preact.ComponentChildren;
+  wide?: boolean;
+}) {
   return (
-    <main>
+    <main class={wide ? "wide" : undefined}>
       <header>
         <a class="brand" href="/">
           <img src="/icon.svg" alt="" width="28" height="28" />
@@ -349,26 +408,203 @@ function Capture({ onCapture }: { onCapture: (text: string) => void }) {
   );
 }
 
-function NoteList({ notes, onDelete }: { notes: Note[]; onDelete: (id: string) => void }) {
-  const live = liveNotes(notes);
+/** The time now, refreshed every 30 s, for "5 min ago". */
+function useNow(): number {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
+  return now;
+}
+
+function NoteList({
+  notes,
+  openId,
+  onOpen,
+  onDelete,
+}: {
+  notes: Note[];
+  openId: string | null;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const live = liveNotes(notes);
+  const [query, setQuery] = useState("");
+  const now = useNow();
   if (live.length === 0) return <p class="muted empty">No notes yet. Type one above, or run <code>qot get milk</code>.</p>;
+  const shown = filterNotes(live, query);
   return (
-    <ul class="notes" aria-label="Notes">
-      {live.map((n) => (
-        <li key={n.id}>
-          <p class="content">{n.content}</p>
-          <span class="muted when">{age(n.createdAtMs, now)}</span>
-          <button class="delete" aria-label={`Delete “${n.content}”`} onClick={() => onDelete(n.id)}>
-            ×
-          </button>
-        </li>
-      ))}
-    </ul>
+    <>
+      <input
+        class="search"
+        type="search"
+        aria-label="Search notes"
+        placeholder="Search"
+        value={query}
+        onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+      />
+      {shown.length === 0 && <p class="muted empty">No notes match “{query.trim()}”.</p>}
+      <ul class="notes" aria-label="Notes">
+        {shown.map((n) => (
+          <li key={n.id}>
+            <a
+              class="open"
+              href={`/notes/${encodeURIComponent(n.id)}`}
+              aria-current={n.id === openId ? "true" : undefined}
+              onClick={(e) => {
+                // Let modified clicks open a new tab as links do.
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                e.preventDefault();
+                onOpen(n.id);
+              }}
+            >
+              <span class="title">{n.title}</span>
+              <span class="sub">
+                <span class="when">{age(n.updatedAtMs, now)}</span>
+                {n.preview && <span class="preview">{n.preview}</span>}
+              </span>
+            </a>
+            <button class="delete" aria-label={`Delete “${n.title}”`} onClick={() => onDelete(n.id)}>
+              ×
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+function BackButton({ onBack }: { onBack: () => void }) {
+  return (
+    <button class="link back" onClick={onBack}>
+      ‹ Notes
+    </button>
+  );
+}
+
+const SAVE_DELAY_MS = 500;
+
+/**
+ * One note, edited in place. Typing saves after a pause (and on blur, on
+ * leaving, and when the page is hidden) through `save`, which merges the edit
+ * into the stored note, so nothing waits on a button.
+ *
+ * `note` is the stored note, new on every reload (a sync, another tab, our
+ * own save). The text typed here is always relative to `base`, the version it
+ * was typed over. When the text has no unsaved typing (no save pending or
+ * running and it equals `base`), the editor shows the stored note; while
+ * there is, it keeps the typing, and the next save merges the two (see
+ * `applyEdit`), after which it catches up. So a change from elsewhere never
+ * clobbers typing, and typing never undoes it.
+ *
+ * Leaving the note (back, opening another, closing it) saves, then deletes
+ * it if it has no text, the way Apple Notes discards empty notes
+ * (`discardIfEmpty`). Closing the page only saves: a reload reopens the note.
+ */
+function Editor({
+  note,
+  save,
+  onLeave,
+  onBack,
+  onDelete,
+}: {
+  note: Note;
+  save: (base: Note, text: string) => Promise<Result<Edit | null>>;
+  onLeave: () => void;
+  onBack: () => void;
+  onDelete: () => void;
+}) {
+  const [text, setText] = useState(note.content);
+  const [error, setError] = useState<string | null>(null);
+  const textRef = useRef(note.content);
+  const base = useRef(note);
+  const latest = useRef(note);
+  latest.current = note;
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saves = useRef<Promise<void>>(Promise.resolve());
+  const running = useRef(0);
+  const area = useRef<HTMLTextAreaElement>(null);
+  const now = useNow();
+
+  const catchUp = () => {
+    if (timer.current !== null || running.current > 0 || textRef.current !== base.current.content) return;
+    base.current = latest.current;
+    if (latest.current.content !== textRef.current) {
+      textRef.current = latest.current.content;
+      setText(textRef.current);
+    }
+  };
+
+  // Saves run one after another, each over the base the last one returned.
+  const flush = () => {
+    if (timer.current !== null) clearTimeout(timer.current);
+    timer.current = null;
+    running.current++;
+    saves.current = saves.current
+      .then(async () => {
+        const result = await save(base.current, textRef.current);
+        if (!result.ok) return setError(`Not saved: ${result.error}`);
+        if (result.value) base.current = result.value.base;
+        setError(null);
+      })
+      .finally(() => {
+        running.current--;
+        catchUp();
+      });
+    return saves.current;
+  };
+
+  useEffect(catchUp, [note]);
+
+  useEffect(() => {
+    // Typing straight away with a keyboard; on touch screens the keyboard
+    // would cover the note, so it waits for a tap.
+    const el = area.current;
+    if (el && matchMedia("(pointer: fine)").matches) {
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    }
+    const onHide = () => {
+      if (timer.current !== null || textRef.current !== base.current.content) flush();
+    };
+    const onVisibility = () => document.visibilityState === "hidden" && onHide();
+    addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+      flush().then(onLeave);
+    };
+  }, []);
+
+  return (
+    <div class="editor-view">
+      <div class="editor-bar">
+        <BackButton onBack={onBack} />
+        <span class="muted when">Edited {age(note.updatedAtMs, now)}</span>
+        <button class="link danger" onClick={onDelete}>
+          Delete
+        </button>
+      </div>
+      {error && <p class="error">{error}</p>}
+      <textarea
+        ref={area}
+        class="editor"
+        aria-label="Edit note"
+        value={text}
+        onInput={(e) => {
+          textRef.current = (e.target as HTMLTextAreaElement).value;
+          setText(textRef.current);
+          if (timer.current !== null) clearTimeout(timer.current);
+          timer.current = setTimeout(flush, SAVE_DELAY_MS);
+        }}
+        onBlur={() => timer.current !== null && flush()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onBack();
+        }}
+      />
+    </div>
   );
 }
 

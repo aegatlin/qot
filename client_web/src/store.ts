@@ -15,6 +15,7 @@ export interface Credentials {
 
 export interface Store {
   allNotes(): Promise<Map<string, Uint8Array>>;
+  note(id: string): Promise<Uint8Array | undefined>;
   putNotes(notes: { id: string; bytes: Uint8Array }[]): Promise<void>;
   syncState(): Promise<string | undefined>;
   putSyncState(json: string): Promise<void>;
@@ -69,6 +70,11 @@ export async function openStore(name = "qot", idb: IDBFactory = indexedDB): Prom
       const notes = new Map<string, Uint8Array>();
       keys.forEach((k, i) => notes.set(String(k), new Uint8Array(values[i] as ArrayBuffer | Uint8Array)));
       return notes;
+    },
+    async note(id) {
+      const tx = db.transaction(NOTES, "readonly");
+      const value = (await request(tx.objectStore(NOTES).get(id))) as ArrayBuffer | Uint8Array | undefined;
+      return value === undefined ? undefined : new Uint8Array(value);
     },
     async putNotes(notes) {
       if (notes.length === 0) return;
