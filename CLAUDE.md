@@ -305,7 +305,9 @@ the rules the CLI is tested with:
   simulator; ATS allows local networking only). Requests send `User-Agent:
   qot-ios/<version> (iOS <version>; <model>)`.
 - The FFI is synchronous and UniFFI is pinned exactly. Network I/O belongs
-  in Swift, not Rust.
+  in Swift, not Rust. Automerge comes through `qot_ffi`, never
+  automerge-swift: the rules live once, in `qot_core`
+  (`docs/records/2026-11-08-why-not-automerge-swift.md`).
 - `mise run test:apple` needs macOS and Xcode; elsewhere it reports itself
   skipped. CI runs it on macOS only when Apple or Rust paths change
   (`.github/workflows/apple.yml`).
