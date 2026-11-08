@@ -31,3 +31,6 @@ site_web/.astro/
 
 # Xcode tools (e.g. previews) may build into the project folder.
 client_apple/build/
+
+# Worktrees Claude Code agents work in.
+.claude/worktrees/
