@@ -1,7 +1,7 @@
 // swift-tools-version: 6.2
 //
 // QotKit: the notes store every Apple target shares (app, widgets, intents,
-// later the Watch and Mac). It wraps qot_core through UniFFI; the framework
+// later the Mac; the Watch hands notes to the phone instead). It wraps qot_core through UniFFI; the framework
 // and bindings are built by `mise run build:apple-core` and gitignored.
 import PackageDescription
 

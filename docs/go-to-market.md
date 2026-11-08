@@ -1,7 +1,10 @@
 # Go-to-market (draft, open questions)
 
 Not marketing; the question is what's free, what's paid, and why someone
-would pay. Nothing here is decided.
+would pay. Nothing here is decided except self-hosting (question 2).
+
+> **Parked while dogfooding.** Pricing and billing are deferred (#16, closed as
+> not planned, to reopen at launch). Nothing here is a current todo.
 
 ## The shape being considered
 
@@ -23,7 +26,7 @@ model (Obsidian Sync, Bear Pro, Things Cloud being bundled into the price).
      free users.
    - Free trial of sync (e.g. 30 days), then paid.
 2. **Self-hosting.** The server is in this repo. Do we let people point
-   `qot --server` at their own instance? That is a strong trust signal for an
+   `qot login --server` at their own instance? That is a strong trust signal for an
    E2EE notes tool and costs us little, while most people will still pay to
    not run Postgres. Decided: yes, the code is AGPL-3.0 and self-hosting is allowed
    ([records/2026-11-04-open-source-or-closed.md](records/2026-11-04-open-source-or-closed.md)).
@@ -42,7 +45,7 @@ model (Obsidian Sync, Bear Pro, Things Cloud being bundled into the price).
    beta, saying plainly that it will become paid? Avoids building billing
    before anyone uses it, but the promise must be explicit in the terms.
 
-## What v1 needs regardless
+## What a public launch needs regardless
 
 - An account limit or kill switch per user (so free beta sync can't be
   abused for bulk storage).

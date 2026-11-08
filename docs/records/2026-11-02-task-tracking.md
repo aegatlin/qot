@@ -6,6 +6,9 @@ Question: Where do todos go (code, ops, and things only a person can do), so
 that after a month away the next one is easy to find, for you and for
 agents?
 
+> **Since then:** `docs/ROADMAP.md` is retired; the open issues are the whole
+> backlog (`2026-11-08-issues-are-the-backlog.md`). Ignore the roadmap below.
+
 ## Answer
 
 **Plain GitHub issues**, no labels for now. Issues for a person say "**Who:**

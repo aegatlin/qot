@@ -1,10 +1,15 @@
 # Repo layout for many clients
 
-Status: decided
+Status: decided (its generated Xcode project part superseded by
+`2026-11-08-apple-native-project.md`)
 Date: 2026-11-04
 Question: How should the repo's top level be organized so it holds the CLI,
 iOS, watchOS, macOS, Android, Wear OS, the web, and whatever comes after
 (TVs, fridges, hardware), without a reshuffle each time?
+
+> **Since then:** XcodeGen, `project.yml` and `mise run gen:apple` are gone.
+> `client_apple/Qot.xcodeproj` is committed, and a fresh clone runs `mise run
+> build:apple-core` (or `mise run xcode`). The folder layout below still holds.
 
 ## Answer
 

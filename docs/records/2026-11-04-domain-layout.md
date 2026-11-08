@@ -1,11 +1,16 @@
 # Domain layout
 
-Status: decided; where `app.` and `www.` run is settled in
-`2026-11-06-hosting-the-pwa-and-website.md`, and sign-in links move to `app.`
-in `2026-11-06-sign-in-through-the-pwa.md`
+Status: decided (where `app.` and `www.` run superseded by
+`2026-11-06-hosting-the-pwa-and-website.md`; the sign-in host by
+`2026-11-06-sign-in-through-the-pwa.md`)
 Date: 2026-11-04
 Question: How should `quantumofthought.com` be split between the sync API, a
 future PWA, the marketing page and mail?
+
+> **Since then:** `www.` is the canonical website (the apex redirects to it),
+> `app.` and `www.` are their own Railway services, and sign-in links open the
+> PWA's `/auth/device` on `app.`, not `api.`. The one-hostname-per-job layout
+> still holds.
 
 ## Answer
 
@@ -68,7 +73,7 @@ anything, including a site builder, without risk to the API.
   host, and CORS still applies because the origin differs. Moving it to a
   static host or CDN later is a DNS change, not an origin change.
 
-## Today
+## Today (2026-11-04)
 
 DNS is hosted by Squarespace (nameservers `ns-cloud-d*.googledomains.com`).
 `api.` and `staging-api.` are #10. The rest waits until its client exists.

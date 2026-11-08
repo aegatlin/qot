@@ -3,8 +3,8 @@ name: Release web
 # Production deploys of the PWA (app.quantumofthought.com) from tags: push a
 # `web/v<version>` tag on a commit that is on main. This runs CI on it, then
 # moves the `production-web` branch to it; Railway's production `web`
-# service deploys that branch. Staging deploys every green push to main on
-# its own. Same shape as release-server.yml.
+# service deploys that branch. Staging deploys every green push to main that
+# touches client_web/, core/, core_wasm/ or Cargo.lock on its own. Same shape as release-server.yml.
 #
 #   git tag web/v0.1.0 && git push origin web/v0.1.0
 #

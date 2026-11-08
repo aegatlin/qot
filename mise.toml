@@ -1,8 +1,8 @@
 # Every tool and task for the repo. Tasks are named <action>:<component>, and
-# the bare action runs all of them.
+# the bare `test` and `lint` run all of their components.
 #
 # In production the server reads DATABASE_URL, JWT_SECRET_KEY,
-# RESEND_API_KEY, SECRET_KEY_BASE and PHX_HOST from the environment. Deployed
+# RESEND_API_KEY, SECRET_KEY_BASE, PHX_HOST and APP_URL from the environment. Deployed
 # secrets live age-encrypted in fnox.toml (profiles staging and production)
 # and are copied to Railway with the secrets:push:* tasks. Dev and
 # test need none of them; to override one locally put it in a gitignored
@@ -16,7 +16,7 @@
 rust = { version = "1.98.1", components = "clippy,rustfmt", targets = "aarch64-apple-ios,aarch64-apple-ios-sim,wasm32-unknown-unknown" }
 erlang = "29.1.2"
 elixir = "1.20.5-otp-29"
-# Builds and publishes CLI releases (`dist`); .github/workflows/release-cli.yml
+# Builds and publishes CLI releases (`dist`); .github/workflows/cli-release.yml
 # is generated from dist-workspace.toml by it.
 cargo-dist = "0.33.1"
 # Generates the JS bindings for core_wasm and runs its tests in Node; must
