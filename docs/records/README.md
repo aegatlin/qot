@@ -34,8 +34,9 @@ was considered and turned down.
 | 2026-11-02 | [Secrets management for a solo developer](2026-11-02-secrets-management.md) | decided |
 | 2026-11-02 | [Where todos live](2026-11-02-task-tracking.md) | decided |
 | 2026-11-04 | [Domain layout](2026-11-04-domain-layout.md) | decided |
-| 2026-11-04 | [Repo layout for many clients](2026-11-04-repo-layout-for-clients.md) | decided |
+| 2026-11-04 | [Repo layout for many clients](2026-11-04-repo-layout-for-clients.md) | decided (its XcodeGen part superseded 2026-11-08) |
 | 2026-11-04 | [Open source or closed source](2026-11-04-open-source-or-closed.md) | decided |
 | 2026-11-06 | [Release tags are pushed by hand](2026-11-06-release-tags-by-hand.md) | decided |
 | 2026-11-06 | [Hosting the PWA and the website](2026-11-06-hosting-the-pwa-and-website.md) | decided |
 | 2026-11-06 | [Sign-in through the PWA](2026-11-06-sign-in-through-the-pwa.md) | decided |
+| 2026-11-08 | [A committed, Apple-native Xcode project](2026-11-08-apple-native-project.md) | decided |

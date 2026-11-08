@@ -9,7 +9,7 @@ other devices by the time you look, even if you took it offline.
 | `core/` | `qot_core`: the note model and its sync primitives, shared by every client | Rust, Automerge |
 | `core_ffi/` | `qot_ffi`: `qot_core` for Swift (and later Kotlin) through UniFFI | Rust |
 | `client_cli/` | `qot`, the command-line client (`qot get milk`) | Rust |
-| `client_apple/` | The iPhone app (Watch, Mac and widgets later), plus `QotKit`, the Swift package they share | Swift, SwiftUI, XcodeGen |
+| `client_apple/` | The iPhone app (Watch, Mac and widgets later), plus `QotKit`, the Swift package they share | Swift, SwiftUI |
 | `client_web/` | The web app (`app.quantumofthought.com`) | TypeScript, Preact, `qot_core` as WASM |
 | `site_web/` | The website (`www.quantumofthought.com`) | Astro, static |
 | `server_web/` | Accounts, auth and note sync | Elixir, Phoenix, Postgres |
@@ -44,9 +44,11 @@ cargo run -p qot_cli -- login you@example.com   # open the printed link, type th
 cargo run -p qot_cli -- get milk
 ```
 
-The iOS app (macOS with Xcode): `mise run gen:apple` builds the Rust core
-for Apple and generates `client_apple/Qot.xcodeproj`; open it and run the
-`Qot` scheme. Rerun `mise run build:apple-core` after changing Rust.
+The iOS app (macOS with Xcode): `mise run xcode` builds the Rust core for
+Apple and opens `client_apple/Qot.xcodeproj`; run the `Qot` scheme. Rerun
+`mise run build:apple-core` after changing Rust. The simulator needs no
+signing team; for your own device, set `DEVELOPMENT_TEAM` in
+`client_apple/Config/Local.xcconfig` (gitignored).
 
 ## Roadmap
 

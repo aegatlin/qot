@@ -108,7 +108,8 @@ it:
   the browser in the other. Renaming `server_web` would churn CI, the
   Dockerfile path and Railway's watch pattern for little gain, so both
   names stay.
-- **Generated Xcode project. (Low.)** XcodeGen (`project.yml`; generated
+- **Generated Xcode project. (Low.)** Superseded by
+  `2026-11-08-apple-native-project.md`. XcodeGen (`project.yml`; generated
   `.xcodeproj` gitignored) over a committed project:
   - Xcode 16's synchronized folders cut pbxproj churn, but targets,
     extensions and entitlements still live in pbxproj, which agents edit
