@@ -34,17 +34,10 @@ backlog; there is no separate roadmap
 research and decisions. When work reveals a new todo, open an
 issue rather than leaving a TODO comment or a note in a doc.
 
-**Claiming an issue.** The open PRs are what is in progress; nothing else
-marks it (no assignees, no labels).
-
-1. Before starting an issue, look for an open PR that already names it
-   (`gh api 'repos/aegatlin/qot/pulls?state=open'`, then search the bodies
-   for `#N`). If one exists, someone is on it: pick something else or ask.
-   Re-read the issue too: it may have closed since you listed it.
-2. With your first commit (a failing test is a good one), push the branch
-   and open a **draft PR** whose body says `Fixes #N` (or `Part of #N`),
-   long before the work is done, so the issue shows it is taken. Fill in the
-   description as the work lands.
+Before starting an issue, re-read it (it may have closed since you listed
+it) and check the open PRs for one that names it (`gh api
+'repos/aegatlin/qot/pulls?state=open'`, then search the bodies for `#N`).
+A commit that finishes an issue says `Fixes #N`.
 
 ## Repo layout
 
