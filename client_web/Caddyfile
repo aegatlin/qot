@@ -17,8 +17,10 @@
 		# Sign-in links carry a token in the URL; never send it on.
 		Referrer-Policy "no-referrer"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
-		# The app calls only the API; wasm needs wasm-unsafe-eval.
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self' {$API_URL} {$API_WS_URL}; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+		# The app calls only the API; wasm needs wasm-unsafe-eval. The one
+		# outside script is Apple's Sign in with Apple SDK (#87), which opens
+		# Apple's window and hears back by postMessage.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://appleid.cdn-apple.com; frame-src https://appleid.apple.com; style-src 'self'; img-src 'self' data:; connect-src 'self' {$API_URL} {$API_WS_URL}; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
 		-Server
 	}
 

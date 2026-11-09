@@ -41,6 +41,9 @@ button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; padding: .45rem .9rem; border-radius: .45rem; border: 1px solid var(--line); background: var(--card); }
 button[type="submit"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 button:disabled { opacity: .45; cursor: default; }
+/* Apple's button: black on light, white on dark (Apple's HIG). */
+button.apple { display: flex; align-items: center; justify-content: center; gap: .45rem; width: 100%; margin: 0 0 .75rem; background: #000; color: #fff; border-color: #000; }
+@media (prefers-color-scheme: dark) { button.apple { background: #fff; color: #000; border-color: #fff; } }
 button.link { border: 0; background: none; padding: 0 .25rem; color: var(--accent); }
 input, textarea { width: 100%; padding: .6rem .75rem; border-radius: .45rem; border: 1px solid var(--line); background: var(--card); }
 textarea { resize: vertical; min-height: 3rem; }

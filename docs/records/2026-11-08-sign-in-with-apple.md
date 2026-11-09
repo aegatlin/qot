@@ -45,6 +45,10 @@ sign-in stays as the fallback and the way every other client signs in.**
   the web too (Apple JS in the PWA, needing a Services ID and domain
   verification), then the CLI's device sign-in can be approved from a PWA
   signed in with Apple. Tracked as an issue.
+  Done 2026-11-09 (#87): the PWA signs in with Apple's JS SDK (Services ID
+  `llc.abstractsyntax.qot.web`); the CLI signs in to a Hide My Email account
+  with `qot login <relay address>`, since Apple's relay now forwards our
+  sign-in emails.
 - **Deleting an account must revoke the Apple tokens** before App Store
   review (App Review Guideline 5.1.1(v)), which needs a Sign in with Apple
   key and the REST API. Not needed for TestFlight. Done 2026-11-09 (#88):

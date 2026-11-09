@@ -371,7 +371,7 @@ the rules the CLI is tested with:
 
 ## Web (`client_web`)
 
-- The PWA: capture, list, delete, sync, the device sign-in page, and deleting the account (`deleteAccount` in `session.ts`, like `qot delete-account`: the email typed again, the session forgotten, notes kept). Same
+- The PWA: capture, list, delete, sync, the device sign-in page, Sign in with Apple, and deleting the account (`deleteAccount` in `session.ts`, like `qot delete-account`: the email typed again, the session forgotten, notes kept). Same
   rules as every client: `qot_wasm` (`core_wasm/`) wraps `qot_core`;
   `scripts/build-wasm-core` (`mise run build:wasm-core`) compiles it and
   generates the JS bindings into `client_web/src/core/` (gitignored); rerun
@@ -392,6 +392,14 @@ the rules the CLI is tested with:
   (`applyEdit`), so a change synced in meanwhile is kept; the editor shows
   the stored note again once it has no unsaved typing. Leaving an emptied
   note deletes it.
+- **Sign in with Apple** (#87; `apple.ts`): Apple's JS SDK, loaded from
+  Apple only when the sign-in card shows, in popup mode, with the Services
+  ID `llc.abstractsyntax.qot.web` (return URL `<origin>/auth/apple`,
+  registered for `app.` and `staging-app.` only, so the button shows only
+  there). The SDK is set up with the nonce's SHA-256 before the click (Safari
+  blocks a window opened after an await); the identity token, raw nonce and
+  authorization code go to `/api/auth/apple` like iOS. The CSP allows
+  `appleid.cdn-apple.com` scripts and `appleid.apple.com` frames for it.
 - Tabs share one IndexedDB: Web Locks (`lock.ts`) serialise syncs and every
   read-modify-write of a note; a `BroadcastChannel` tells other tabs to
   reload.
@@ -413,7 +421,8 @@ the rules the CLI is tested with:
   `mise.toml`, which CI checks). `bin/web` checks `API_URL` and starts
   Caddy (`client_web/Caddyfile`): SPA fallback, `/health` `{status,
   commit}`, `/config.json`, immutable `/assets/*`, `no-cache` elsewhere, a
-  CSP whose `connect-src` is the API and its `wss:`, `Referrer-Policy:
+  CSP whose `connect-src` is the API and its `wss:` (scripts: self and
+  Apple's SDK), `Referrer-Policy:
   no-referrer` (sign-in links carry a token). Staging deploys green pushes
   to `main` touching `client_web/`, `core/`, `core_wasm/` or `Cargo.lock`;
   production deploys the `production-web` branch, which
@@ -571,7 +580,8 @@ the rules the CLI is tested with:
   `https://app.quantumofthought.com`: sign-in links open it and its origin is
   the one browser origin allowed; dev defaults to `http://localhost:5173`).
   Optional: `APPLE_CLIENT_IDS` (comma-separated client ids an Apple identity
-  token may be for; default `llc.abstractsyntax.qot`), `APPLE_SIWA_KEY` and
+  token may be for; default `llc.abstractsyntax.qot`; staging and production
+  set `llc.abstractsyntax.qot,llc.abstractsyntax.qot.web` for the PWA), `APPLE_SIWA_KEY` and
   `APPLE_SIWA_KEY_ID` (the Sign in with Apple .p8 and its id, both or
   neither, in fnox; without them deleting can't revoke Apple tokens),
   `APPLE_TEAM_ID` (default `H88537CLVC`),

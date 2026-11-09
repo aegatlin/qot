@@ -148,6 +148,19 @@ export class Api {
     return Api.failed(status, body);
   }
 
+  /**
+   * Sign in with Apple: the identity token, the raw nonce (Apple saw its
+   * SHA-256) and the authorization code (kept to revoke on deletion).
+   */
+  async signInWithApple(identityToken: string, nonce: string, authorizationCode: string | null): ApiResult<Tokens> {
+    const body: Body = { identity_token: identityToken, nonce };
+    if (authorizationCode) body.authorization_code = authorizationCode;
+    const r = await this.call("POST", "/api/auth/apple", { body });
+    if (!r.ok) return r;
+    const { status, body: reply } = r.value;
+    return status === 200 ? ok(tokens(reply)) : Api.failed(status, reply);
+  }
+
   async refresh(refreshToken: string): ApiResult<string> {
     const r = await this.call("POST", "/api/auth/refresh", { body: { refresh_token: refreshToken } });
     if (!r.ok) return r;

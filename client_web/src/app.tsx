@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { type Api, type ApiError, describe, type DeviceStart } from "./api";
+import { appleAvailable, appleErrorText, appleSignIn, prepareApple, type PreparedApple } from "./apple";
 import type { Note } from "./core/qot_wasm";
 import { connectLive } from "./live";
 import { deleteLocal, discardIfEmpty, saveEdit, saveNew } from "./local";
@@ -656,6 +657,9 @@ function SignIn({ api, store, onSignedIn }: { api: Api; store: Store; onSignedIn
     <section class="card">
       <h2>Sync your notes</h2>
       <p class="muted">Notes are saved in this browser. Sign in to have them on your other devices too.</p>
+      {appleAvailable(location.origin) && (
+        <AppleButton api={api} store={store} onSignedIn={onSignedIn} onError={setError} />
+      )}
       <form
         class="row"
         onSubmit={async (e) => {
@@ -679,6 +683,74 @@ function SignIn({ api, store, onSignedIn }: { api: Api; store: Store; onSignedIn
       </form>
       {error && <p class="error">{error}</p>}
     </section>
+  );
+}
+
+/**
+ * Sign in with Apple (#87). Apple's SDK is loaded and given a nonce before
+ * the click, so the click opens Apple's window with nothing awaited first.
+ */
+function AppleButton({
+  api,
+  store,
+  onSignedIn,
+  onError,
+}: {
+  api: Api;
+  store: Store;
+  onSignedIn: (message: string) => void;
+  onError: (message: string | null) => void;
+}) {
+  const [prepared, setPrepared] = useState<PreparedApple | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    setPrepared(null);
+    prepareApple(location.origin).then(
+      (p) => live && setPrepared(p),
+      () => live && onError("Sign in with Apple couldn't load. Sign in with your email instead."),
+    );
+    return () => {
+      live = false;
+    };
+  }, [attempt, onError]);
+
+  return (
+    <button
+      type="button"
+      class="apple"
+      disabled={!prepared || busy}
+      onClick={async () => {
+        if (!prepared) return;
+        onError(null);
+        setBusy(true);
+        try {
+          const credential = await appleSignIn(prepared);
+          if (!credential.ok) {
+            if (credential.error !== "cancelled") onError(`Sign in with Apple failed: ${credential.error}`);
+            return;
+          }
+          const { identityToken, nonce, authorizationCode } = credential.value;
+          const tokens = await api.signInWithApple(identityToken, nonce, authorizationCode);
+          if (!tokens.ok) return onError(appleErrorText(tokens.error));
+          await adoptTokens(store, api, tokens.value);
+          onSignedIn("You're signed in. Notes you take anywhere show up here.");
+        } finally {
+          setBusy(false);
+          setAttempt((n) => n + 1); // a nonce is used once
+        }
+      }}
+    >
+      <svg aria-hidden="true" viewBox="0 0 814 1000" width="14" height="17">
+        <path
+          fill="currentColor"
+          d="M788 341c-6 4-108 62-108 190 0 149 131 201 135 203-1 3-21 72-69 142-43 62-88 124-156 124s-86-40-164-40c-77 0-104 41-166 41s-106-57-156-127C46 792 0 667 0 548c0-191 124-292 247-292 65 0 119 43 160 43 39 0 100-45 174-45 28 0 129 2 196 87zM554 159c31-37 53-88 53-139 0-7-1-14-2-20-50 2-110 34-146 76-28 32-55 83-55 135 0 8 1 16 2 18 3 1 9 2 14 2 45 0 102-30 134-72z"
+        />
+      </svg>
+      Sign in with Apple
+    </button>
   );
 }
 
