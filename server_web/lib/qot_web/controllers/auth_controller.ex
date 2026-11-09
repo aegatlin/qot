@@ -114,17 +114,25 @@ defmodule QotWeb.AuthController do
   end
 
   @doc """
-  POST /api/auth/apple {"identity_token", "nonce"}
+  POST /api/auth/apple {"identity_token", "nonce", "authorization_code"?}
   Sign in with Apple (docs/records/2026-11-08-sign-in-with-apple.md): Apple's
-  identity token and the raw nonce the app sent to Apple. Returns the same
+  identity token and the raw nonce the app sent to Apple, and optionally the
+  sign-in's authorization code (exchanged for Apple's refresh token, kept so
+  deleting the account can revoke it; older apps don't send it). Returns the same
   tokens as a device sign-in. An identity token that fails any check is a 401
   `invalid_token`; an email that belongs to an account it can't be linked to
   is a 409 `email_in_use`; no linked account and no email is a 422
   `email_required`; Apple's keys out of reach is a 503.
   """
-  def sign_in_with_apple(conn, %{"identity_token" => token, "nonce" => nonce})
+  def sign_in_with_apple(conn, %{"identity_token" => token, "nonce" => nonce} = params)
       when is_binary(token) and is_binary(nonce) do
-    case Accounts.sign_in_with_apple(token, nonce) do
+    code =
+      case params["authorization_code"] do
+        code when is_binary(code) and code != "" -> code
+        _ -> nil
+      end
+
+    case Accounts.sign_in_with_apple(token, nonce, code) do
       {:ok, %{access_token: access_token, refresh_token: refresh_token, user: user}} ->
         json(conn, %{
           access_token: access_token,

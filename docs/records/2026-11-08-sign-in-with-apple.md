@@ -47,7 +47,9 @@ sign-in stays as the fallback and the way every other client signs in.**
   signed in with Apple. Tracked as an issue.
 - **Deleting an account must revoke the Apple tokens** before App Store
   review (App Review Guideline 5.1.1(v)), which needs a Sign in with Apple
-  key and the REST API. Not needed for TestFlight; tracked as an issue.
+  key and the REST API. Not needed for TestFlight. Done 2026-11-09 (#88):
+  the app sends the authorization code, the server exchanges it for Apple's
+  refresh token and revokes that on deletion, both best effort.
 - **The capability** (`com.apple.developer.applesignin`) must be on the App
   ID. Xcode's automatic signing adds it locally; Xcode Cloud can't register
   it, so it has to exist before a cloud build exports.

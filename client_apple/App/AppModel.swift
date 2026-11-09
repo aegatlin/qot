@@ -174,10 +174,13 @@ final class AppModel {
         becameActive()
     }
 
-    func signInWithApple(identityToken: String, nonce: String, server: URL) async throws {
+    func signInWithApple(
+        identityToken: String, nonce: String, authorizationCode: String?, server: URL
+    ) async throws {
         guard let account else { throw SyncError.signedOut }
         session = try await account.signInWithApple(
-            identityToken: identityToken, nonce: nonce, server: server)
+            identityToken: identityToken, nonce: nonce, authorizationCode: authorizationCode,
+            server: server)
         becameInactive()
         becameActive()
     }

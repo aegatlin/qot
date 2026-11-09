@@ -43,6 +43,24 @@ case System.get_env("APPLE_CLIENT_IDS") do
     end
 end
 
+# Sign in with Apple's key (Apple's .p8 and its id), to sign the client
+# secret that exchanges and revokes Apple's tokens (#88). Optional: without it
+# the server signs in with Apple but can't revoke on account deletion.
+case {System.get_env("APPLE_SIWA_KEY"), System.get_env("APPLE_SIWA_KEY_ID")} do
+  {nil, nil} ->
+    :ok
+
+  {pem, key_id} when is_binary(pem) and pem != "" and is_binary(key_id) and key_id != "" ->
+    config :qot, :apple_signing_key, %{
+      team_id: System.get_env("APPLE_TEAM_ID", "H88537CLVC"),
+      key_id: key_id,
+      pem: pem
+    }
+
+  _ ->
+    raise "set both APPLE_SIWA_KEY and APPLE_SIWA_KEY_ID, or neither"
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

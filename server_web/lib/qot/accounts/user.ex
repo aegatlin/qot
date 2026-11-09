@@ -9,6 +9,10 @@ defmodule Qot.Accounts.User do
     field(:email, :string)
     # The Apple account's `sub`, once the user has signed in with Apple.
     field(:apple_sub, :string)
+    # Apple's refresh token and the client id it was issued to, kept only to
+    # revoke Sign in with Apple when the account is deleted (#88).
+    field(:apple_refresh_token, :string, redact: true)
+    field(:apple_client_id, :string)
 
     timestamps(type: :utc_datetime)
   end
@@ -20,6 +24,13 @@ defmodule Qot.Accounts.User do
     |> cast(attrs, [:apple_sub])
     |> validate_required([:apple_sub])
     |> unique_constraint(:apple_sub)
+  end
+
+  @doc "Keeps Apple's refresh token from a sign-in, for revoking it later."
+  def apple_token_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:apple_refresh_token, :apple_client_id])
+    |> validate_required([:apple_refresh_token, :apple_client_id])
   end
 
   @doc false

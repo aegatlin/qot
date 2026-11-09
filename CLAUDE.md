@@ -336,7 +336,8 @@ the rules the CLI is tested with:
   qot-ios/<version> (iOS <version>; <model>)`.
 - **Sign in with Apple** is the account sheet's main sign-in
   (`SignInWithAppleButton`, email scope, a nonce whose SHA-256 goes to
-  Apple; `Account.signInWithApple` posts the token to `/api/auth/apple`); the
+  Apple; `Account.signInWithApple` posts the token, and Apple's
+  authorization code for revoking on deletion, to `/api/auth/apple`); the
   email device sign-in stays below it. The App ID needs the Sign in with
   Apple capability (`com.apple.developer.applesignin` in
   `App/Qot.entitlements`) before Xcode Cloud can export.
@@ -508,9 +509,18 @@ the rules the CLI is tested with:
   (`test/support/`), never Apple. No email, so no rate limit. Errors: 401
   `invalid_token`, 409 `email_in_use` (unverified email or an account linked
   to another Apple ID), 422 `email_required`, 503 `apple_unavailable`.
+  An optional `authorization_code` is exchanged at Apple's `/auth/token` for
+  Apple's refresh token, kept on the user (`apple_refresh_token`,
+  `apple_client_id`) only so deleting the account can revoke it (#88; App
+  Review 5.1.1(v)). Both calls sign a client secret (ES256, 5 minutes) with
+  the Sign in with Apple key (`APPLE_SIWA_KEY`, `APPLE_SIWA_KEY_ID`);
+  `Qot.Accounts.AppleTokens`, faked in tests by `Qot.AppleTestTokens`. Both
+  are best effort: a failed exchange or revoke is logged, never blocking a
+  sign-in or a deletion.
 - **Account deletion**: `DELETE /api/account {confirm: <the account's
   email>}` removes the user, refresh tokens, change log and sign-ins
-  (`Qot.Accounts.delete_user/1`) and closes the user's sockets. A
+  (`Qot.Accounts.delete_user/1`), revokes its Apple token if it has one, and
+  closes the user's sockets. A
   server-side export would only be opaque change blobs, so export is the
   client's job.
 - **Contexts**: `Qot.Accounts` (users, device sign-in, Sign in with Apple, tokens), `Qot.Sync`
@@ -561,7 +571,10 @@ the rules the CLI is tested with:
   `https://app.quantumofthought.com`: sign-in links open it and its origin is
   the one browser origin allowed; dev defaults to `http://localhost:5173`).
   Optional: `APPLE_CLIENT_IDS` (comma-separated client ids an Apple identity
-  token may be for; default `llc.abstractsyntax.qot`),
+  token may be for; default `llc.abstractsyntax.qot`), `APPLE_SIWA_KEY` and
+  `APPLE_SIWA_KEY_ID` (the Sign in with Apple .p8 and its id, both or
+  neither, in fnox; without them deleting can't revoke Apple tokens),
+  `APPLE_TEAM_ID` (default `H88537CLVC`),
   `CLIENT_IP_HEADER` (default `x-real-ip`), `DATABASE_SSL=false` (a database on the host's private network; TLS with
   certificate verification is the default), `ECTO_IPV6=true`, `POOL_SIZE`,
   `PORT`. Dev and test need none.

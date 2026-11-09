@@ -6,9 +6,12 @@ defmodule Qot.Accounts do
   import Ecto.Query, warn: false
   alias Qot.Repo
 
+  require Logger
+
   alias Qot.Accounts.{
     AppleIdentity,
     AppleKeys,
+    AppleTokens,
     DeviceLogin,
     Mailer,
     SignInLimit,
@@ -77,7 +80,9 @@ defmodule Qot.Accounts do
   @doc """
   Deletes a user and everything the server keeps about them: their refresh
   tokens and change log (by cascade) and their sign-ins (by email). Notes on
-  their devices are untouched.
+  their devices are untouched. An account signed in with Apple then has its
+  Apple token revoked (#88), best effort: Apple being out of reach is logged
+  and never keeps an account from being deleted.
   """
   @spec delete_user(Ecto.UUID.t()) :: :ok | {:error, :not_found}
   def delete_user(user_id) do
@@ -90,11 +95,29 @@ defmodule Qot.Accounts do
           user ->
             Repo.delete_all(from(d in DeviceLogin, where: d.email == ^user.email))
             Repo.delete!(user)
-            :ok
+            {:ok, user}
         end
       end)
 
-    result
+    with {:ok, user} <- result do
+      revoke_apple_token(user)
+    end
+  end
+
+  defp revoke_apple_token(%User{apple_refresh_token: nil}), do: :ok
+
+  defp revoke_apple_token(%User{apple_refresh_token: token, apple_client_id: client_id} = user) do
+    case AppleTokens.revoke(client_id, token) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error(
+          "couldn't revoke Apple's token for deleted user #{user.id}: #{inspect(reason)}"
+        )
+
+        :ok
+    end
   end
 
   ## Device login
@@ -253,17 +276,36 @@ defmodule Qot.Accounts do
   that Apple account, else the account with its verified email (now linked),
   else a new one. Returns tokens, like a device sign-in.
 
+  With the sign-in's `authorization_code`, Apple's refresh token is fetched
+  and kept so deleting the account can revoke it (#88). That is best effort:
+  a failed exchange is logged and the sign-in goes ahead.
+
   Errors: `:invalid_token` (bad signature, issuer, audience, expiry, nonce or
   key), `:keys_unavailable` (Apple's keys couldn't be fetched),
   `:email_in_use` and `:no_email` (see `AppleIdentity.account/3`).
   """
-  @spec sign_in_with_apple(String.t(), String.t()) ::
+  @spec sign_in_with_apple(String.t(), String.t(), String.t() | nil) ::
           {:ok, %{access_token: String.t(), refresh_token: String.t(), user: %User{}}}
           | {:error, :invalid_token | :keys_unavailable | :email_in_use | :no_email | term()}
-  def sign_in_with_apple(identity_token, raw_nonce) do
+  def sign_in_with_apple(identity_token, raw_nonce, authorization_code \\ nil) do
     with {:ok, identity} <- verify_apple_token(identity_token, raw_nonce),
          {:ok, user} <- apple_account(identity) do
-      issue_tokens(user)
+      user |> keep_apple_token(identity.client_id, authorization_code) |> issue_tokens()
+    end
+  end
+
+  defp keep_apple_token(user, _client_id, nil), do: user
+
+  defp keep_apple_token(user, client_id, code) do
+    attrs = fn token -> %{apple_refresh_token: token, apple_client_id: client_id} end
+
+    with {:ok, token} <- AppleTokens.exchange(client_id, code),
+         {:ok, user} <- user |> User.apple_token_changeset(attrs.(token)) |> Repo.update() do
+      user
+    else
+      {:error, reason} ->
+        Logger.warning("couldn't keep Apple's token for user #{user.id}: #{inspect(reason)}")
+        user
     end
   end
 

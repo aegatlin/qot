@@ -9,10 +9,15 @@ defmodule QotWeb.AppleSignInTest do
   @nonce "raw-nonce-from-the-app"
 
   defp sign_in(conn, claims, opts \\ []) do
-    post(conn, "/api/auth/apple", %{
-      identity_token: Keys.sign(claims, opts),
-      nonce: Keyword.get(opts, :nonce, @nonce)
-    })
+    params = %{identity_token: Keys.sign(claims, opts), nonce: Keyword.get(opts, :nonce, @nonce)}
+
+    params =
+      case Keyword.fetch(opts, :code) do
+        {:ok, code} -> Map.put(params, :authorization_code, code)
+        :error -> params
+      end
+
+    post(conn, "/api/auth/apple", params)
   end
 
   test "creates an account and returns the device sign-in's tokens", %{conn: conn} do
@@ -70,6 +75,45 @@ defmodule QotWeb.AppleSignInTest do
              conn |> sign_in(Keys.claims(@nonce)) |> json_response(200)
 
     assert new_id != id
+  end
+
+  describe "the authorization code (#88: kept so deleting the account can revoke it)" do
+    test "is exchanged for Apple's refresh token, stored with its client id", %{conn: conn} do
+      %{"user" => %{"id" => id}} =
+        conn |> sign_in(Keys.claims(@nonce), code: "c1") |> json_response(200)
+
+      assert_received {:apple_exchange, "llc.abstractsyntax.qot", "c1"}
+      user = Repo.get!(User, id)
+      assert user.apple_refresh_token == "apple-refresh-c1"
+      assert user.apple_client_id == "llc.abstractsyntax.qot"
+    end
+
+    test "a later sign-in's code replaces the stored token", %{conn: conn} do
+      %{"user" => %{"id" => id}} =
+        conn |> sign_in(Keys.claims(@nonce), code: "c1") |> json_response(200)
+
+      conn |> sign_in(Keys.claims(@nonce), code: "c2") |> json_response(200)
+      assert Repo.get!(User, id).apple_refresh_token == "apple-refresh-c2"
+    end
+
+    test "an exchange Apple refuses doesn't stop the sign-in", %{conn: conn} do
+      Process.put(:apple_exchange_result, {:error, :invalid_grant})
+
+      %{"user" => %{"id" => id}} =
+        conn |> sign_in(Keys.claims(@nonce), code: "c1") |> json_response(200)
+
+      assert Repo.get!(User, id).apple_refresh_token == nil
+    end
+
+    test "without one (older apps), nothing is exchanged", %{conn: conn} do
+      conn |> sign_in(Keys.claims(@nonce)) |> json_response(200)
+      refute_received {:apple_exchange, _, _}
+    end
+
+    test "a token that fails its checks exchanges nothing", %{conn: conn} do
+      conn |> sign_in(Keys.claims("another nonce"), code: "c1") |> json_response(401)
+      refute_received {:apple_exchange, _, _}
+    end
   end
 
   describe "refuses an invalid identity token with a 401" do

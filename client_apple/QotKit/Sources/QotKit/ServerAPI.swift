@@ -141,10 +141,15 @@ public struct ServerAPI: SyncAPI {
     }
 
     /// `POST /api/auth/apple`: Apple's identity token for this app and the
-    /// raw nonce (the server checks the token carries its SHA-256).
-    public func signInWithApple(identityToken: String, nonce: String) async throws -> SignedIn {
-        let (status, body) = try await call(
-            "POST", "/api/auth/apple", json: ["identity_token": identityToken, "nonce": nonce])
+    /// raw nonce (the server checks the token carries its SHA-256), and the
+    /// sign-in's authorization code, which the server exchanges for Apple's
+    /// refresh token so deleting the account can revoke it.
+    public func signInWithApple(identityToken: String, nonce: String, authorizationCode: String?)
+        async throws -> SignedIn
+    {
+        var json = ["identity_token": identityToken, "nonce": nonce]
+        json["authorization_code"] = authorizationCode
+        let (status, body) = try await call("POST", "/api/auth/apple", json: json)
         switch status {
         case 200: return try signedIn(body)
         case 404: throw SignInError.appleUnsupported

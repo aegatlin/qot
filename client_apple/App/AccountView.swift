@@ -259,11 +259,14 @@ private struct SignInView: View {
                 problem = "Apple didn't return a sign-in token. Try again."
                 return
             }
+            // Lets the server revoke Sign in with Apple if the account is deleted.
+            let code = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
             working = true
             Task {
                 defer { working = false }
                 do {
-                    try await model.signInWithApple(identityToken: token, nonce: nonce, server: url)
+                    try await model.signInWithApple(
+                        identityToken: token, nonce: nonce, authorizationCode: code, server: url)
                 } catch {
                     problem = error.localizedDescription
                 }

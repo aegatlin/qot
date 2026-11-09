@@ -103,13 +103,15 @@ public struct Account: Sendable {
     }
 
     /// Signs in with Apple's identity token and the raw nonce whose SHA-256
-    /// went in the request to Apple, then saves the session. A new session
+    /// went in the request to Apple (and Apple's authorization code, for
+    /// revoking on account deletion), then saves the session. A new session
     /// starts sync afresh.
     @discardableResult
-    public func signInWithApple(identityToken: String, nonce: String, server: URL)
-        async throws -> Credentials
-    {
-        let signedIn = try await api(server).signInWithApple(identityToken: identityToken, nonce: nonce)
+    public func signInWithApple(
+        identityToken: String, nonce: String, authorizationCode: String? = nil, server: URL
+    ) async throws -> Credentials {
+        let signedIn = try await api(server).signInWithApple(
+            identityToken: identityToken, nonce: nonce, authorizationCode: authorizationCode)
         let creds = Credentials(
             server: server, userId: signedIn.userId, email: signedIn.email,
             accessToken: signedIn.accessToken, refreshToken: signedIn.refreshToken)

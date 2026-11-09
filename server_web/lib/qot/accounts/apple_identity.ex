@@ -9,7 +9,12 @@ defmodule Qot.Accounts.AppleIdentity do
 
   @issuer "https://appleid.apple.com"
 
-  @type identity :: %{sub: String.t(), email: String.t() | nil, email_verified: boolean()}
+  @type identity :: %{
+          sub: String.t(),
+          email: String.t() | nil,
+          email_verified: boolean(),
+          client_id: String.t()
+        }
   @type error ::
           :malformed
           | :bad_signature
@@ -73,7 +78,7 @@ defmodule Qot.Accounts.AppleIdentity do
       not (is_integer(claims["exp"]) and claims["exp"] > now) -> {:error, :expired}
       not nonce_matches?(claims["nonce"], raw_nonce) -> {:error, :bad_nonce}
       not (is_binary(claims["sub"]) and claims["sub"] != "") -> {:error, :bad_subject}
-      true -> {:ok, identity(claims)}
+      true -> {:ok, identity(claims, client_ids)}
     end
   end
 
@@ -92,13 +97,15 @@ defmodule Qot.Accounts.AppleIdentity do
   defp nonce_matches?(_claimed, _raw_nonce), do: false
 
   # Apple sends email_verified as a boolean or as the string "true".
-  defp identity(claims) do
+  # `client_id` is the audience it was issued to (the app, or later the web).
+  defp identity(claims, client_ids) do
     email = if is_binary(claims["email"]) and claims["email"] != "", do: claims["email"]
 
     %{
       sub: claims["sub"],
       email: email,
-      email_verified: email != nil and claims["email_verified"] in [true, "true"]
+      email_verified: email != nil and claims["email_verified"] in [true, "true"],
+      client_id: claims["aud"] |> List.wrap() |> Enum.find(&(&1 in client_ids))
     }
   end
 

@@ -21,6 +21,39 @@ defmodule QotWeb.AccountControllerTest do
     assert {:error, :not_found} = Accounts.get_user(auth.user_id)
   end
 
+  describe "an account signed in with Apple (#88)" do
+    setup %{auth: auth} do
+      Qot.Repo.get!(Qot.Accounts.User, auth.user_id)
+      |> Ecto.Changeset.change(
+        apple_sub: "s1",
+        apple_refresh_token: "apple-refresh-r1",
+        apple_client_id: "llc.abstractsyntax.qot"
+      )
+      |> Qot.Repo.update!()
+
+      :ok
+    end
+
+    test "has its Apple token revoked when deleted", %{conn: conn, auth: auth} do
+      conn |> delete("/api/account", %{confirm: "leaving@example.com"}) |> json_response(200)
+
+      assert_received {:apple_revoke, "llc.abstractsyntax.qot", "apple-refresh-r1"}
+      assert {:error, :not_found} = Accounts.get_user(auth.user_id)
+    end
+
+    test "is deleted even when Apple can't be reached", %{conn: conn, auth: auth} do
+      Process.put(:apple_revoke_result, {:error, :unreachable})
+
+      conn |> delete("/api/account", %{confirm: "leaving@example.com"}) |> json_response(200)
+      assert {:error, :not_found} = Accounts.get_user(auth.user_id)
+    end
+  end
+
+  test "an account without an Apple token revokes nothing", %{conn: conn} do
+    conn |> delete("/api/account", %{confirm: "leaving@example.com"}) |> json_response(200)
+    refute_received {:apple_revoke, _, _}
+  end
+
   test "a token issued before deletion is refused, so its devices sign out",
        %{conn: conn, auth: auth} do
     note = %{note_id: Ecto.UUID.generate(), data: Base.encode64("x")}

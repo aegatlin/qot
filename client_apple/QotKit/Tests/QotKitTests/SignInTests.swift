@@ -44,6 +44,20 @@ private func account(_ server: FakeServer, signedIn creds: Credentials? = nil) t
         #expect(json == ["identity_token": "apple-token", "nonce": "nonce-1"])
     }
 
+    /// The authorization code goes along, so the server can keep Apple's
+    /// refresh token and revoke it when the account is deleted (#88).
+    @Test func appleSignInSendsTheAuthorizationCode() async throws {
+        let server = FakeServer()
+        let (account, _, _) = try account(server)
+        try await account.signInWithApple(
+            identityToken: "apple-token", nonce: "nonce-1", authorizationCode: "code-1",
+            server: base)
+        let sent = try #require(server.with { $0.requests.last?.httpBody })
+        let json = try #require(try JSONSerialization.jsonObject(with: sent) as? [String: String])
+        #expect(
+            json == ["identity_token": "apple-token", "nonce": "nonce-1", "authorization_code": "code-1"])
+    }
+
     @Test func aRejectedAppleSignInSavesNothing() async throws {
         let server = FakeServer()
         let (account, credentials, _) = try account(server)
