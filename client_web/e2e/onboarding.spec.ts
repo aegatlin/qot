@@ -73,8 +73,10 @@ test("edit a note in the browser, see it in the terminal and on another device",
   const phoneContext = await browser.newContext({ viewport: { width: 390, height: 800 } });
   const phone = await phoneContext.newPage();
   await phone.goto("/");
+  await phone.getByRole("link", { name: "Sign in" }).click();
+  await expect(phone).toHaveURL("/sign-in");
   await phone.getByLabel("Email").fill(email);
-  await phone.getByRole("button", { name: "Sign in" }).click();
+  await phone.getByRole("button", { name: "Email me a sign-in link" }).click();
   const phoneCode = await phone.getByTestId("user-code").textContent();
   const approve = await phoneContext.newPage();
   await approve.goto(await server.signInLink(email));
@@ -173,6 +175,8 @@ test("deleting the account from the browser signs everything out; notes stay", a
   await expect(page.getByTestId("sync-status")).toHaveText("Synced");
 
   await page.getByLabel("Account").click();
+  await page.getByRole("link", { name: "Settings" }).click();
+  await expect(page).toHaveURL("/settings");
   await page.getByRole("button", { name: "Delete account…" }).click();
   const confirm = page.getByRole("button", { name: "Delete account", exact: true });
   await page.getByLabel(`Type ${email} to confirm`).fill("someone@example.com");
@@ -181,7 +185,9 @@ test("deleting the account from the browser signs everything out; notes stay", a
   await confirm.click();
 
   await expect(page.getByText("Account deleted. Your notes stay in this browser.")).toBeVisible();
+  await expect(page).toHaveURL("/");
   await expect(page.getByLabel("Account")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Notes" })).toContainText("keep this one");
 
   // Still signed out after a reload: the session is gone, not just hidden.

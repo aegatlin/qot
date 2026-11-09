@@ -385,9 +385,13 @@ the rules the CLI is tested with:
   (push then pull, state saved after each step), `live.ts` (the Phoenix
   channel nudge), `app.tsx` (Preact). Errors are `Result` values
   (`result.ts`).
-- The UI is a Notes-style list (title = first line, preview, newest edit
-  first, search) beside capture, and an editor at `/notes/<id>` (two panes
-  when wide). Edits save as you type (debounced) as the editor's diff from
+- The UI is a header (brand left; right, "Sign in" when signed out, else
+  the sync status and the account's initial, whose menu has the email,
+  Settings and Sign out) over a Notes-style list (a one-line capture field,
+  search, title = first line, preview, newest edit first) and an editor at
+  `/notes/<id>` (two panes when wide). Pages: `/sign-in` (Apple, then the
+  email sign-in), `/settings` (sync now, sign out, delete account),
+  `/auth/device` (an emailed link). Everything else routes to the list. Edits save as you type (debounced) as the editor's diff from
   the version it was typed over, merged into the stored note
   (`applyEdit`), so a change synced in meanwhile is kept; the editor shows
   the stored note again once it has no unsaved typing. Leaving an emptied

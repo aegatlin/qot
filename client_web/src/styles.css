@@ -26,20 +26,29 @@ body { margin: 0; background: var(--bg); color: var(--fg); }
 main {
   max-width: 40rem;
   margin: 0 auto;
-  padding: max(1rem, env(safe-area-inset-top)) 1rem calc(2rem + env(safe-area-inset-bottom));
+  padding: 1rem 1rem calc(2rem + env(safe-area-inset-bottom));
 }
-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+/* The header: brand on the left, sign-in or the account on the right. */
+.topbar { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top); }
+.topbar-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; max-width: 40rem; margin: 0 auto; padding: .6rem 1rem; min-height: 3.25rem; }
 .brand { display: flex; align-items: center; gap: .5rem; color: inherit; text-decoration: none; font-weight: 600; }
 .account { display: flex; align-items: center; gap: .75rem; font-size: .9rem; min-width: 0; }
-.account details { position: relative; min-width: 0; }
-.account summary { cursor: pointer; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 14rem; }
-.menu { position: absolute; right: 0; top: 1.75rem; z-index: 1; width: 16rem; padding: .75rem; background: var(--card); border: 1px solid var(--line); border-radius: .5rem; }
-.menu p { margin: .5rem 0 0; }
+.account details { position: relative; }
+.account summary { list-style: none; }
+.account summary::-webkit-details-marker { display: none; }
+.avatar { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; cursor: pointer; background: var(--fg); color: var(--bg); font-weight: 600; user-select: none; }
+.menu { position: absolute; right: 0; top: 2.5rem; z-index: 3; width: 16rem; padding: .35rem; background: var(--card); border: 1px solid var(--line); border-radius: .6rem; box-shadow: 0 6px 24px rgb(0 0 0 / .12); }
+.menu p { margin: 0; padding: .45rem .6rem; font-size: .85rem; }
+.menu-email { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid var(--line); margin-bottom: .25rem !important; }
+.menu-item { display: block; width: 100%; text-align: left; padding: .45rem .6rem; border: 0; border-radius: .4rem; background: none; color: inherit; text-decoration: none; font-size: .9rem; }
+.menu-item:hover { background: var(--bg); }
 .sync { color: var(--muted); white-space: nowrap; }
 .sync-error { color: var(--error); }
 button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; padding: .45rem .9rem; border-radius: .45rem; border: 1px solid var(--line); background: var(--card); }
-button[type="submit"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+button[type="submit"], .button.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+/* A link that looks like a button (Sign in in the header). */
+.button { display: inline-block; padding: .4rem .9rem; border-radius: .45rem; border: 1px solid var(--line); text-decoration: none; color: inherit; font-size: .9rem; white-space: nowrap; }
 button:disabled { opacity: .45; cursor: default; }
 /* Apple's button: black on light, white on dark (Apple's HIG). */
 button.apple { display: flex; align-items: center; justify-content: center; gap: .45rem; width: 100%; margin: 0 0 .75rem; background: #000; color: #fff; border-color: #000; }
@@ -47,7 +56,8 @@ button.apple { display: flex; align-items: center; justify-content: center; gap:
 button.link { border: 0; background: none; padding: 0 .25rem; color: var(--accent); }
 input, textarea { width: 100%; padding: .6rem .75rem; border-radius: .45rem; border: 1px solid var(--line); background: var(--card); }
 textarea { resize: vertical; min-height: 3rem; }
-.capture { display: flex; gap: .5rem; align-items: flex-start; margin-bottom: 1.25rem; }
+.capture { display: flex; gap: .5rem; align-items: flex-start; margin-bottom: .5rem; }
+.capture textarea { min-height: 2.6rem; resize: none; }
 .capture button { flex: none; }
 .row { display: flex; gap: .5rem; }
 .row button { flex: none; }
@@ -72,15 +82,15 @@ textarea { resize: vertical; min-height: 3rem; }
 .editor-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .editor-bar .back { padding: .25rem .25rem .25rem 0; font-weight: 600; }
 .editor-bar button.link.danger { margin: 0; padding: .25rem 0; background: none; }
-.editor { min-height: calc(100dvh - 9rem); resize: none; line-height: 1.55; font-size: 1.05rem; }
+.editor { min-height: calc(100dvh - 12rem); resize: none; line-height: 1.55; font-size: 1.05rem; }
 .placeholder { text-align: center; padding: 4rem 1rem; }
 .gone { display: grid; justify-items: start; gap: .5rem; }
 @media (min-width: 52rem) {
-  main.wide { max-width: 64rem; }
+  main.wide, .topbar-inner.wide { max-width: 64rem; }
   .panes { grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); align-items: start; }
   .panes .list-pane, .panes.editing .list-pane { display: block; }
-  .editor-pane, .panes.editing .editor-pane { display: block; position: sticky; top: 1rem; }
-  .editor { min-height: calc(100dvh - 8rem); }
+  .editor-pane, .panes.editing .editor-pane { display: block; position: sticky; top: 4.5rem; }
+  .editor { min-height: calc(100dvh - 11rem); }
 }
 .delete { border: 0; background: none; color: var(--muted); padding: 0 .3rem; font-size: 1.2rem; line-height: 1; }
 .delete:hover { color: var(--error); }
@@ -90,6 +100,16 @@ textarea { resize: vertical; min-height: 3rem; }
 .banner { display: flex; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; border-radius: .5rem; border: 1px solid var(--accent); }
 .card { margin-top: 2rem; padding: 1.25rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--card); }
 .card h1, .card h2 { margin-top: 0; font-size: 1.25rem; }
+.card.narrow { max-width: 24rem; margin: 2rem auto; }
+.stack { display: grid; gap: .5rem; }
+.or { display: flex; align-items: center; gap: .75rem; margin: .25rem 0 .75rem; color: var(--muted); font-size: .85rem; }
+.or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+/* Settings and other single pages. */
+.page h1 { font-size: 1.5rem; margin: .5rem 0 1rem; }
+.page h2 { font-size: 1rem; margin: 1.75rem 0 .5rem; padding-bottom: .35rem; border-bottom: 1px solid var(--line); }
+.page p { margin: .35rem 0; }
+.page .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0 .25rem; }
+a.back { color: var(--accent); text-decoration: none; font-weight: 600; }
 .code { font-size: 2rem; letter-spacing: .15em; font-weight: 600; margin: .5rem 0; }
 .code-input { font-size: 1.5rem; letter-spacing: .15em; text-transform: uppercase; margin: .5rem 0; }
 .check { display: flex; gap: .5rem; align-items: center; margin: .5rem 0 1rem; }
@@ -103,7 +123,7 @@ code { font-size: .9em; }
 .danger { color: var(--error); }
 button.danger { border-color: var(--error); background: var(--card); }
 button.link.danger { padding: 0; margin-top: .75rem; }
-.delete-account { margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--line); font-size: .85rem; }
+.delete-account { max-width: 28rem; }
 .delete-account p { margin: 0 0 .5rem; }
 .delete-account label { display: grid; gap: .35rem; }
 .delete-account .actions { display: flex; align-items: center; gap: .75rem; margin-top: .5rem; }

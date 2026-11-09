@@ -191,34 +191,23 @@ export function App({ api, store }: { api: Api; store: Store }) {
     setStatus({ kind: "idle" });
     setBanner("Account deleted. Your notes stay in this browser.");
     await changed();
+    go("/");
   };
 
   if (path === "/auth/device") {
     const token = new URLSearchParams(location.search).get("token") ?? "";
     return (
-      <Shell>
+      <Shell onNavigate={go}>
         <DeviceApproval token={token} api={api} store={store} current={creds} onSignedIn={onSignedIn} onHome={() => go("/")} />
       </Shell>
     );
   }
 
-  const open = openId && notes ? notes.find((n) => n.id === openId) : undefined;
-
-  return (
-    <Shell
-      wide
-      right={
-        creds ? (
-          <Account
-            creds={creds}
-            status={status}
-            onSignOut={onSignOut}
-            deleting={(typed) => deleteAccount(store, api, typed)}
-            onDeleted={onAccountDeleted}
-          />
-        ) : null
-      }
-    >
+  const header = (
+    <HeaderAccount creds={creds} status={status} onSignOut={onSignOut} onNavigate={go} />
+  );
+  const notices = (
+    <>
       {banner && (
         <p class="banner" role="status">
           {banner}
@@ -228,11 +217,50 @@ export function App({ api, store }: { api: Api; store: Store }) {
         </p>
       )}
       {loadError && <p class="error">{loadError}</p>}
+    </>
+  );
+
+  if (path === "/sign-in") {
+    return (
+      <Shell onNavigate={go}>
+        {creds ? (
+          <section class="page">
+            <p>You're signed in as {creds.email}.</p>
+            <Link to="/" onNavigate={go}>‹ Notes</Link>
+          </section>
+        ) : (
+          <SignIn api={api} store={store} onSignedIn={onSignedIn} onNavigate={go} />
+        )}
+      </Shell>
+    );
+  }
+
+  if (path === "/settings") {
+    return (
+      <Shell right={header} onNavigate={go}>
+        {notices}
+        <Settings
+          creds={creds}
+          status={status}
+          onSync={() => runSync()}
+          onSignOut={onSignOut}
+          deleting={(typed) => deleteAccount(store, api, typed)}
+          onDeleted={onAccountDeleted}
+          onNavigate={go}
+        />
+      </Shell>
+    );
+  }
+
+  const open = openId && notes ? notes.find((n) => n.id === openId) : undefined;
+
+  return (
+    <Shell wide right={header} onNavigate={go}>
+      {notices}
       <div class={`panes${openId ? " editing" : ""}`}>
         <div class="list-pane">
           <Capture onCapture={onCapture} />
           {notes === null ? null : <NoteList notes={notes} openId={openId} onOpen={openNote} onDelete={onDelete} />}
-          {!creds && <SignIn api={api} store={store} onSignedIn={onSignedIn} />}
         </div>
         <section class="editor-pane" aria-label="Note">
           {!openId ? (
@@ -258,72 +286,201 @@ export function App({ api, store }: { api: Api; store: Store }) {
   );
 }
 
+/** An in-app link: a real link (new tab works), routed without a reload. */
+function Link({
+  to,
+  onNavigate,
+  class: className,
+  children,
+}: {
+  to: string;
+  onNavigate: (to: string) => void;
+  class?: string;
+  children: preact.ComponentChildren;
+}) {
+  return (
+    <a
+      class={className}
+      href={to}
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        e.preventDefault();
+        onNavigate(to);
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
 function Shell({
   children,
   right,
   wide,
+  onNavigate,
 }: {
   children: preact.ComponentChildren;
   right?: preact.ComponentChildren;
   wide?: boolean;
+  onNavigate: (to: string) => void;
 }) {
   return (
-    <main class={wide ? "wide" : undefined}>
-      <header>
-        <a class="brand" href="/">
-          <img src="/icon.svg" alt="" width="28" height="28" />
-          <span>Quantum of Thought</span>
-        </a>
-        {right}
+    <>
+      <header class="topbar">
+        <div class={`topbar-inner${wide ? " wide" : ""}`}>
+          <Link class="brand" to="/" onNavigate={onNavigate}>
+            <img src="/icon.svg" alt="" width="28" height="28" />
+            <span>Quantum of Thought</span>
+          </Link>
+          {right}
+        </div>
       </header>
-      {children}
-    </main>
+      <main class={wide ? "wide" : undefined}>{children}</main>
+    </>
   );
 }
 
-function Account({
+function syncLabel(status: SyncStatus): [label: string, detail: string] {
+  switch (status.kind) {
+    case "syncing":
+      return ["Syncing…", ""];
+    case "error":
+      return [status.error.kind === "offline" ? "Offline" : "Not synced", syncErrorText(status.error)];
+    case "synced":
+      return ["Synced", ""];
+    case "idle":
+      return ["", ""];
+  }
+}
+
+/**
+ * The header's right side: "Sign in" when signed out; when signed in, the
+ * sync status and a menu under the account's initial.
+ */
+function HeaderAccount({
   creds,
   status,
   onSignOut,
-  deleting,
-  onDeleted,
+  onNavigate,
 }: {
-  creds: Credentials;
+  creds: Credentials | undefined;
   status: SyncStatus;
   onSignOut: () => void;
-  deleting: (typed: string) => Promise<{ ok: true } | { ok: false; error: ApiError }>;
-  onDeleted: () => void;
+  onNavigate: (to: string) => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
-  const [label, title] =
-    status.kind === "syncing"
-      ? ["Syncing…", ""]
-      : status.kind === "error"
-        ? [status.error.kind === "offline" ? "Offline" : "Not synced", syncErrorText(status.error)]
-        : status.kind === "synced"
-          ? ["Synced", ""]
-          : ["", ""];
+  const menu = useRef<HTMLDetailsElement>(null);
+  const close = () => menu.current?.removeAttribute("open");
+  // Clicking anywhere else closes the menu.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (menu.current && !menu.current.contains(e.target as Node)) close();
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
+
+  if (!creds)
+    return (
+      <Link class="button primary" to="/sign-in" onNavigate={onNavigate}>
+        Sign in
+      </Link>
+    );
+  const [label, detail] = syncLabel(status);
   return (
     <div class="account">
-      <span class={`sync sync-${status.kind}`} title={title} data-testid="sync-status">
+      <span class={`sync sync-${status.kind}`} title={detail} data-testid="sync-status">
         {label}
       </span>
-      <details>
-        <summary aria-label="Account">{creds.email}</summary>
-        <div class="menu">
-          {status.kind === "error" && <p class="muted">{syncErrorText(status.error)}</p>}
-          <button onClick={onSignOut}>Sign out of this browser</button>
-          <p class="muted">Notes stay on this device.</p>
-          {confirming ? (
-            <DeleteAccount email={creds.email} deleting={deleting} onDeleted={onDeleted} onCancel={() => setConfirming(false)} />
-          ) : (
-            <button class="link danger" onClick={() => setConfirming(true)}>
-              Delete account…
-            </button>
-          )}
+      <details ref={menu}>
+        <summary aria-label="Account" class="avatar">
+          {(creds.email.trim()[0] ?? "?").toUpperCase()}
+        </summary>
+        <div class="menu" role="menu">
+          <p class="menu-email">{creds.email}</p>
+          {detail && <p class="muted">{detail}</p>}
+          <Link
+            class="menu-item"
+            to="/settings"
+            onNavigate={(to) => {
+              close();
+              onNavigate(to);
+            }}
+          >
+            Settings
+          </Link>
+          <button
+            class="menu-item"
+            onClick={() => {
+              close();
+              onSignOut();
+            }}
+          >
+            Sign out
+          </button>
         </div>
       </details>
     </div>
+  );
+}
+
+/** The account: sync, sign out, delete. Signed out, a way to sign in. */
+function Settings({
+  creds,
+  status,
+  onSync,
+  onSignOut,
+  deleting,
+  onDeleted,
+  onNavigate,
+}: {
+  creds: Credentials | undefined;
+  status: SyncStatus;
+  onSync: () => void;
+  onSignOut: () => void;
+  deleting: (typed: string) => Promise<{ ok: true } | { ok: false; error: ApiError }>;
+  onDeleted: () => void;
+  onNavigate: (to: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [label, detail] = syncLabel(status);
+  return (
+    <section class="page">
+      <Link class="back" to="/" onNavigate={onNavigate}>
+        ‹ Notes
+      </Link>
+      <h1>Settings</h1>
+      <h2>Account</h2>
+      {!creds ? (
+        <>
+          <p class="muted">Notes are saved in this browser. Sign in to have them on your other devices too.</p>
+          <Link class="button primary" to="/sign-in" onNavigate={onNavigate}>
+            Sign in
+          </Link>
+        </>
+      ) : (
+        <>
+          <p>{creds.email}</p>
+          <p class="muted">
+            {detail || label || "Not synced yet"}
+          </p>
+          <div class="actions">
+            <button onClick={onSync} disabled={status.kind === "syncing"}>
+              Sync now
+            </button>
+            <button onClick={onSignOut}>Sign out of this browser</button>
+          </div>
+          <p class="muted">Signing out keeps your notes in this browser.</p>
+          <h2>Delete account</h2>
+          {confirming ? (
+            <DeleteAccount email={creds.email} deleting={deleting} onDeleted={onDeleted} onCancel={() => setConfirming(false)} />
+          ) : (
+            <button class="danger" onClick={() => setConfirming(true)}>
+              Delete account…
+            </button>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
@@ -393,9 +550,9 @@ function Capture({ onCapture }: { onCapture: (text: string) => void }) {
     <form class="capture" onSubmit={submit}>
       <textarea
         aria-label="New note"
-        placeholder="get milk"
+        placeholder="New note (Enter saves)"
         value={text}
-        rows={2}
+        rows={1}
         autofocus
         onInput={(e) => setText((e.target as HTMLTextAreaElement).value)}
         onKeyDown={(e) => {
@@ -609,8 +766,21 @@ function Editor({
   );
 }
 
-/** Sign in from the browser itself: the same device sign-in as the CLI. */
-function SignIn({ api, store, onSignedIn }: { api: Api; store: Store; onSignedIn: (message: string) => void }) {
+/**
+ * The sign-in page: Sign in with Apple where Apple allows it, else (or
+ * also) the same emailed device sign-in as the CLI.
+ */
+function SignIn({
+  api,
+  store,
+  onSignedIn,
+  onNavigate,
+}: {
+  api: Api;
+  store: Store;
+  onSignedIn: (message: string) => void;
+  onNavigate: (to: string) => void;
+}) {
   const [email, setEmail] = useState("");
   const [started, setStarted] = useState<DeviceStart | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -644,8 +814,8 @@ function SignIn({ api, store, onSignedIn }: { api: Api; store: Store; onSignedIn
 
   if (started) {
     return (
-      <section class="card">
-        <h2>Check your email</h2>
+      <section class="card narrow">
+        <h1>Check your email</h1>
         <p>We sent a link to {email}. Open it and enter this code:</p>
         <p class="code" data-testid="user-code">{started.userCode}</p>
         <p class="muted">Waiting for you to confirm…</p>
@@ -654,14 +824,17 @@ function SignIn({ api, store, onSignedIn }: { api: Api; store: Store; onSignedIn
   }
 
   return (
-    <section class="card">
-      <h2>Sync your notes</h2>
-      <p class="muted">Notes are saved in this browser. Sign in to have them on your other devices too.</p>
+    <section class="card narrow">
+      <h1>Sign in</h1>
+      <p class="muted">Sign in to sync your notes with your other devices. Notes already in this browser stay.</p>
       {appleAvailable(location.origin) && (
-        <AppleButton api={api} store={store} onSignedIn={onSignedIn} onError={setError} />
+        <>
+          <AppleButton api={api} store={store} onSignedIn={onSignedIn} onError={setError} />
+          <p class="or">or</p>
+        </>
       )}
       <form
-        class="row"
+        class="stack"
         onSubmit={async (e) => {
           e.preventDefault();
           setError(null);
@@ -679,9 +852,14 @@ function SignIn({ api, store, onSignedIn }: { api: Api; store: Store; onSignedIn
           value={email}
           onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
         />
-        <button type="submit">Sign in</button>
+        <button type="submit">Email me a sign-in link</button>
       </form>
       {error && <p class="error">{error}</p>}
+      <p>
+        <Link class="back" to="/" onNavigate={onNavigate}>
+          ‹ Back to notes
+        </Link>
+      </p>
     </section>
   );
 }
