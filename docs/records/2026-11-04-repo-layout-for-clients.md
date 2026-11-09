@@ -94,7 +94,7 @@ it:
   uses) and the generated Swift. QotKit references them as a SwiftPM
   `binaryTarget(path:)`. Committing the binary was rejected: it would bloat
   git with every Rust change. A fresh clone needs `mise run gen:apple` before
-  opening Xcode. Release builds add the device-only slices (#32).
+  opening Xcode. Release builds add the device-only slices (built by Xcode Cloud since 2026-11-08).
 - **"apple" names a vendor, not a toolchain. (Medium.)** Accepted.
   - If Skip (Swift to Android) were adopted, Android would still get its own
     Gradle project.

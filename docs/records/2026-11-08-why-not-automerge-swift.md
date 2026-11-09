@@ -31,7 +31,7 @@ It is a fair question, so the case for it, stated fully:
   `automergeFFI.xcframework` from a GitHub release (0.7.2 as of this
   writing). Our setup compiles Rust on every Xcode Cloud build
   (`ci_scripts/ci_post_clone.sh`), which is slower and broke build 5 (tool
-  downloads timing out).
+  downloads timing out; the script now installs only Rust, with rustup).
 - **A Swift-shaped API**, with Codable-style helpers (`AutomergeUtilities`)
   and a sibling, `automerge-repo-swift`, for networking and storage.
 - **MIT**, so licensing is not the reason.

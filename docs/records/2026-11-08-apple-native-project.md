@@ -75,7 +75,7 @@ For the Rust core under Xcode Cloud:
 
 | Option | Verdict |
 |---|---|
-| **Build it in `ci_post_clone.sh`** (mise from Homebrew, the pinned Rust, `scripts/build-apple-core --release`) | Chosen: same build as a developer's Mac; costs some Xcode Cloud compute time |
+| **Build it in `ci_post_clone.sh`** (the pinned Rust, `scripts/build-apple-core --release`; installed with mise from Homebrew at first, rustup directly since 2026-11-09 to keep the script minimal) | Chosen: same build as a developer's Mac; costs some Xcode Cloud compute time |
 | Commit `QotFFI.xcframework` | Rejected: binaries in git on every Rust change |
 | Publish it as a remote `binaryTarget` (URL and checksum) from GitHub Releases | Deferred: lets Swift-only contributors skip Rust, but adds a release step to every Rust change. Revisit if contributors ask |
 

@@ -283,8 +283,11 @@ the rules the CLI is tested with:
   `Qot` scheme is shared and archives. Signing: `Config/Signing.xcconfig`
   sets the team; a gitignored `Config/Local.xcconfig` overrides it. New
   targets (Mac, more extensions) come from File > New Target.
-- **Xcode Cloud** builds for TestFlight; `ci_scripts/ci_post_clone.sh`
-  installs the Rust pinned in `mise.toml` and builds the core first.
+- **Xcode Cloud** builds for TestFlight on every push to `main`, and is how
+  iOS releases are made (no `ios/v*` tags or Actions uploads).
+  `ci_scripts/ci_post_clone.sh` stays minimal: rustup at the Rust version
+  pinned in `mise.toml` (no mise there), then `scripts/build-apple-core
+  --release`.
   GitHub Actions (`apple.yml`) stays the PR check, since Xcode Cloud
   doesn't build pull requests from forks. Workflows are configured in Xcode
   or App Store Connect, not in the repo.
