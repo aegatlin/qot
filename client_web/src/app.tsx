@@ -452,7 +452,7 @@ function Settings({
       <h2>Account</h2>
       {!creds ? (
         <>
-          <p class="muted">Notes are saved in this browser. Sign in to have them on your other devices too.</p>
+          <p class="muted">Notes are saved in this browser. Sign in to sync them.</p>
           <Link class="button primary" to="/sign-in" onNavigate={onNavigate}>
             Sign in
           </Link>
@@ -512,8 +512,8 @@ function DeleteAccount({
   return (
     <form class="delete-account" onSubmit={submit}>
       <p>
-        This deletes the account and every note synced to it from the server. Other devices are signed out within
-        the hour. Notes in this browser stay.
+        This deletes the account and every note synced to it from the server. Everywhere else you're signed in is
+        signed out within the hour. Notes in this browser stay.
       </p>
       <label>
         Type {email} to confirm
@@ -590,7 +590,7 @@ function NoteList({
   const live = liveNotes(notes);
   const [query, setQuery] = useState("");
   const now = useNow();
-  if (live.length === 0) return <p class="muted empty">No notes yet. Type one above, or run <code>qot get milk</code>.</p>;
+  if (live.length === 0) return <p class="muted empty">No notes yet. Type one above.</p>;
   const shown = filterNotes(live, query);
   return (
     <>
@@ -799,7 +799,7 @@ function SignIn({
         if (!poll.ok) continue; // offline for a moment: keep trying
         if (poll.value.status === "done") {
           await adoptTokens(store, api, poll.value.tokens);
-          return onSignedIn("You're signed in. Notes you take anywhere show up here.");
+          return onSignedIn("You're signed in.");
         }
         if (poll.value.status === "failed" || Date.now() > deadline) {
           setStarted(null);
@@ -826,7 +826,7 @@ function SignIn({
   return (
     <section class="card narrow">
       <h1>Sign in</h1>
-      <p class="muted">Sign in to sync your notes with your other devices. Notes already in this browser stay.</p>
+      <p class="muted">Sign in to sync your notes. Notes already in this browser stay.</p>
       {appleAvailable(location.origin) && (
         <>
           <AppleButton api={api} store={store} onSignedIn={onSignedIn} onError={setError} />
@@ -914,7 +914,7 @@ function AppleButton({
           const tokens = await api.signInWithApple(identityToken, nonce, authorizationCode);
           if (!tokens.ok) return onError(appleErrorText(tokens.error));
           await adoptTokens(store, api, tokens.value);
-          onSignedIn("You're signed in. Notes you take anywhere show up here.");
+          onSignedIn("You're signed in.");
         } finally {
           setBusy(false);
           setAttempt((n) => n + 1); // a nonce is used once
@@ -975,7 +975,7 @@ function DeviceApproval({
     return (
       <section class="card">
         <h1>Approved</h1>
-        <p>Return to your terminal (or the device you're signing in); it's signed in now.</p>
+        <p>The device you're signing in is signed in now. You can close this page.</p>
         <button class="link" onClick={onHome}>
           Open qot in this browser
         </button>
@@ -1004,21 +1004,21 @@ function DeviceApproval({
     setBusy(false);
     if (!r.ok) return setError(describe(r.error));
     const a = r.value;
-    if (a.status === "mismatch") return setError("That code doesn't match. Check your terminal and try again.");
+    if (a.status === "mismatch") return setError("That code doesn't match. Check the code on the device you're signing in and try again.");
     if (a.status === "unusable") return setLink({ kind: "unusable", reason: a.reason });
     if (a.status === "approved") {
-      if (choice.kind === "already") return onSignedIn("Approved. Return to your terminal; this browser was already signed in.");
+      if (choice.kind === "already") return onSignedIn("Approved. The device you're signing in is signed in now; this browser already was.");
       return setApprovedOnly(true);
     }
     await adoptTokens(store, api, a.tokens);
-    onSignedIn("You're signed in. Return to your terminal; this browser is signed in too.");
+    onSignedIn("Approved. The device you're signing in is signed in now, and so is this browser.");
   };
 
   return (
     <section class="card">
       <h1>Sign in to Quantum of Thought</h1>
       <p>
-        Enter the code shown in your terminal (or on the device you are signing in) to sign in as{" "}
+        Enter the code shown on the device you're signing in to sign in as{" "}
         <strong>{link.email}</strong>.
       </p>
       <form onSubmit={submit}>

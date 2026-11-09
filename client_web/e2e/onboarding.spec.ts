@@ -21,7 +21,7 @@ test("sign in from the CLI, and the browser that approves is signed in too", asy
   await page.getByLabel("Code").fill(code.toLowerCase());
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page.getByText("Return to your terminal; this browser is signed in too")).toBeVisible();
+  await expect(page.getByText("The device you're signing in is signed in now, and so is this browser")).toBeVisible();
   await expect(page).toHaveURL("/");
   await expect(page.getByTestId("sync-status")).toHaveText("Synced");
 

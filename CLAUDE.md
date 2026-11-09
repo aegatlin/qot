@@ -391,7 +391,10 @@ the rules the CLI is tested with:
   search, title = first line, preview, newest edit first) and an editor at
   `/notes/<id>` (two panes when wide). Pages: `/sign-in` (Apple, then the
   email sign-in), `/settings` (sync now, sign out, delete account),
-  `/auth/device` (an emailed link). Everything else routes to the list. Edits save as you type (debounced) as the editor's diff from
+  `/auth/device` (an emailed link). Everything else routes to the list.
+  **Copy takes no view of which clients someone uses**: the PWA never
+  mentions the CLI, a terminal or other apps ("the device you're signing
+  in", not "your terminal"). Edits save as you type (debounced) as the editor's diff from
   the version it was typed over, merged into the stored note
   (`applyEdit`), so a change synced in meanwhile is kept; the editor shows
   the stored note again once it has no unsaved typing. Leaving an emptied
