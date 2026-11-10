@@ -42,9 +42,10 @@ was considered and turned down.
 | 2026-11-04 | [Repo layout for many clients](2026-11-04-repo-layout-for-clients.md) | decided (its XcodeGen part superseded 2026-11-08) |
 | 2026-11-04 | [Open source or closed source](2026-11-04-open-source-or-closed.md) | decided |
 | 2026-11-06 | [Release tags are pushed by hand](2026-11-06-release-tags-by-hand.md) | decided |
-| 2026-11-06 | [Hosting the PWA and the website](2026-11-06-hosting-the-pwa-and-website.md) | decided |
+| 2026-11-06 | [Hosting the PWA and the website](2026-11-06-hosting-the-pwa-and-website.md) | decided (the website's "no JavaScript" superseded 2026-11-10) |
 | 2026-11-06 | [Sign-in through the PWA](2026-11-06-sign-in-through-the-pwa.md) | decided |
 | 2026-11-08 | [A committed, Apple-native Xcode project](2026-11-08-apple-native-project.md) | decided |
 | 2026-11-08 | [Issues are the backlog; the roadmap is retired](2026-11-08-issues-are-the-backlog.md) | decided |
 | 2026-11-08 | [Why the Apple apps don't use automerge-swift](2026-11-08-why-not-automerge-swift.md) | decided |
 | 2026-11-08 | [Sign in with Apple on Apple devices](2026-11-08-sign-in-with-apple.md) | decided |
+| 2026-11-10 | [Analytics on the website, not the apps](2026-11-10-website-analytics.md) | decided |

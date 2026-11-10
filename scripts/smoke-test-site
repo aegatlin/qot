@@ -51,4 +51,9 @@ csp=$(curl -sSI --max-time 10 "$site/" | tr -d '\r' | sed -n 's/^content-securit
 [[ $csp == "default-src 'none'"* ]] || fail "the CSP isn't the site's ($csp)"
 echo "ok: CSP"
 
+# Plausible's script is proxied from this origin (see site_web/Caddyfile).
+script=$(curl -sSf --max-time 10 "$site/js/script.js") || fail "/js/script.js (Plausible) doesn't load"
+grep -q "api/event" <<<"$script" || fail "/js/script.js isn't Plausible's script"
+echo "ok: Plausible's script"
+
 echo "smoke test passed: $site"

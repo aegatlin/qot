@@ -1,4 +1,5 @@
-// The website, www.quantumofthought.com: plain HTML and CSS, no JavaScript.
+// The website, www.quantumofthought.com: plain HTML and CSS, no JavaScript of its own
+// (Plausible's page-view script is proxied by Caddy, not built).
 // React is used only to render components (the shadcn/ui ones shared with the
 // Abstract Syntax site) at build time; nothing is hydrated.
 import { defineConfig } from "astro/config";

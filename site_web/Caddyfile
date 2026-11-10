@@ -16,8 +16,9 @@
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
-		# Plain HTML and CSS from this origin: no scripts at all.
-		Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		# Plain HTML and CSS from this origin; the only script is Plausible's,
+		# proxied below, so it is this origin too.
+		Content-Security-Policy "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		-Server
 	}
 
@@ -32,6 +33,31 @@
 	handle /health {
 		header Content-Type application/json
 		respond `{"status":"ok","commit":"{$COMMIT}"}` 200
+	}
+
+	# Plausible page views, proxied so nothing loads from another origin and
+	# blockers of plausible.io don't skew the counts. Plausible tells visitors
+	# apart by IP, so send the client's (Railway's edge sets X-Real-IP).
+	handle /js/script.js {
+		reverse_proxy https://plausible.io {
+			header_up Host {upstream_hostport}
+			header_up -Cookie
+		}
+	}
+	# Only production counts; elsewhere (staging, local, CI) events stop here.
+	@count {
+		path /api/event
+		host www.quantumofthought.com
+	}
+	handle @count {
+		reverse_proxy https://plausible.io {
+			header_up Host {upstream_hostport}
+			header_up -Cookie
+			header_up X-Forwarded-For {header.X-Real-IP}
+		}
+	}
+	handle /api/event {
+		respond 202
 	}
 
 	# /privacy.html is linked as /privacy; send the long form there.
