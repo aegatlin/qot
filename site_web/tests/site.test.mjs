@@ -1,5 +1,10 @@
 // Checks the built site in dist/ (run `npm run build` first): every page is
 // there, every internal link resolves, and nothing loads from another origin.
+
+// Plausible's script and event endpoint, which Caddy proxies to plausible.io
+// (see Caddyfile): served from this origin, never built into dist/.
+const PLAUSIBLE_SCRIPT =
+  '<script defer data-domain="www.quantumofthought.com" data-api="/api/event" src="/js/script.js"></script>';
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -54,19 +59,20 @@ test("every page has a title, a description and the footer's policy links", () =
 test("every internal link and asset resolves", () => {
   for (const [route, html] of Object.entries(pages)) {
     for (const url of urls(html)) {
-      if (/^(https?:|mailto:|#)/.test(url)) continue;
+      if (/^(https?:|mailto:|#)/.test(url) || url === "/js/script.js") continue;
       assert.ok(url.startsWith("/"), `${route}: relative link ${url}`);
       assert.ok(resolves(url), `${route}: ${url} does not resolve`);
     }
   }
 });
 
-// The site is plain HTML and CSS: no JavaScript of its own, and nothing
-// fetched from another origin (no trackers, fonts or CDNs). Links out are
-// fine; loading something is not.
-test("no scripts and no third-party resources", () => {
+// The site is plain HTML and CSS: no JavaScript of its own, only Plausible's
+// page-view counter from this origin, and nothing fetched from another origin
+// (no trackers, fonts or CDNs). Links out are fine; loading something is not.
+test("no scripts but Plausible's, and no third-party resources", () => {
   for (const [route, html] of Object.entries(pages)) {
-    assert.doesNotMatch(html, /<script/i, `${route}: has a script`);
+    const scripts = html.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+    assert.deepEqual(scripts, [PLAUSIBLE_SCRIPT], `${route}: scripts other than Plausible's`);
     for (const tag of html.match(/<(img|link|iframe|source|video|audio)\b[^>]*>/gi) ?? []) {
       if (/^<link\b/i.test(tag) && /rel="(canonical|alternate)"/.test(tag)) continue;
       assert.doesNotMatch(tag, /(src|href)="(https?:)?\/\//, `${route}: loads ${tag}`);
@@ -128,4 +134,11 @@ test("the privacy policy says what the server stores", () => {
   assert.match(html, /email address/i);
   assert.match(html, /end-to-end encrypt/i);
   assert.match(html, /Abstract Syntax LLC/);
+});
+
+test("the privacy policy names the website's analytics and says the apps send none", () => {
+  const text = pages["privacy.html"].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  assert.match(text, /Plausible/);
+  assert.match(text, /no cookies/i);
+  assert.match(text, /apps send nothing to Plausible/);
 });

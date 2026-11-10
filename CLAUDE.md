@@ -447,7 +447,7 @@ the rules the CLI is tested with:
   `/terms` (drafts until a person approves them, #17; `draft: true` in the
   frontmatter shows a banner). The Abstract Syntax site
   (`aegatlin/abstract_syntax`, `www.abstractsyntax.llc`) links here.
-- **Astro**, built to plain HTML and CSS with **no JavaScript**: pages in
+- **Astro**, built to plain HTML and CSS with **no JavaScript of its own**: pages in
   `src/pages/` (`.astro`, or `.mdx` with `layouts/Prose.astro` for long text).
   The shadcn/ui components (`src/components/ui/`) and `lib/utils.ts` are
   copied from the Abstract Syntax site and render at build time only through
@@ -457,18 +457,23 @@ the rules the CLI is tested with:
 - `build.format: "file"`: `/privacy` is `privacy.html`, so the server must
   try `<path>.html`. `compressHTML` is off because it ate the space before
   inline tags.
-- No third-party scripts, fonts or trackers; Plausible is a separate decision
-  (#61). `tests/site.test.mjs` (`mise run test:site`) checks the build: every
-  page and internal link, no `<script>`, no JS files, nothing loaded from
-  another origin, and the facts the install, support and privacy pages must
-  state.
+- **Plausible** counts page views (#61,
+  `docs/records/2026-11-10-website-analytics.md`): one `<script>` in
+  `layouts/Base.astro`, proxied by Caddy from this origin (`/js/script.js`,
+  `/api/event`); events go to Plausible only for the `www.` host, else Caddy
+  answers 202. Website only: the PWA and the other clients send nothing to
+  Plausible, and the privacy policy says so. No other scripts, fonts or
+  trackers. `tests/site.test.mjs` (`mise run test:site`) checks the build:
+  every page and internal link, no `<script>` but Plausible's, no JS files,
+  nothing loaded from another origin, and the facts the install, support and
+  privacy pages must state.
 - **Deploys**: the PWA's shape. Railway service `site`, built from
   `site_web/Dockerfile` with the repo root as context (Node, then Caddy;
   `NODE_VERSION` must match `mise.toml`, which CI checks). `bin/site` starts
   Caddy (`site_web/Caddyfile`): `/health` `{status, commit}`, clean URLs
   (`/privacy` serves `privacy.html`; `.html` and trailing slashes redirect),
-  `404.html`, immutable `/_astro/*`, `no-cache` elsewhere, and a CSP that
-  allows no scripts. Staging (`staging-www.`) deploys green pushes to `main`
+  `404.html`, immutable `/_astro/*`, `no-cache` elsewhere, the Plausible
+  proxy, and a CSP that allows scripts and connections to this origin only. Staging (`staging-www.`) deploys green pushes to `main`
   touching `site_web/`; production (`www.`) deploys the `production-site`
   branch, which `.github/workflows/release-site.yml` moves to a `site/v*` tag
   (a person pushes it), then smoke-tests (`scripts/smoke-test-site <url>

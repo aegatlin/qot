@@ -2,7 +2,7 @@
 layout: ../layouts/Prose.astro
 title: Privacy policy
 description: What qot stores, where, and who else handles it. The server keeps your email address and your synced notes; until end-to-end encryption ships, it could read them.
-updated: November 6, 2026
+updated: November 10, 2026
 draft: true
 ---
 
@@ -51,8 +51,13 @@ limited time, may include your account's id.
 
 ## The website
 
-This site sets no cookies, runs no scripts and has no analytics. Pages are served by our host,
+This site counts page views with [Plausible](https://plausible.io/data-policy): which pages are
+visited, from which site you came, and your country and kind of device. It sets no cookies,
+keeps no personal data and can't follow you across visits or sites; Plausible uses your network
+address only to tell visitors apart for a day and doesn't store it. Pages are served by our host,
 which handles your network address to deliver them.
+
+The qot apps have no analytics: the apps send nothing to Plausible.
 
 ## Who else handles your data
 
@@ -63,6 +68,7 @@ We use a few companies to run qot. Each handles only what its job needs:
 - **Apple**, if you sign in with Apple: Apple tells us your Apple account's id and email (or a
   Hide My Email address), and we keep a token from Apple only to end that link when you delete
   your account. In the web app, the sign-in screen loads Apple's sign-in script from Apple.
+- **Plausible** counts this website's page views (see above).
 - **GitHub** and **Homebrew** serve the terminal client's downloads, under their own privacy
   policies.
 

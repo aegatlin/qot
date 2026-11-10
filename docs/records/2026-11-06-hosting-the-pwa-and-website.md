@@ -1,10 +1,14 @@
 # Hosting the PWA and the website
 
-Status: decided
+Status: decided ("no JavaScript" on the website superseded by 2026-11-10-website-analytics.md)
 Date: 2026-11-06
 Question: Where do the PWA (`app.quantumofthought.com`) and the website
 (`www.quantumofthought.com`) run: on the Phoenix server that serves the API,
 or somewhere else?
+
+> **Since then:** the website runs one script, Plausible's page-view counter,
+> proxied from its own origin (`2026-11-10-website-analytics.md`). It still
+> has no JavaScript of its own.
 
 ## Answer
 
