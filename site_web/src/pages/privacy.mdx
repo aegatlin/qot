@@ -2,12 +2,11 @@
 layout: ../layouts/Prose.astro
 title: Privacy policy
 description: What qot stores, where, and who else handles it. The server keeps your email address and your synced notes; until end-to-end encryption ships, it could read them.
-updated: November 10, 2026
-draft: true
+updated: November 17, 2026
 ---
 
 qot (Quantum of Thought) is made by Abstract Syntax LLC. This policy covers the qot apps (the
-terminal client, the web app at app.quantumofthought.com and, when it ships, the iPhone app),
+terminal client, the web app at app.quantumofthought.com, and the iPhone and Apple Watch apps),
 the sync server behind them, and this website. The
 [Abstract Syntax website's policy](https://www.abstractsyntax.llc/privacy) covers that site only.
 
@@ -24,11 +23,16 @@ the sync server behind them, and this website. The
 ## What's on your devices
 
 Every note you take is saved on the device first: in the terminal, in qot's data folder; in the
-web app, in your browser's storage for app.quantumofthought.com. Signing out leaves the notes
+web app, in your browser's storage for app.quantumofthought.com; on iPhone, in the app's own
+storage (a note taken on Apple Watch is handed to your iPhone). Signing out leaves the notes
 there. Deleting the app, the data folder or the site's data in your browser removes them from
 that device.
 
 You can use qot without an account. Notes then never leave the device.
+
+When you dictate a note in the iPhone app, the speech is turned into text on the phone; the
+audio is never kept or sent anywhere. Siri and the Apple Watch's dictation are Apple's, under
+Apple's privacy policy; qot receives only the text.
 
 ## What the server stores
 
@@ -47,7 +51,9 @@ Only if you sign in:
 To stop abuse of sign-in emails, the server counts recent sign-in attempts per email address
 and per network address (IP). It keeps those counts in memory for an hour and never writes them
 down. The server doesn't log your requests or your notes; its error logs, kept by our host for a
-limited time, may include your account's id.
+limited time, may include your account's id. Our host keeps its own short-lived record of
+requests (the network address, the address requested and the time), never the notes or
+anything else sent in them.
 
 ## The website
 
@@ -67,7 +73,9 @@ We use a few companies to run qot. Each handles only what its job needs:
 - **Resend** delivers sign-in emails, so it sees your email address and the email.
 - **Apple**, if you sign in with Apple: Apple tells us your Apple account's id and email (or a
   Hide My Email address), and we keep a token from Apple only to end that link when you delete
-  your account. In the web app, the sign-in screen loads Apple's sign-in script from Apple.
+  your account. In the web app, the sign-in screen loads Apple's sign-in script from Apple. Apple also
+  distributes the iPhone and Apple Watch apps (TestFlight, the App Store), under its own
+  privacy policy.
 - **Plausible** counts this website's page views (see above).
 - **GitHub** and **Homebrew** serve the terminal client's downloads, under their own privacy
   policies.
@@ -83,10 +91,12 @@ can read another's notes.
 
 ## Your choices
 
-- **Export**: `qot export` writes every note as JSON. A signed-in device has everything the
+- **Export**: `qot export` in the terminal, or Export notes in the iPhone app's account sheet,
+  writes every note as JSON. A signed-in device has everything the
   server has, so the export comes from the device.
-- **Delete**: Delete account in the web app's account menu, or `qot delete-account`, deletes your account, your email address, your synced notes
-  and your sign-ins from the server, immediately. Notes stay on your devices until you delete
+- **Delete**: Delete account in the web app's Settings or the iPhone app's account sheet, or
+  `qot delete-account` in the terminal, deletes your account, your email address, your synced
+  notes and your sign-ins from the server, immediately. Notes stay on your devices until you delete
   them.
 - **Correct or ask**: email us to ask what we hold about you, or anything else in this policy.
 

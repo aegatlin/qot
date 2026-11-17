@@ -125,8 +125,23 @@ test("support says how to reach a person, export notes and delete the account", 
   assert.ok(urls(html).some((u) => u.startsWith("mailto:contact@abstractsyntax.llc")));
   assert.match(html, /qot export/);
   assert.match(html, /qot delete-account/);
-  assert.match(html, /web app, open the account menu and choose Delete account/);
+  assert.match(html, /web app, open Settings from the account menu/);
+  assert.match(html, /iPhone app, open the account sheet/);
   assert.doesNotMatch(html, /we'll do\s+it for you/);
+});
+
+test("the policies are approved: no draft banner", () => {
+  for (const page of ["privacy.html", "terms.html"]) {
+    assert.doesNotMatch(pages[page], /Draft\./, page);
+  }
+});
+
+test("the policies cover the iPhone app, which has shipped to testers", () => {
+  const text = (page) => pages[page].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  assert.doesNotMatch(text("privacy.html"), /when it ships/);
+  assert.match(text("privacy.html"), /iPhone and Apple Watch apps/);
+  assert.match(text("privacy.html"), /audio is never kept or sent/);
+  assert.match(text("terms.html"), /iPhone app/);
 });
 
 test("the privacy policy says what the server stores", () => {

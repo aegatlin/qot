@@ -22,7 +22,7 @@ const faq = [
   {
     id: "sign-out",
     q: "How do I sign out?",
-    a: "qot logout in the terminal, or the account menu in the web app. Signing out forgets the account on that device; its notes stay on it.",
+    a: "qot logout in the terminal, the account menu in the web app, or the account sheet in the iPhone app. Signing out forgets the account on that device; its notes stay on it.",
   },
   {
     id: "self-host",
@@ -70,7 +70,7 @@ const faq = [
       <CardContent className="space-y-3">
         <p>
           Every signed-in device has all of your notes, so the export comes from the device, not the server. In
-          the terminal:
+          the iPhone app, open the account sheet and choose Export notes. In the terminal:
         </p>
         <Command command="qot export > notes.json" />
         <p class="text-muted-foreground">
@@ -85,8 +85,9 @@ const faq = [
       </CardHeader>
       <CardContent className="space-y-3">
         <p>
-          In the web app, open the account menu and choose Delete account. In the terminal, signed in, run
-          the command. Either way, type your email to confirm.
+          In the web app, open Settings from the account menu and choose Delete account. In the iPhone app, open the account sheet
+          and choose Delete account. In the terminal, signed in, run the command. Every way asks you to type
+          your email to confirm.
         </p>
         <Command command="qot delete-account" />
         <p class="text-muted-foreground">

@@ -444,8 +444,11 @@ the rules the CLI is tested with:
   `/iphone` (every way to capture on iPhone and Apple Watch; keep it in step
   with the app's intents, widgets and Siri phrases),
   `/support` (contact, export, account deletion, FAQ), `/privacy` and
-  `/terms` (drafts until a person approves them, #17; `draft: true` in the
-  frontmatter shows a banner). The Abstract Syntax site
+  `/terms` (approved 2026-11-17, #17; plain-language texts with no lawyer's
+  review yet. They state facts about the code, so a change to what the server
+  stores, who handles data or where export and delete live changes them and
+  their `updated` date in the same commit; `draft: true` in the frontmatter
+  shows a banner on a new, unapproved text). The Abstract Syntax site
   (`aegatlin/abstract_syntax`, `www.abstractsyntax.llc`) links here.
 - **Astro**, built to plain HTML and CSS with **no JavaScript of its own**: pages in
   `src/pages/` (`.astro`, or `.mdx` with `layouts/Prose.astro` for long text).
