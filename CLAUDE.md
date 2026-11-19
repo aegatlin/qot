@@ -20,6 +20,13 @@ daily), not a public launch. Work that only matters for strangers or at
 real user volume (backups, pricing, error reporting) is deferred: those
 issues are closed as not planned, to reopen when a launch makes them matter.
 
+**qot does not launch without voice memos that sync**: one gesture on the
+iPhone records a memo, and both the recording and its text reach every
+client that can show them (#78). Notes hold media as attachments, audio
+first; the design, and what it asks of end-to-end encryption, is
+`docs/records/2026-11-19-attachments-and-voice-memos.md`. Not built yet:
+until #78's steps land, notes are text only.
+
 qot is an **Abstract Syntax LLC** product: every outside account (Apple,
 Railway, later Stripe and the rest) belongs to the company, never to a
 personal account, and identifiers follow it (`llc.abstractsyntax.*`).
@@ -175,9 +182,13 @@ End-to-end encryption is the intended default, so **the server never reads
 note content**. It keeps a per-user, append-only log of opaque change blobs
 and relays them; clients do all merging with `qot_core`. Encryption is then a
 client-only addition (encrypt each blob before pushing), with no server
-change. Key management (how a new device gets the key) is not designed yet.
-Anything that needs the server to read notes (e.g. future note pipelines)
-must be an explicit opt-in and must not weaken this default.
+change. Key management (how a new device gets the key) is not designed yet
+(#72); it has to give each account a keypair, so a party that can't read an
+account (a capture-only device, an opt-in server pipeline) can still write
+to it.
+Anything that needs the server to read notes (e.g. future note pipelines,
+or transcribing a recording for a client that can't) must be an explicit
+opt-in and must not weaken this default.
 
 - `POST /api/sync/push` `{changes: [{note_id, data}]}` (data base64) appends
   and returns `{cursor}`.

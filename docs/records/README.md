@@ -49,3 +49,4 @@ was considered and turned down.
 | 2026-11-08 | [Why the Apple apps don't use automerge-swift](2026-11-08-why-not-automerge-swift.md) | decided |
 | 2026-11-08 | [Sign in with Apple on Apple devices](2026-11-08-sign-in-with-apple.md) | decided |
 | 2026-11-10 | [Analytics on the website, not the apps](2026-11-10-website-analytics.md) | decided |
+| 2026-11-19 | [Attachments in notes, and voice memos first](2026-11-19-attachments-and-voice-memos.md) | decided |
