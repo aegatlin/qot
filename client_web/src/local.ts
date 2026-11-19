@@ -9,7 +9,7 @@ import { withLock } from "./lock";
 import { applyEdit, capture, type Edit, shouldDiscard } from "./notes";
 import { attempt, err, ok, type Result } from "./result";
 import type { Store } from "./store";
-import { STORE_LOCK } from "./sync";
+import { discardBlobs, STORE_LOCK } from "./sync";
 
 function locked<T>(f: () => Promise<Result<T>>): Promise<Result<T>> {
   return withLock(STORE_LOCK, f).catch((e: unknown) => err(e instanceof Error ? e.message : String(e)));
@@ -65,7 +65,23 @@ export function deleteLocal(store: Store, id: string): Promise<Result<Note>> {
     const stored = await load(store, id);
     if (!stored.ok) return stored;
     const deleted = attempt(() => stored.value.delete());
-    if (deleted.ok) await put(store, deleted.value);
-    return deleted;
+    if (!deleted.ok) return deleted;
+    await put(store, deleted.value);
+    // Its recordings go from this device now; the next sync tells the server.
+    const swept = await discardBlobs(store);
+    return swept.ok ? deleted : swept;
+  });
+}
+
+/** Removes an attachment (a recording) from a note and keeps its text. */
+export function removeAttachment(store: Store, noteId: string, attachmentId: string): Promise<Result<Note>> {
+  return locked(async () => {
+    const stored = await load(store, noteId);
+    if (!stored.ok) return stored;
+    const removed = attempt(() => stored.value.detach(attachmentId));
+    if (!removed.ok) return removed;
+    await put(store, removed.value);
+    const swept = await discardBlobs(store);
+    return swept.ok ? removed : swept;
   });
 }

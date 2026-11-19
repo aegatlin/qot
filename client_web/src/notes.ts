@@ -1,11 +1,26 @@
 // Pure rules for showing and changing notes, over the core's immutable Note.
 
-import { Note } from "./core/qot_wasm";
+import { type Attachment, Note } from "./core/qot_wasm";
 import { attempt, err, ok, type Result } from "./result";
+
+/** Media on a note, as the UI needs it. The bytes are a blob with this id. */
+export interface AttachmentView {
+  id: string;
+  /** `audio`; anything else is a kind this build can't show. */
+  kind: string;
+  mediaType: string;
+  size: number;
+  durationMs: number | undefined;
+  /** The core's short description: `audio 0:42`, `image, 2 MB`. */
+  label: string;
+  /** What to call it where a title is needed: `Voice memo 0:42`. */
+  title: string;
+}
 
 export interface NoteView {
   id: string;
   content: string;
+  attachments: AttachmentView[];
   createdAtMs: number;
   /** The last edit, to the second. */
   updatedAtMs: number;
@@ -32,7 +47,15 @@ export function liveNotes(notes: Note[]): NoteView[] {
       .filter((n) => !n.isDeleted)
       .map((n) => {
         const content = n.content;
-        return { id: n.id, content, createdAtMs: n.createdAtMs, updatedAtMs: n.updatedAtMs, ...summary(content) };
+        const attachments = attachmentViews(n);
+        return {
+          id: n.id,
+          content,
+          attachments,
+          createdAtMs: n.createdAtMs,
+          updatedAtMs: n.updatedAtMs,
+          ...summary(content, attachments),
+        };
       }),
   );
 }
@@ -43,14 +66,38 @@ export function sortByEdit(views: NoteView[]): NoteView[] {
   return [...views].sort((a, b) => b.updatedAtMs - a.updatedAtMs || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
 }
 
+/** A note's attachments, oldest first. */
+export function attachmentViews(note: Note): AttachmentView[] {
+  return note.attachments().map((a) => ({
+    id: a.id,
+    kind: a.kind,
+    mediaType: a.mediaType,
+    size: a.size,
+    durationMs: a.durationMs,
+    label: a.label,
+    title: attachmentTitle(a),
+  }));
+}
+
+/** A recording is a "Voice memo 0:42"; a kind this build doesn't know is
+ *  named by the core's label, so it is never shown as nothing. */
+export function attachmentTitle(a: Pick<Attachment, "kind" | "label">): string {
+  if (a.kind === "audio") return a.label.replace(/^audio/, "Voice memo");
+  return `Attachment (${a.label})`;
+}
+
 /** A list row's text, like Apple Notes: the first non-empty line is the
- *  title, the rest (joined onto one line) the preview. */
-export function summary(content: string): { title: string; preview: string } {
+ *  title, the rest (joined onto one line) the preview. A note with no text
+ *  is titled by its first attachment. */
+export function summary(content: string, attachments: AttachmentView[] = []): { title: string; preview: string } {
   const lines = content
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
-  return { title: lines[0] ?? "New note", preview: lines.slice(1).join(" ").slice(0, 200) };
+  return {
+    title: lines[0] ?? attachments[0]?.title ?? "New note",
+    preview: lines.slice(1).join(" ").slice(0, 200),
+  };
 }
 
 /** Notes containing every word of the query, ignoring case. */
@@ -58,7 +105,8 @@ export function filterNotes(views: NoteView[], query: string): NoteView[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length === 0) return views;
   return views.filter((v) => {
-    const text = v.content.toLowerCase();
+    // The title too: a recording with no text is found as a "voice memo".
+    const text = `${v.title}\n${v.content}`.toLowerCase();
     return words.every((w) => text.includes(w));
   });
 }
@@ -92,10 +140,11 @@ export function applyEdit(stored: Note, base: Note, text: string): Result<Edit |
   });
 }
 
-/** Leaving a note with no text deletes it, the way Apple Notes discards empty
- *  notes. Only a live note: a tombstone stays as it is. */
+/** Leaving a note with nothing in it deletes it, the way Apple Notes discards
+ *  empty notes: no text and no attachments (a recording with no text stays).
+ *  Only a live note: a tombstone stays as it is. */
 export function shouldDiscard(note: Note): boolean {
-  return !note.isDeleted && note.content.trim() === "";
+  return !note.isDeleted && note.isEmpty;
 }
 
 /** "just now", "5 min ago", "3 h ago", then the date. */

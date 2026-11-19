@@ -1,8 +1,14 @@
 // An in-memory stand-in for the sync server's HTTP API, as a `fetch`: one
-// user's append-only log with gap-free seqs, tokens that can expire.
+// user's append-only log with gap-free seqs, tokens that can expire, and the
+// blobs (attachments' bytes) beside the log.
 
 export class FakeServer {
   log: { seq: number; note_id: string; data: string }[] = [];
+  blobs = new Map<string, Uint8Array>();
+  /** Ids deleted by a push, in order. */
+  deletedBlobs: string[] = [];
+  /** Every push body, as sent. */
+  pushes: Record<string, unknown>[] = [];
   validAccess = new Set(["access-1"]);
   validRefresh = new Set(["refresh-1"]);
   offline = false;
@@ -19,10 +25,18 @@ export class FakeServer {
   fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     if (this.offline) throw new TypeError("Failed to fetch");
     const url = new URL(String(input));
-    const body = init?.body ? JSON.parse(String(init.body)) : {};
+    const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
     const auth = new Headers(init?.headers).get("authorization")?.replace("Bearer ", "");
     const json = (status: number, data: unknown) =>
       new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
+
+    const blob = url.pathname.match(/^\/api\/blobs\/([^/]+)$/);
+    if (blob && (init?.method ?? "GET") === "GET") {
+      if (!auth || !this.validAccess.has(auth)) return json(401, { error: "unauthorized" });
+      const bytes = this.blobs.get(blob[1]!);
+      if (!bytes) return json(404, { error: "Not found" });
+      return new Response(new Blob([bytes as BlobPart]), { status: 200, headers: { "content-type": "application/octet-stream" } });
+    }
 
     switch (`${init?.method ?? "GET"} ${url.pathname}`) {
       case "POST /api/auth/refresh":
@@ -36,7 +50,12 @@ export class FakeServer {
         return json(200, { message: "ok" });
       case "POST /api/sync/push":
         if (!auth || !this.validAccess.has(auth)) return json(401, { error: "unauthorized" });
+        this.pushes.push(body);
         for (const c of body.changes) this.log.push({ seq: this.log.length + 1, ...c });
+        for (const id of body.deleted_blobs ?? []) {
+          this.blobs.delete(id);
+          this.deletedBlobs.push(id);
+        }
         return json(200, { cursor: this.log.length });
       case "GET /api/sync/pull": {
         if (!auth || !this.validAccess.has(auth)) return json(401, { error: "unauthorized" });

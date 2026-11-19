@@ -3,8 +3,9 @@ import { type Api, type ApiError, describe, type DeviceStart } from "./api";
 import { appleAvailable, appleErrorText, appleSignIn, prepareApple, type PreparedApple } from "./apple";
 import type { Note } from "./core/qot_wasm";
 import { connectLive } from "./live";
-import { deleteLocal, discardIfEmpty, saveEdit, saveNew } from "./local";
-import { age, type Edit, filterNotes, liveNotes, parseNotes } from "./notes";
+import { type BlobError, blobErrorText, loadBlob } from "./blobs";
+import { deleteLocal, discardIfEmpty, removeAttachment, saveEdit, saveNew } from "./local";
+import { type AttachmentView, age, attachmentViews, type Edit, filterNotes, liveNotes, parseNotes } from "./notes";
 import type { Result } from "./result";
 import { adoptTokens, browserChoice, confirmsAccount, deleteAccount, signOut } from "./session";
 import type { Credentials, Store } from "./store";
@@ -170,6 +171,12 @@ export function App({ api, store }: { api: Api; store: Store }) {
     return result;
   };
 
+  const onRemoveAttachment = async (noteId: string, attachmentId: string) => {
+    const result = await removeAttachment(store, noteId, attachmentId);
+    if (!result.ok) setLoadError(`not removed: ${result.error}`);
+    afterChange();
+  };
+
   const onLeaveNote = async (id: string) => {
     const discarded = await discardIfEmpty(store, id);
     if (discarded.ok && discarded.value) afterChange();
@@ -273,6 +280,8 @@ export function App({ api, store }: { api: Api; store: Store }) {
               onLeave={() => onLeaveNote(openId)}
               onBack={closeNote}
               onDelete={() => onDelete(openId)}
+              loadBlob={(id) => loadBlob(store, api, id)}
+              onRemoveAttachment={(id) => onRemoveAttachment(openId, id)}
             />
           ) : (
             <div class="gone">
@@ -620,6 +629,11 @@ function NoteList({
               <span class="title">{n.title}</span>
               <span class="sub">
                 <span class="when">{age(n.updatedAtMs, now)}</span>
+                {n.attachments.map((a) => (
+                  <span class="tag" key={a.id}>
+                    {a.label}
+                  </span>
+                ))}
                 {n.preview && <span class="preview">{n.preview}</span>}
               </span>
             </a>
@@ -657,8 +671,13 @@ const SAVE_DELAY_MS = 500;
  * clobbers typing, and typing never undoes it.
  *
  * Leaving the note (back, opening another, closing it) saves, then deletes
- * it if it has no text, the way Apple Notes discards empty notes
- * (`discardIfEmpty`). Closing the page only saves: a reload reopens the note.
+ * it if it has nothing in it, the way Apple Notes discards empty notes
+ * (`discardIfEmpty`): no text and no attachments. Closing the page only
+ * saves: a reload reopens the note.
+ *
+ * A note's attachments show above its text. A recording plays here, and can
+ * be removed on its own, which keeps the text; clearing the text keeps the
+ * recording.
  */
 function Editor({
   note,
@@ -666,13 +685,18 @@ function Editor({
   onLeave,
   onBack,
   onDelete,
+  loadBlob,
+  onRemoveAttachment,
 }: {
   note: Note;
   save: (base: Note, text: string) => Promise<Result<Edit | null>>;
   onLeave: () => void;
   onBack: () => void;
   onDelete: () => void;
+  loadBlob: LoadBlob;
+  onRemoveAttachment: (id: string) => void;
 }) {
+  const attachments = attachmentViews(note);
   const [text, setText] = useState(note.content);
   const [error, setError] = useState<string | null>(null);
   const textRef = useRef(note.content);
@@ -746,9 +770,18 @@ function Editor({
         </button>
       </div>
       {error && <p class="error">{error}</p>}
+      {attachments.map((a) =>
+        a.kind === "audio" ? (
+          <Recording key={a.id} attachment={a} load={loadBlob} onRemove={() => onRemoveAttachment(a.id)} />
+        ) : (
+          <p key={a.id} class="attachment muted">
+            {a.title}. This version of qot can't show it; it is kept with the note.
+          </p>
+        ),
+      )}
       <textarea
         ref={area}
-        class="editor"
+        class={`editor${attachments.length > 0 ? " with-attachments" : ""}`}
         aria-label="Edit note"
         value={text}
         onInput={(e) => {
@@ -762,6 +795,87 @@ function Editor({
           if (e.key === "Escape") onBack();
         }}
       />
+    </div>
+  );
+}
+
+type LoadBlob = (id: string) => Promise<Result<Uint8Array, BlobError>>;
+
+/** How often to ask again for a recording its device hasn't sent yet. */
+const RECORDING_RETRY_MS = 10_000;
+
+/**
+ * A note's recording: fetched when the note is opened (then kept on this
+ * device), and played by the browser's own audio controls. While the device
+ * that recorded it hasn't sent it yet, it says so and asks again by itself.
+ */
+function Recording({
+  attachment,
+  load,
+  onRemove,
+}: {
+  attachment: AttachmentView;
+  load: LoadBlob;
+  onRemove: () => void;
+}) {
+  type State = { kind: "loading" } | { kind: "ready"; url: string } | { kind: "unavailable"; error: BlobError };
+  const [state, setState] = useState<State>({ kind: "loading" });
+  const [tries, setTries] = useState(0);
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let url: string | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    load(attachment.id).then((result) => {
+      if (cancelled) return;
+      if (result.ok) {
+        url = URL.createObjectURL(new Blob([result.value as BlobPart], { type: attachment.mediaType }));
+        setState({ kind: "ready", url });
+      } else {
+        setState({ kind: "unavailable", error: result.error });
+        if (result.error.kind === "not_yet") retry = setTimeout(() => setTries((t) => t + 1), RECORDING_RETRY_MS);
+      }
+    });
+    return () => {
+      cancelled = true;
+      if (retry !== null) clearTimeout(retry);
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [attachment.id, tries]);
+
+  return (
+    <div class="attachment" data-testid="recording">
+      <div class="attachment-head">
+        <span class="attachment-title">{attachment.title}</span>
+        {confirming ? (
+          <span class="attachment-confirm">
+            Remove the recording and keep the text?
+            <button class="link danger" onClick={onRemove}>
+              Remove
+            </button>
+            <button class="link" onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <button class="link danger" onClick={() => setConfirming(true)}>
+            Remove audio
+          </button>
+        )}
+      </div>
+      {state.kind === "ready" ? (
+        <audio controls preload="metadata" src={state.url} aria-label={attachment.title} />
+      ) : state.kind === "loading" ? (
+        <p class="muted">Loading audio…</p>
+      ) : (
+        <p class="muted" role="status">
+          {blobErrorText(state.error)}{" "}
+          <button class="link" onClick={() => setTries((t) => t + 1)}>
+            Try again
+          </button>
+        </p>
+      )}
     </div>
   );
 }

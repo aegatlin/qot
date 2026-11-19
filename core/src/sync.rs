@@ -121,7 +121,10 @@ fn live_attachment_ids(note: &Note) -> BTreeSet<String> {
 /// added the attachment has been pushed (so the note reaches other devices
 /// first, and the server never holds bytes no note points to), and it isn't
 /// known to be on the server. A blob no live note refers to is discarded:
-/// that is how a delete made on another device removes the file here.
+/// that is how a delete made on another device removes the file here. So is
+/// one the state remembers as uploaded and no live note refers to, whether or
+/// not its file is still here, so that `forget_blobs` keeps the state from
+/// growing.
 ///
 /// A recording still being made must not be in `local`: keep it elsewhere
 /// until the step that saves its note.
@@ -133,7 +136,8 @@ pub fn plan_blobs(notes: &[Note], state: &SyncState, local: &[String]) -> BlobPl
         }
     }
     let mut plan = BlobPlan::default();
-    for id in local {
+    let known: BTreeSet<&String> = local.iter().chain(&state.uploaded).collect();
+    for id in known {
         let Some(note) = live.get(id) else {
             plan.discard.push(id.clone());
             continue;
@@ -577,6 +581,25 @@ mod tests {
         let plan = phone.blobs(&[&blob]);
         assert!(plan.upload.is_empty());
         assert_eq!(plan.discard, vec![blob]);
+    }
+
+    #[test]
+    fn a_blob_remembered_as_uploaded_is_forgotten_once_no_note_has_it() {
+        // Its file is already gone (deleted with the note on this device).
+        let mut server = vec![];
+        let mut phone = Device::default();
+        let (note, blob) = phone.record("x");
+        phone.sync(&mut server);
+        phone.state = mark_uploaded(&phone.state, std::slice::from_ref(&blob));
+        phone.edit(&note, |n| n.delete().unwrap());
+
+        let plan = phone.blobs(&[]);
+        assert_eq!(plan.discard, vec![blob]);
+        assert!(
+            forget_blobs(&phone.state, &plan.discard)
+                .uploaded
+                .is_empty()
+        );
     }
 
     #[test]

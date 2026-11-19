@@ -4,7 +4,17 @@
 // repeated is harmless.
 
 import { type Api, type ApiError, type ApiResult, describe } from "./api";
-import { applyPulled, emptySyncState, Incoming, markPushed, type Note, planPush, syncCursor } from "./core/qot_wasm";
+import {
+  applyPulled,
+  emptySyncState,
+  forgetBlobs,
+  Incoming,
+  markPushed,
+  type Note,
+  planBlobs,
+  planPush,
+  syncCursor,
+} from "./core/qot_wasm";
 import { withLock } from "./lock";
 import { parseNotes } from "./notes";
 import { attempt, err, ok, type Result } from "./result";
@@ -90,6 +100,7 @@ async function syncOnce(store: Store, api: Api): Promise<Result<SyncReport, Sync
       api.push(
         t,
         chunk.map((o) => ({ noteId: o.noteId, data: o.data })),
+        chunk.flatMap((o) => o.deletedBlobs),
       ),
     );
     if (!sent.ok) return err(fromApi(sent.error));
@@ -130,5 +141,32 @@ async function syncOnce(store: Store, api: Api): Promise<Result<SyncReport, Sync
     if (!page.value.more) break;
   }
 
+  // A delete or a removed recording, pulled just now or made here, leaves
+  // bytes no note refers to.
+  const swept = await withLock(STORE_LOCK, () => discardBlobs(store, state));
+  if (!swept.ok) return failed(swept.error);
+  if (swept.value.length > 0) {
+    const next = attempt(() => forgetBlobs(state, swept.value));
+    if (!next.ok) return failed(next.error);
+    await store.putSyncState(next.value);
+  }
+
   return ok(report);
+}
+
+/**
+ * Deletes the blobs this device holds that no live note refers to (the
+ * core's `planBlobs`); returns their ids. Call it holding the store lock.
+ * It doesn't touch the sync state: a sync forgets them there.
+ */
+export async function discardBlobs(store: Store, state?: string): Promise<Result<string[]>> {
+  const notes = parseNotes(await store.allNotes());
+  if (!notes.ok) return notes;
+  const local = await store.blobIds();
+  const known = state ?? (await store.syncState()) ?? emptySyncState();
+  const plan = attempt(() => planBlobs(notes.value, known, local));
+  if (!plan.ok) return plan;
+  const discard = plan.value.discard;
+  await store.deleteBlobs(discard);
+  return ok(discard);
 }

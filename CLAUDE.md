@@ -26,8 +26,8 @@ client that can show them (#78). Notes hold media as attachments, audio
 first; the design, and what it asks of end-to-end encryption, is
 `docs/records/2026-11-19-attachments-and-voice-memos.md`. Being built, in
 #78's order: the core knows attachments (#96), the server stores blobs
-(#97) and the CLI lists and exports them (#98); nothing records yet, and
-the PWA (#99) and iOS (#100) still show text only.
+(#97), the CLI lists and exports them (#98) and the PWA shows and plays
+them (#99); nothing records yet, and iOS (#100) still shows text only.
 
 qot is an **Abstract Syntax LLC** product: every outside account (Apple,
 Railway, later Stripe and the rest) belongs to the company, never to a
@@ -97,8 +97,12 @@ changes end to end, not only with tests:
   starts the server with `APP_URL` pointing at the built PWA, signs in from
   the CLI by typing its code into the PWA's sign-in page, and checks notes
   moving both ways live, offline capture, a wrong code and deleting the
-  account from the browser. Extend it rather
-  than clicking through by hand.
+  account from the browser. `e2e/voice-memo.spec.ts` plays the phone (it
+  makes a memo with the wasm core in Node, syncs it through a CLI device and
+  uploads the recording) and checks that the PWA shows it, plays it, and
+  deletes it everywhere. Extend it rather
+  than clicking through by hand. Locally it needs Playwright's browser once:
+  `cd client_web && npx playwright install chromium`.
 - **Server + CLI, the whole sign-in and sync loop, by hand.** Start the server
   in the background (`cd server_web && mise exec -- mix setup`, then
   `mix phx.server` with its output to a log file). Run `qot login
@@ -256,7 +260,9 @@ the rules the CLI is tested with:
   elsewhere removes the file here. `mark_uploaded` after an upload or a
   download; `forget_blobs` after a discard. A recording in progress is kept
   out of `local` until its note is saved. No client or server uses these
-  yet but the CLI (#99, #100).
+  but the CLI and the PWA yet (iOS is #100). `plan_blobs` also discards a
+  blob the state remembers as uploaded once no live note has it, so
+  `SyncState.uploaded` doesn't grow.
 - **Shared test vectors** (`core/tests/vectors/sync.json`) pin these rules
   for every binding: `core/tests/sync_vectors.rs` (Rust, which also
   regenerates them), `SyncVectorTests` (Swift) and `core_wasm/tests/web.rs`
@@ -441,10 +447,12 @@ the rules the CLI is tested with:
   and must equal the crate version.
 - Layout: pure logic in `notes.ts`, `session.ts`, `config.ts` and the core;
   the shell is `api.ts` (HTTP), `store.ts` (IndexedDB, the CLI's layout:
-  notes by id, `sync` and `credentials` in `meta`), `local.ts` (capture,
-  edit, delete: each a read-modify-write under the store lock), `sync.ts`
-  (push then pull, state saved after each step), `live.ts` (the Phoenix
-  channel nudge), `app.tsx` (Preact). Errors are `Result` values
+  notes by id, `sync` and `credentials` in `meta`, and `blobs` by
+  attachment id), `local.ts` (capture, edit, delete, remove an attachment:
+  each a read-modify-write under the store lock), `sync.ts` (push then
+  pull, state saved after each step), `blobs.ts` (an attachment's bytes,
+  fetched when its note is first opened), `live.ts` (the Phoenix channel
+  nudge), `app.tsx` (Preact). Errors are `Result` values
   (`result.ts`).
 - The UI is a header (brand left; right, "Sign in" when signed out, else
   the sync status and the account's initial, whose menu has the email,
@@ -460,6 +468,18 @@ the rules the CLI is tested with:
   (`applyEdit`), so a change synced in meanwhile is kept; the editor shows
   the stored note again once it has no unsaved typing. Leaving an emptied
   note deletes it.
+- **Attachments** show above a note's text. A recording is a "Voice memo
+  0:42" with the browser's own audio controls; the PWA plays but doesn't
+  record yet (#101). Its bytes are fetched when the note is opened
+  (`loadBlob`), kept in IndexedDB so it then plays offline, and marked as
+  on the server in the sync state. Until the device that recorded it has
+  uploaded it, the note says "Audio on its way" and asks again every 10 s.
+  "Remove audio" keeps the text; clearing the text keeps the recording (a
+  note is discarded only when it has neither, `shouldDiscard`); deleting
+  the note takes both. A push carries `deleted_blobs`, and blobs no live
+  note refers to are deleted here by `discardBlobs`, after a local delete
+  and at the end of every sync. A kind this build doesn't know is named
+  and left alone. Tests: `tests/attachments.test.ts`.
 - **Sign in with Apple** (#87; `apple.ts`): Apple's JS SDK, loaded from
   Apple only when the sign-in card shows, in popup mode, with the Services
   ID `llc.abstractsyntax.qot.web` (return URL `<origin>/auth/apple`,
@@ -490,7 +510,8 @@ the rules the CLI is tested with:
   Caddy (`client_web/Caddyfile`): SPA fallback, `/health` `{status,
   commit}`, `/config.json`, immutable `/assets/*`, `no-cache` elsewhere, a
   CSP whose `connect-src` is the API and its `wss:` (scripts: self and
-  Apple's SDK), `Referrer-Policy:
+  Apple's SDK; `media-src blob:` for recordings, which play from bytes the
+  app fetched), `Referrer-Policy:
   no-referrer` (sign-in links carry a token). Staging deploys green pushes
   to `main` touching `client_web/`, `core/`, `core_wasm/` or `Cargo.lock`;
   production deploys the `production-web` branch, which

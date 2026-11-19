@@ -182,11 +182,16 @@ export class Api {
     return status === 200 ? ok(undefined) : Api.failed(status, body);
   }
 
-  async push(token: string, changes: { noteId: string; data: Uint8Array }[]): ApiResult<number> {
-    const r = await this.call("POST", "/api/sync/push", {
-      token,
-      body: { changes: changes.map((c) => ({ note_id: c.noteId, data: toBase64(c.data) })) },
-    });
+  /** `deletedBlobs`: blobs whose attachment these changes removed, for the
+   *  server to delete in the same step. */
+  async push(
+    token: string,
+    changes: { noteId: string; data: Uint8Array }[],
+    deletedBlobs: string[] = [],
+  ): ApiResult<number> {
+    const sent: Body = { changes: changes.map((c) => ({ note_id: c.noteId, data: toBase64(c.data) })) };
+    if (deletedBlobs.length > 0) sent.deleted_blobs = deletedBlobs;
+    const r = await this.call("POST", "/api/sync/push", { token, body: sent });
     if (!r.ok) return r;
     const { status, body } = r.value;
     if (status !== 200) return Api.failed(status, body);
@@ -200,6 +205,25 @@ export class Api {
     if (status !== 200) return Api.failed(status, body);
     const page = parsePage(body);
     return page.ok ? page : err({ kind: "failed", status, error: page.error });
+  }
+
+  /** An attachment's bytes; null when the server doesn't have them (not
+   *  uploaded yet by the device that made it, or deleted). */
+  async getBlob(token: string, id: string): ApiResult<Uint8Array | null> {
+    let response: Response;
+    try {
+      response = await this.fetchFn(`${this.base}/api/blobs/${encodeURIComponent(id)}`, {
+        method: "GET",
+        headers: { authorization: `Bearer ${token}` },
+      });
+      if (response.status === 200) return ok(new Uint8Array(await response.arrayBuffer()));
+    } catch (e) {
+      return err({ kind: "offline", message: e instanceof Error ? e.message : String(e) });
+    }
+    if (response.status === 404) return ok(null);
+    if (response.status === 401) return err({ kind: "unauthorized" });
+    const body = (await response.json().catch(() => ({}))) as Body;
+    return Api.failed(response.status, body);
   }
 
   /** The WebSocket endpoint Phoenix serves next to the API. */

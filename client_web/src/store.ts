@@ -1,5 +1,6 @@
 // The device's storage, in IndexedDB: the CLI's layout in browser form.
 //   notes: note id -> Automerge bytes (notes/<id>.note)
+//   blobs: attachment id -> its bytes (blobs/<id>), fetched when first shown
 //   meta:  "sync" -> SyncState JSON (sync.json),
 //          "credentials" -> Credentials (credentials.json)
 // Every tab of the app shares it. Methods reject on I/O failure; callers turn
@@ -17,6 +18,11 @@ export interface Store {
   allNotes(): Promise<Map<string, Uint8Array>>;
   note(id: string): Promise<Uint8Array | undefined>;
   putNotes(notes: { id: string; bytes: Uint8Array }[]): Promise<void>;
+  /** An attachment's bytes, if this device has them. */
+  blob(id: string): Promise<Uint8Array | undefined>;
+  putBlob(id: string, bytes: Uint8Array): Promise<void>;
+  deleteBlobs(ids: string[]): Promise<void>;
+  blobIds(): Promise<string[]>;
   syncState(): Promise<string | undefined>;
   putSyncState(json: string): Promise<void>;
   credentials(): Promise<Credentials | undefined>;
@@ -27,6 +33,7 @@ export interface Store {
 
 const NOTES = "notes";
 const META = "meta";
+const BLOBS = "blobs";
 
 function done(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -44,11 +51,13 @@ function request<T>(r: IDBRequest<T>): Promise<T> {
 }
 
 export async function openStore(name = "qot", idb: IDBFactory = indexedDB): Promise<Store> {
-  const open = idb.open(name, 1);
+  // Version 2 added `blobs`.
+  const open = idb.open(name, 2);
   open.onupgradeneeded = () => {
     const db = open.result;
-    if (!db.objectStoreNames.contains(NOTES)) db.createObjectStore(NOTES);
-    if (!db.objectStoreNames.contains(META)) db.createObjectStore(META);
+    for (const store of [NOTES, META, BLOBS]) {
+      if (!db.objectStoreNames.contains(store)) db.createObjectStore(store);
+    }
   };
   const db = await request(open);
 
@@ -81,6 +90,26 @@ export async function openStore(name = "qot", idb: IDBFactory = indexedDB): Prom
       const tx = db.transaction(NOTES, "readwrite");
       for (const n of notes) tx.objectStore(NOTES).put(n.bytes, n.id);
       await done(tx);
+    },
+    async blob(id) {
+      const tx = db.transaction(BLOBS, "readonly");
+      const value = (await request(tx.objectStore(BLOBS).get(id))) as ArrayBuffer | Uint8Array | undefined;
+      return value === undefined ? undefined : new Uint8Array(value);
+    },
+    async putBlob(id, bytes) {
+      const tx = db.transaction(BLOBS, "readwrite");
+      tx.objectStore(BLOBS).put(bytes, id);
+      await done(tx);
+    },
+    async deleteBlobs(ids) {
+      if (ids.length === 0) return;
+      const tx = db.transaction(BLOBS, "readwrite");
+      for (const id of ids) tx.objectStore(BLOBS).delete(id);
+      await done(tx);
+    },
+    async blobIds() {
+      const tx = db.transaction(BLOBS, "readonly");
+      return (await request(tx.objectStore(BLOBS).getAllKeys())).map(String);
     },
     syncState: () => getMeta<string>("sync"),
     putSyncState: (json) => putMeta("sync", json),

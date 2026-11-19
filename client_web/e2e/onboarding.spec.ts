@@ -7,7 +7,7 @@ import { Cli, Server } from "./harness";
 
 const server = new Server();
 test.beforeAll(async () => server.start());
-test.afterAll(() => server.stop());
+test.afterAll(async () => server.stop());
 
 test("sign in from the CLI, and the browser that approves is signed in too", async ({ page }) => {
   const email = `e2e-${Date.now()}@example.com`;

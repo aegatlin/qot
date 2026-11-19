@@ -16,6 +16,7 @@ import {
 const view = (id: string, updatedAtMs: number, content = id): NoteView => ({
   id,
   content,
+  attachments: [],
   createdAtMs: 0,
   updatedAtMs,
   ...summary(content),

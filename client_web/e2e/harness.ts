@@ -1,6 +1,6 @@
 // Starts the Phoenix server for the specs and drives the CLI.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -27,8 +27,15 @@ export class Server {
     await waitFor(async () => (await fetch(`${API}/health`).catch(() => null))?.ok === true, 60_000, () => this.log);
   }
 
-  stop() {
-    if (this.proc?.pid) process.kill(-this.proc.pid, "SIGTERM");
+  /** Stops the server and waits for it to go, so the next spec can start
+   *  its own on the same port. */
+  async stop() {
+    const proc = this.proc;
+    if (!proc?.pid) return;
+    const gone = new Promise((resolve) => proc.once("exit", resolve));
+    process.kill(-proc.pid, "SIGTERM");
+    await gone;
+    await waitFor(async () => (await fetch(`${API}/health`).catch(() => null)) === null, 15_000);
   }
 
   /** The newest sign-in link emailed to `email`. */
@@ -64,6 +71,11 @@ export class Cli {
 
   run(...args: string[]) {
     return spawnSync(Cli.bin, args, { env: { ...process.env, QOT_DATA_DIR: this.dir }, encoding: "utf8" });
+  }
+
+  /** This device's access token, for requests the CLI has no command for. */
+  accessToken(): string {
+    return JSON.parse(readFileSync(join(this.dir, "credentials.json"), "utf8")).access_token;
   }
 
   /** `qot login` in the background; resolves with its output once it exits. */
