@@ -3,7 +3,8 @@ import SwiftUI
 
 /// One note, full screen, saving as you type, as in Apple Notes. A new note
 /// (`noteID` nil) is created with its first non-blank text; a note left empty
-/// is discarded (deleted) when you go back, as Notes does.
+/// is discarded (deleted) when you go back, as Notes does. A note that has
+/// an attachment (a recording) isn't empty without text, and is kept.
 struct NoteEditor: View {
     @Bindable var model: AppModel
     @State private var noteID: String?
@@ -111,7 +112,8 @@ struct NoteEditor: View {
     private func leave() {
         pendingSave?.cancel()
         if dictation.listening { dictation.stop() }
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let blank = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if blank, note?.attachments.isEmpty ?? true {
             if let noteID { model.delete(id: noteID) }
         } else {
             save()

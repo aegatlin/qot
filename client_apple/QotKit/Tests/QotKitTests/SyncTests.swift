@@ -145,4 +145,10 @@ private struct PullFails: SyncAPI {
     func refresh(refreshToken: String) async throws -> String {
         try await inner.refresh(refreshToken: refreshToken)
     }
+    func putBlob(token: String, id: String, noteID: String, data: Data) async throws {
+        try await inner.putBlob(token: token, id: id, noteID: noteID, data: data)
+    }
+    func getBlob(token: String, id: String) async throws -> Data? {
+        try await inner.getBlob(token: token, id: id)
+    }
 }

@@ -146,7 +146,8 @@ struct LatestNotesView: View {
                 Text("No notes yet.").font(.subheadline).foregroundStyle(.secondary)
             }
             ForEach(shown) { note in
-                Text(note.content)
+                // A recording with no text shows as "Voice Memo 0:42".
+                Text(note.content.isEmpty ? NoteList.title(of: note) : note.content)
                     .font(.subheadline)
                     .lineLimit(family == .systemSmall ? 2 : 1)
             }

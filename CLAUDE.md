@@ -27,7 +27,9 @@ first; the design, and what it asks of end-to-end encryption, is
 `docs/records/2026-11-19-attachments-and-voice-memos.md`. Being built, in
 #78's order: the core knows attachments (#96), the server stores blobs
 (#97), the CLI lists and exports them (#98) and the PWA shows and plays
-them (#99); nothing records yet, and iOS (#100) still shows text only.
+them (#99). Nothing records yet: on iOS (#100) the shared logic is done
+and tested, and recording, transcription, the Control Center control and
+playback in the app are what is left.
 
 qot is an **Abstract Syntax LLC** product: every outside account (Apple,
 Railway, later Stripe and the rest) belongs to the company, never to a
@@ -260,7 +262,7 @@ the rules the CLI is tested with:
   elsewhere removes the file here. `mark_uploaded` after an upload or a
   download; `forget_blobs` after a discard. A recording in progress is kept
   out of `local` until its note is saved. No client or server uses these
-  but the CLI and the PWA yet (iOS is #100). `plan_blobs` also discards a
+  but the CLI, the PWA and QotKit yet (the iOS app is #100). `plan_blobs` also discards a
   blob the state remembers as uploaded once no live note has it, so
   `SyncState.uploaded` doesn't grow.
 - **Shared test vectors** (`core/tests/vectors/sync.json`) pin these rules
@@ -371,9 +373,24 @@ the rules the CLI is tested with:
   `QOT_E2E_SERVER=http://localhost:4000` and `QOT_E2E_SERVER_LOG=<server
   log>` are set: two devices sign in (approving through the emailed link in
   the log), sync, and one is nudged live.
+- **Voice memos, the logic** (QotKit, part of #100; nothing in the app
+  records or plays yet): `NoteStore.addMemo` moves a finished recording
+  into `blobs/<attachment id>` and saves its note in one locked step
+  (transcript nil = `pending`, filled in later by `fillTranscript`;
+  `pendingTranscripts` lists what waits). `removeAttachment` keeps the
+  text; `delete` and it sweep blob files no live note has. `Syncer.sync`
+  is push, pull, then blobs: it uploads what `plan_blobs` says (a 410
+  "deleted" is dropped, not an error) and reports `uploaded`;
+  `Syncer.blob(id)` returns a recording's file, fetching and keeping it,
+  or throws `BlobError.notOnServerYet`. `Capture.addMemo` is the save then
+  bounded sync for intents. `NoteItem.attachments`, `NoteItem.isEmpty` (no
+  text and no attachments: what the editor discards) and
+  `NoteList.title(of: NoteItem)` ("Voice Memo 0:42" for a recording with
+  no text). Swift Testing has its own `Attachment`, so tests write
+  `QotKit.Attachment`. Tests: `VoiceMemoTests`.
 - **The store is in the App Group** (`AppGroup.store()`: `<group
-  container>/qot/`), in the CLI's layout (`notes/<id>.note`, `sync.json`),
-  so intents and widgets share it; notes from the app's old Application
+  container>/qot/`), in the CLI's layout (`notes/<id>.note`, `sync.json`,
+  `blobs/<id>`), so intents and widgets share it; notes from the app's old Application
   Support store are merged in on launch. Every process may write: note
   read-modify-writes hold `store.lock` and save by merging with what is on
   disk; a sync holds `sync.lock` (both `flock`). Tokens are in the Keychain

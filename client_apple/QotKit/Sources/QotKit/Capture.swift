@@ -40,6 +40,19 @@ public struct Capture: Sendable {
         return Result(note: note, synced: await sync(within: limit))
     }
 
+    /// Saves a voice memo (`NoteStore.addMemo`), then syncs like `add`. The
+    /// note and its text usually make it within `limit`; a long recording's
+    /// upload may not, and goes up with the next sync.
+    public func addMemo(
+        recording: URL, mediaType: String, durationMs: UInt64, transcript: String?,
+        syncFor limit: Duration = .seconds(3)
+    ) async throws -> Result {
+        let note = try store.addMemo(
+            recording: recording, mediaType: mediaType, durationMs: durationMs, transcript: transcript)
+        NotesChanged.post()
+        return Result(note: note, synced: await sync(within: limit))
+    }
+
     /// Syncs, giving up after `limit`.
     public func sync(within limit: Duration) async -> Synced {
         await withTaskGroup(of: Synced.self) { group in

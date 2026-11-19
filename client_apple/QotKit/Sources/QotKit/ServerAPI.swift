@@ -22,12 +22,15 @@ public enum APIError: Error, Equatable, LocalizedError {
     case offline(String)
     /// The server answered with an error.
     case server(String)
+    /// An upload of a blob the server knows was deleted.
+    case blobDeleted
 
     public var errorDescription: String? {
         switch self {
         case .unauthorized: return "Not signed in."
         case .offline(let why): return "Can't reach the server: \(why)"
         case .server(let message): return message
+        case .blobDeleted: return "That recording was deleted."
         case .rateLimited(let wait):
             let when =
                 switch wait.map({ ($0 + 59) / 60 }) {
@@ -85,6 +88,10 @@ public protocol SyncAPI: Sendable {
     func push(token: String, changes: [Outgoing]) async throws -> UInt64
     func pull(token: String, since: UInt64) async throws -> Page
     func refresh(refreshToken: String) async throws -> String
+    /// Uploads an attachment's bytes. Sending the same id again is fine.
+    func putBlob(token: String, id: String, noteID: String, data: Data) async throws
+    /// An attachment's bytes; nil when the server doesn't have them.
+    func getBlob(token: String, id: String) async throws -> Data?
 }
 
 /// The HTTP shell around the server API (CLAUDE.md "Server"). No sync
@@ -203,9 +210,13 @@ public struct ServerAPI: SyncAPI {
     // MARK: - Sync
 
     public func push(token: String, changes: [Outgoing]) async throws -> UInt64 {
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "changes": changes.map { ["note_id": $0.noteId, "data": $0.data.base64EncodedString()] }
         ]
+        // Blobs whose attachment these changes removed, for the server to
+        // delete in the same step.
+        let deleted = changes.flatMap(\.deletedBlobs)
+        if !deleted.isEmpty { body["deleted_blobs"] = deleted }
         let (status, reply) = try await call("POST", "/api/sync/push", token: token, json: body)
         switch status {
         case 200:
@@ -227,32 +238,69 @@ public struct ServerAPI: SyncAPI {
         }
     }
 
+    // MARK: - Blobs
+
+    public func putBlob(token: String, id: String, noteID: String, data: Data) async throws {
+        var request = try self.request("PUT", "/api/blobs/\(id)?note_id=\(noteID)", token: token)
+        request.setValue("application/octet-stream", forHTTPHeaderField: "content-type")
+        request.httpBody = data
+        let (reply, response) = try await send(request)
+        switch response.statusCode {
+        case 204: return
+        case 401: throw APIError.unauthorized
+        case 410: throw APIError.blobDeleted
+        case 413: throw APIError.server("The recording is too large to sync.")
+        case 403: throw APIError.server("Your account's storage is full.")
+        default: throw APIError.server(errorText(json(reply)))
+        }
+    }
+
+    public func getBlob(token: String, id: String) async throws -> Data? {
+        let (data, response) = try await send(try request("GET", "/api/blobs/\(id)", token: token))
+        switch response.statusCode {
+        case 200: return data
+        case 404: return nil
+        case 401: throw APIError.unauthorized
+        default: throw APIError.server(errorText(json(data)))
+        }
+    }
+
     // MARK: - HTTP
 
-    private func call(_ method: String, _ path: String, token: String? = nil, json: [String: Any]? = nil)
-        async throws -> (Int, [String: Any])
-    {
+    private func request(_ method: String, _ path: String, token: String?) throws -> URLRequest {
         guard let url = URL(string: path, relativeTo: baseURL)?.absoluteURL else {
             throw APIError.server("Bad server address.")
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue(userAgent, forHTTPHeaderField: "user-agent")
-        request.setValue("application/json", forHTTPHeaderField: "accept")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization") }
+        return request
+    }
+
+    private func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        do {
+            return try await transport.send(request)
+        } catch let error as URLError {
+            throw APIError.offline(error.localizedDescription)
+        }
+    }
+
+    private func json(_ data: Data) -> [String: Any] {
+        (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+    }
+
+    private func call(_ method: String, _ path: String, token: String? = nil, json: [String: Any]? = nil)
+        async throws -> (Int, [String: Any])
+    {
+        var request = try self.request(method, path, token: token)
+        request.setValue("application/json", forHTTPHeaderField: "accept")
         if let json {
             request.setValue("application/json", forHTTPHeaderField: "content-type")
             request.httpBody = try JSONSerialization.data(withJSONObject: json)
         }
-        let data: Data
-        let response: HTTPURLResponse
-        do {
-            (data, response) = try await transport.send(request)
-        } catch let error as URLError {
-            throw APIError.offline(error.localizedDescription)
-        }
-        let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-        return (response.statusCode, body)
+        let (data, response) = try await send(request)
+        return (response.statusCode, self.json(data))
     }
 
     private func parsePage(_ body: [String: Any]) throws -> Page {

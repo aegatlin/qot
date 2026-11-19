@@ -14,6 +14,22 @@ public enum NoteList {
         lines(content).first ?? "New Note"
     }
 
+    /// A note's title: its first line, or for a note with no text its
+    /// first attachment's ("Voice Memo 0:42").
+    public static func title(of note: NoteItem) -> String {
+        lines(note.content).first ?? note.attachments.first.map(title(of:)) ?? "New Note"
+    }
+
+    /// What to call an attachment: a recording is a "Voice Memo 0:42"; a
+    /// kind this build doesn't know is named by the core's label.
+    public static func title(of attachment: Attachment) -> String {
+        let label = attachmentLabel(attachment: attachment)
+        if attachment.kind == "audio", label.hasPrefix("audio") {
+            return "Voice Memo" + label.dropFirst("audio".count)
+        }
+        return "Attachment (\(label))"
+    }
+
     /// The text after the title, on one line.
     public static func preview(of content: String) -> String {
         lines(content).dropFirst().joined(separator: " ")
@@ -42,13 +58,15 @@ public enum NoteList {
         notes.sorted { ($0.updatedAt, $0.id) > ($1.updatedAt, $1.id) }
     }
 
-    /// Notes whose text contains the query, ignoring case and accents. A
+    /// Notes whose text (or title, so a recording with no text is found as
+    /// a "voice memo") contains the query, ignoring case and accents. A
     /// blank query matches every note.
     public static func search(_ notes: [NoteItem], for query: String) -> [NoteItem] {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return notes }
         return notes.filter {
-            $0.content.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+            "\(title(of: $0))\n\($0.content)"
+                .range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
         }
     }
 

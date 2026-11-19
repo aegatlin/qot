@@ -4,8 +4,8 @@ import Synchronization
 @testable import QotKit
 
 /// An in-memory stand-in for the sync server's HTTP API: one user's
-/// append-only log with gap-free seqs, tokens that can expire, and a device
-/// sign-in that can be approved. The Swift twin of the PWA's
+/// append-only log with gap-free seqs, the blobs beside it, tokens that can
+/// expire, and a device sign-in that can be approved. The Swift twin of the PWA's
 /// `tests/fake-server.ts`.
 final class FakeServer: HTTPTransport, Sendable {
     struct Entry: Sendable {
@@ -28,6 +28,15 @@ final class FakeServer: HTTPTransport, Sendable {
         var deletedWith: String?
         var requests: [URLRequest] = []
         var rateLimitedFor: Int?
+        /// Attachments' bytes by id, and the note each was uploaded for.
+        var blobs: [String: Data] = [:]
+        var blobNotes: [String: String] = [:]
+        /// Ids deleted by a push, in order; uploading one again is refused.
+        var deletedBlobs: [String] = []
+        /// Ids the server refuses as deleted without this client knowing.
+        var refusedBlobs: Set<String> = []
+        var blobPuts = 0
+        var failBlobUploads = false
     }
 
     let state = Mutex(State())
@@ -37,16 +46,45 @@ final class FakeServer: HTTPTransport, Sendable {
     }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let (status, json) = try state.withLock { s -> (Int, Any) in
+        let (status, reply) = try state.withLock { s -> (Int, Any) in
             s.requests.append(request)
             if s.offline { throw URLError(.notConnectedToInternet) }
             return handle(request, &s)
         }
-        let data = try JSONSerialization.data(withJSONObject: json)
+        // A blob's reply is its bytes; everything else is JSON.
+        let bytes = reply as? Data
+        let data = try bytes ?? JSONSerialization.data(withJSONObject: reply)
         let response = HTTPURLResponse(
             url: request.url!, statusCode: status, httpVersion: nil,
-            headerFields: ["content-type": "application/json"])!
+            headerFields: ["content-type": bytes == nil ? "application/json" : "application/octet-stream"])!
         return (data, response)
+    }
+
+    private func blob(_ request: URLRequest, id: String, authorized: Bool, _ s: inout State) -> (Int, Any) {
+        guard authorized else { return (401, ["error": "unauthorized"]) }
+        switch request.httpMethod {
+        case "PUT":
+            s.blobPuts += 1
+            if s.failBlobUploads { return (500, ["error": "Internal server error"]) }
+            if s.deletedBlobs.contains(id) || s.refusedBlobs.contains(id) {
+                return (410, ["error": "deleted"])
+            }
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems
+            guard let note = query?.first(where: { $0.name == "note_id" })?.value else {
+                return (400, ["error": "note_id is not a UUID"])
+            }
+            guard let body = request.httpBody, !body.isEmpty else {
+                return (400, ["error": "The body is empty"])
+            }
+            if s.blobs[id] == nil {
+                s.blobs[id] = body
+                s.blobNotes[id] = note
+            }
+            return (204, [:])
+        default:
+            guard let bytes = s.blobs[id] else { return (404, ["error": "Not found"]) }
+            return (200, bytes)
+        }
     }
 
     private func handle(_ request: URLRequest, _ s: inout State) -> (Int, Any) {
@@ -57,6 +95,9 @@ final class FakeServer: HTTPTransport, Sendable {
         let auth = request.value(forHTTPHeaderField: "authorization")?
             .replacingOccurrences(of: "Bearer ", with: "")
         let authorized = auth.map { s.validAccess.contains($0) } ?? false
+        if url.path.hasPrefix("/api/blobs/") {
+            return blob(request, id: url.lastPathComponent, authorized: authorized, &s)
+        }
 
         switch "\(request.httpMethod ?? "GET") \(url.path)" {
         case "POST /api/auth/device":
@@ -118,6 +159,10 @@ final class FakeServer: HTTPTransport, Sendable {
                     Entry(
                         seq: s.log.count + 1, noteId: change["note_id"] as! String,
                         data: change["data"] as! String))
+            }
+            for id in body["deleted_blobs"] as? [String] ?? [] {
+                s.blobs[id] = nil
+                s.deletedBlobs.append(id)
             }
             return (200, ["cursor": s.log.count])
         case "GET /api/sync/pull":

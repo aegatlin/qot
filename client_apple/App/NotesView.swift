@@ -113,7 +113,7 @@ struct NoteRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(NoteList.title(of: note.content))
+            Text(NoteList.title(of: note))
                 .font(.headline)
                 .lineLimit(1)
             HStack(spacing: 6) {

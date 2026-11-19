@@ -7,13 +7,34 @@ public struct NoteItem: Identifiable, Equatable, Hashable, Sendable {
     public let createdAt: Date
     /// The last edit, to the second; never before `createdAt`.
     public let updatedAt: Date
+    /// Media on the note (a recording), oldest first. The bytes are in the
+    /// store's `blobs/`, by the attachment's id, once this device has them.
+    public let attachments: [Attachment]
 
-    public init(id: String, content: String, createdAt: Date, updatedAt: Date? = nil) {
+    public init(
+        id: String, content: String, createdAt: Date, updatedAt: Date? = nil,
+        attachments: [Attachment] = []
+    ) {
         self.id = id
         self.content = content
         self.createdAt = createdAt
         self.updatedAt = updatedAt ?? createdAt
+        self.attachments = attachments
     }
+
+    /// Nothing to keep: no text and no attachments. An editor discards such
+    /// a note; a recording with no text is not one.
+    public var isEmpty: Bool {
+        content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty
+    }
+}
+
+/// A recording whose transcript isn't in its note yet.
+public struct PendingTranscript: Equatable, Sendable {
+    public let note: NoteItem
+    public let attachment: Attachment
+    /// The recording on this device, if it is here.
+    public let file: URL?
 }
 
 public enum NoteStoreError: Error, Equatable, LocalizedError {
@@ -32,20 +53,24 @@ public enum NoteStoreError: Error, Equatable, LocalizedError {
 }
 
 /// Notes on this device, one Automerge file per note, in the same layout as
-/// the CLI (`notes/<id>.note` under the data directory). The rules live in
-/// qot_core; this is the file-system shell around them.
+/// the CLI (`notes/<id>.note` under the data directory), and attachments'
+/// bytes beside them (`blobs/<attachment id>`). The rules live in qot_core;
+/// this is the file-system shell around them.
 ///
 /// Errors are values: a file that can't be read fails the call instead of
 /// being skipped, so a user's note is never silently dropped.
 public final class NoteStore: Sendable {
     public let directory: URL
     private var notesDir: URL { directory.appendingPathComponent("notes", isDirectory: true) }
+    private var blobsDir: URL { directory.appendingPathComponent("blobs", isDirectory: true) }
 
     public init(directory: URL) throws {
         self.directory = directory
-        try FileManager.default.createDirectory(
-            at: directory.appendingPathComponent("notes", isDirectory: true),
-            withIntermediateDirectories: true)
+        for name in ["notes", "blobs"] {
+            try FileManager.default.createDirectory(
+                at: directory.appendingPathComponent(name, isDirectory: true),
+                withIntermediateDirectories: true)
+        }
     }
 
     /// Saves a new note. Capture never waits on the network.
@@ -81,12 +106,120 @@ public final class NoteStore: Sendable {
         }
     }
 
-    /// Marks a note deleted. The file stays, so the delete can sync.
+    /// Marks a note deleted. The file stays, so the delete can sync; its
+    /// recordings go from this device now, and the next sync tells the server.
     public func delete(id: String) throws {
         try withStoreLock {
             let note = try load(path(id))
             try save(wrap { try note.delete() })
+            try discardUnreferencedBlobs()
         }
+    }
+
+    // MARK: - Voice memos
+
+    /// Saves a voice memo: a note whose text is the transcript and whose
+    /// attachment is the recording. `recording` is a finished file somewhere
+    /// outside the store; it is moved into `blobs/` in the same locked step
+    /// that saves the note, so a sync never sees one without the other.
+    /// `transcript` nil means not transcribed yet (`fillTranscript` later);
+    /// empty means nothing was heard.
+    @discardableResult
+    public func addMemo(recording: URL, mediaType: String, durationMs: UInt64, transcript: String?)
+        throws -> NoteItem
+    {
+        let size = try recording.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        guard size > 0 else { throw NoteStoreError.invalid("The recording is empty.") }
+        let attachment = Attachment(
+            id: newAttachmentId(), kind: "audio", mediaType: mediaType, size: UInt64(size),
+            durationMs: durationMs, text: transcript == nil ? .pending : .done)
+        let text = (transcript ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let note = try wrap { try Note.withAttachment(content: text, attachment: attachment) }
+        return try withStoreLock {
+            try FileManager.default.moveItem(at: recording, to: blobPath(attachment.id))
+            do {
+                try save(note)
+            } catch {
+                try? FileManager.default.removeItem(at: blobPath(attachment.id))
+                throw error
+            }
+            return item(note)
+        }
+    }
+
+    /// Writes a recording's transcript into its note, once (the core's
+    /// `fill_text`): nothing changes if it was already filled in.
+    @discardableResult
+    public func fillTranscript(noteID: String, attachmentID: String, text: String) throws -> NoteItem {
+        try withStoreLock {
+            let note = try load(path(noteID))
+            let filled = try wrap { try note.fillText(id: attachmentID, text: text) }
+            if filled.heads() != note.heads() { try save(filled) }
+            return item(filled)
+        }
+    }
+
+    /// Recordings on live notes still waiting for their transcript.
+    public func pendingTranscripts() throws -> [PendingTranscript] {
+        try list().flatMap { note in
+            note.attachments.filter { $0.text == .pending }.map {
+                PendingTranscript(note: note, attachment: $0, file: localBlob($0.id))
+            }
+        }
+    }
+
+    /// Removes an attachment and keeps the note's text.
+    @discardableResult
+    public func removeAttachment(noteID: String, attachmentID: String) throws -> NoteItem {
+        try withStoreLock {
+            let note = try load(path(noteID))
+            let removed = try wrap { try note.detach(id: attachmentID) }
+            try save(removed)
+            try discardUnreferencedBlobs()
+            return item(removed)
+        }
+    }
+
+    // MARK: - Blobs
+
+    /// An attachment's bytes on this device, if they are here.
+    public func localBlob(_ id: String) -> URL? {
+        let url = blobPath(id)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    /// The attachments whose bytes this device holds.
+    public func blobIDs() throws -> [String] {
+        try FileManager.default.contentsOfDirectory(at: blobsDir, includingPropertiesForKeys: nil)
+            .map(\.lastPathComponent)
+            .filter { !$0.hasPrefix(".") }
+            .sorted()
+    }
+
+    /// Keeps bytes fetched from the server.
+    @discardableResult
+    public func saveBlob(_ id: String, _ data: Data) throws -> URL {
+        try data.write(to: blobPath(id), options: .atomic)
+        return blobPath(id)
+    }
+
+    public func removeBlobs(_ ids: [String]) throws {
+        for id in ids {
+            do {
+                try FileManager.default.removeItem(at: blobPath(id))
+            } catch CocoaError.fileNoSuchFile {}
+        }
+    }
+
+    /// Deletes the blob files no live note refers to (the core's
+    /// `plan_blobs`); returns their ids. It doesn't touch the sync state: a
+    /// sync forgets them there.
+    @discardableResult
+    func discardUnreferencedBlobs(state: SyncState? = nil) throws -> [String] {
+        let plan = planBlobs(
+            notes: try loadAll(), state: try state ?? loadSyncState(), local: try blobIDs())
+        try removeBlobs(plan.discard)
+        return plan.discard
     }
 
     // MARK: - Sync
@@ -161,10 +294,23 @@ public final class NoteStore: Sendable {
     // MARK: - Export
 
     /// Live notes, oldest first, as the CLI's `qot export` prints them: a
-    /// JSON array of `{id, created_at, content}`.
+    /// JSON array of `{id, created_at, content}`, with `attachments` on a
+    /// note that has any.
     public func export() throws -> Data {
-        let notes = try list().map {
-            ["id": $0.id, "created_at": Export.timestamp($0.createdAt), "content": $0.content]
+        let notes = try list().map { note -> [String: Any] in
+            var entry: [String: Any] = [
+                "id": note.id, "created_at": Export.timestamp(note.createdAt), "content": note.content,
+            ]
+            if !note.attachments.isEmpty {
+                entry["attachments"] = note.attachments.map { a -> [String: Any] in
+                    var attachment: [String: Any] = [
+                        "id": a.id, "kind": a.kind, "media_type": a.mediaType, "size": a.size,
+                    ]
+                    if let duration = a.durationMs { attachment["duration_ms"] = duration }
+                    return attachment
+                }
+            }
+            return entry
         }
         return try JSONSerialization.data(
             withJSONObject: notes, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
@@ -182,6 +328,15 @@ public final class NoteStore: Sendable {
 
     private func path(_ id: String) -> URL {
         notesDir.appendingPathComponent("\(id).note")
+    }
+
+    private func blobPath(_ id: String) -> URL {
+        blobsDir.appendingPathComponent(id)
+    }
+
+    /// Runs `body` holding the store lock, for a sync's blob clean-up.
+    func locked<T>(_ body: () throws -> T) throws -> T {
+        try withStoreLock(body)
     }
 
     private func save(_ note: Note) throws {
@@ -210,7 +365,8 @@ public final class NoteStore: Sendable {
             id: note.id(),
             content: note.content(),
             createdAt: Date(timeIntervalSince1970: Double(note.createdAtMs()) / 1000),
-            updatedAt: Date(timeIntervalSince1970: Double(note.updatedAtMs()) / 1000))
+            updatedAt: Date(timeIntervalSince1970: Double(note.updatedAtMs()) / 1000),
+            attachments: note.attachments())
     }
 }
 
