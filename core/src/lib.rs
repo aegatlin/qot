@@ -12,7 +12,10 @@
 //! document, so a delete made on one device reaches the others instead of the
 //! note being resurrected by the next sync.
 
+mod attachment;
 pub mod sync;
+
+pub use attachment::{AUDIO, Attachment, AttachmentText};
 
 use automerge::{
     ActorId, AutoCommit, ChangeHash, ObjType, ROOT, ReadDoc, ScalarValue, Value,

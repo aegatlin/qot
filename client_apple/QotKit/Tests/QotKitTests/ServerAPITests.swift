@@ -69,7 +69,7 @@ private func api(_ server: FakeServer) -> ServerAPI {
 
     @Test func pushSendsBase64AndReturnsTheCursor() async throws {
         let server = FakeServer()
-        let out = Outgoing(noteId: "n1", data: Data([1, 2, 3]), heads: [])
+        let out = Outgoing(noteId: "n1", data: Data([1, 2, 3]), heads: [], deletedBlobs: [])
         #expect(try await api(server).push(token: "access-1", changes: [out]) == 1)
         #expect(server.with { $0.log.map(\.data) } == ["AQID"])
         let request = try #require(server.with { $0.requests.last })

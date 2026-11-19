@@ -24,6 +24,102 @@ fn throw<T>(r: Res<T>) -> Result<T, JsError> {
     r.map_err(|m| JsError::new(&m))
 }
 
+/// Media on a note. The bytes are a blob with the same id, never in the note.
+#[wasm_bindgen]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Attachment(qot_core::Attachment);
+
+#[wasm_bindgen]
+impl Attachment {
+    /// `text` is `none`, `pending` or `done`: whether the attachment's text
+    /// (a recording's transcript) is expected, and in the note yet. Throws
+    /// on anything else, or a size or duration that isn't a whole number.
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        id: String,
+        kind: String,
+        media_type: String,
+        size: f64,
+        duration_ms: Option<f64>,
+        text: &str,
+    ) -> Result<Attachment, JsError> {
+        throw(Self::make(id, kind, media_type, size, duration_ms, text))
+    }
+
+    fn make(
+        id: String,
+        kind: String,
+        media_type: String,
+        size: f64,
+        duration_ms: Option<f64>,
+        text: &str,
+    ) -> Res<Attachment> {
+        let whole = |n: f64, what: &str| to_seq(n).map_err(|_| format!("bad {what}: {n}"));
+        Ok(Attachment(qot_core::Attachment {
+            id,
+            kind,
+            media_type,
+            size: whole(size, "size")?,
+            duration_ms: duration_ms.map(|d| whole(d, "duration")).transpose()?,
+            text: match text {
+                "none" => qot_core::AttachmentText::None,
+                "pending" => qot_core::AttachmentText::Pending,
+                "done" => qot_core::AttachmentText::Done,
+                other => return Err(format!("bad attachment text state: {other}")),
+            },
+        }))
+    }
+
+    /// An id for a new attachment (a UUIDv7).
+    #[wasm_bindgen(js_name = newId)]
+    pub fn new_id() -> String {
+        qot_core::Attachment::new_id()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn id(&self) -> String {
+        self.0.id.clone()
+    }
+
+    /// `audio`; a kind this build doesn't know is still listed and kept.
+    #[wasm_bindgen(getter)]
+    pub fn kind(&self) -> String {
+        self.0.kind.clone()
+    }
+
+    #[wasm_bindgen(getter, js_name = mediaType)]
+    pub fn media_type(&self) -> String {
+        self.0.media_type.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn size(&self) -> f64 {
+        self.0.size as f64
+    }
+
+    #[wasm_bindgen(getter, js_name = durationMs)]
+    pub fn duration_ms(&self) -> Option<f64> {
+        self.0.duration_ms.map(|d| d as f64)
+    }
+
+    /// `none`, `pending` or `done`.
+    #[wasm_bindgen(getter)]
+    pub fn text(&self) -> String {
+        match self.0.text {
+            qot_core::AttachmentText::None => "none",
+            qot_core::AttachmentText::Pending => "pending",
+            qot_core::AttachmentText::Done => "done",
+        }
+        .into()
+    }
+
+    /// What to show where the attachment can't be: `audio 0:42`.
+    #[wasm_bindgen(getter)]
+    pub fn label(&self) -> String {
+        self.0.label()
+    }
+}
+
 /// One note. Immutable: every edit returns a new `Note`.
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
@@ -104,6 +200,54 @@ impl Note {
     pub fn copy(&self) -> Note {
         self.clone()
     }
+
+    /// A new note that starts with an attachment: a voice memo, whose
+    /// content is its transcript (empty if there is none yet).
+    #[wasm_bindgen(js_name = withAttachment)]
+    pub fn with_attachment(content: &str, attachment: &Attachment) -> Result<Note, JsError> {
+        throw(
+            qot_core::Note::with_attachment(content, &attachment.0)
+                .map(Note)
+                .map_err(|e| e.to_string()),
+        )
+    }
+
+    /// The note's attachments, oldest first.
+    pub fn attachments(&self) -> Vec<Attachment> {
+        self.0.attachments().into_iter().map(Attachment).collect()
+    }
+
+    /// No text and no attachments: nothing to keep.
+    #[wasm_bindgen(getter, js_name = isEmpty)]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn attach(&self, attachment: &Attachment) -> Result<Note, JsError> {
+        throw(
+            self.0
+                .attach(&attachment.0)
+                .map(Note)
+                .map_err(|e| e.to_string()),
+        )
+    }
+
+    /// Removes an attachment and keeps the text. Sync deletes the blob.
+    pub fn detach(&self, id: &str) -> Result<Note, JsError> {
+        throw(self.0.detach(id).map(Note).map_err(|e| e.to_string()))
+    }
+
+    /// Writes a pending attachment's text into the note and marks it done;
+    /// unchanged if it wasn't pending.
+    #[wasm_bindgen(js_name = fillText)]
+    pub fn fill_text(&self, id: &str, text: &str) -> Result<Note, JsError> {
+        throw(
+            self.0
+                .fill_text(id, text)
+                .map(Note)
+                .map_err(|e| e.to_string()),
+        )
+    }
 }
 
 /// One note's changes to push. `data` is what goes to the server; hand the
@@ -127,6 +271,50 @@ impl Outgoing {
     #[wasm_bindgen(getter)]
     pub fn heads(&self) -> Vec<String> {
         self.0.heads.clone()
+    }
+
+    /// Blobs for the server to delete with this push.
+    #[wasm_bindgen(getter, js_name = deletedBlobs)]
+    pub fn deleted_blobs(&self) -> Vec<String> {
+        self.0.deleted_blobs.clone()
+    }
+}
+
+/// A blob to upload.
+#[wasm_bindgen]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlobUpload(core_sync::BlobUpload);
+
+#[wasm_bindgen]
+impl BlobUpload {
+    #[wasm_bindgen(getter)]
+    pub fn id(&self) -> String {
+        self.0.id.clone()
+    }
+
+    #[wasm_bindgen(getter, js_name = noteId)]
+    pub fn note_id(&self) -> String {
+        self.0.note_id.clone()
+    }
+}
+
+/// What to do with the blobs this device holds.
+#[wasm_bindgen]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlobPlan(core_sync::BlobPlan);
+
+#[wasm_bindgen]
+impl BlobPlan {
+    /// Upload these, then `markUploaded`.
+    #[wasm_bindgen(getter)]
+    pub fn upload(&self) -> Vec<BlobUpload> {
+        self.0.upload.iter().cloned().map(BlobUpload).collect()
+    }
+
+    /// Delete these, then `forgetBlobs`: no live note refers to them.
+    #[wasm_bindgen(getter)]
+    pub fn discard(&self) -> Vec<String> {
+        self.0.discard.clone()
     }
 }
 
@@ -215,6 +403,32 @@ fn plan(notes: &[Note], state: &str) -> Res<Vec<Outgoing>> {
         .into_iter()
         .map(Outgoing)
         .collect())
+}
+
+/// What to do with the blobs this device holds (`local`, by attachment id):
+/// upload the ones whose note has been pushed, discard the ones no live note
+/// refers to. A recording still being made must not be in `local`.
+#[wasm_bindgen(js_name = planBlobs)]
+pub fn plan_blobs(notes: Vec<Note>, state: &str, local: Vec<String>) -> Result<BlobPlan, JsError> {
+    throw(blobs(&notes, state, &local))
+}
+
+fn blobs(notes: &[Note], state: &str, local: &[String]) -> Res<BlobPlan> {
+    let state = parse_state(state)?;
+    let notes: Vec<qot_core::Note> = notes.iter().map(|n| n.0.clone()).collect();
+    Ok(BlobPlan(core_sync::plan_blobs(&notes, &state, local)))
+}
+
+/// The state after these blobs reached the server, or were fetched from it.
+#[wasm_bindgen(js_name = markUploaded)]
+pub fn mark_uploaded(state: &str, ids: Vec<String>) -> Result<String, JsError> {
+    throw(parse_state(state).map(|s| state_json(&core_sync::mark_uploaded(&s, &ids))))
+}
+
+/// The state after these blobs were discarded.
+#[wasm_bindgen(js_name = forgetBlobs)]
+pub fn forget_blobs(state: &str, ids: Vec<String>) -> Result<String, JsError> {
+    throw(parse_state(state).map(|s| state_json(&core_sync::forget_blobs(&s, &ids))))
 }
 
 /// The state after the server accepted `sent`.
@@ -307,6 +521,58 @@ mod tests {
         assert_eq!(pulled.changed().len(), 1);
         assert_eq!(pulled.changed()[0].content(), "get milk");
         assert_eq!(pulled.changed()[0].id(), phone_note.id());
+    }
+
+    #[test]
+    fn a_voice_memo_and_its_blob() {
+        let audio = Attachment::make(
+            qot_core::Attachment::new_id(),
+            "audio".into(),
+            "audio/mp4".into(),
+            340_000.0,
+            Some(42_000.0),
+            "pending",
+        )
+        .unwrap();
+        assert_eq!(audio.label(), "audio 0:42");
+        assert_eq!(audio.text(), "pending");
+        let memo = Note(qot_core::Note::with_attachment("", &audio.0).unwrap());
+        assert!(!memo.is_empty());
+        assert_eq!(memo.attachments(), vec![audio.clone()]);
+
+        let local = vec![audio.id()];
+        let empty = empty_sync_state();
+        assert!(
+            blobs(&[memo.copy()], &empty, &local)
+                .unwrap()
+                .upload()
+                .is_empty()
+        );
+        let out = plan(&[memo.copy()], &empty).unwrap();
+        assert!(out[0].deleted_blobs().is_empty());
+        let state = mark(&empty, &out).unwrap();
+        let plan = blobs(&[memo.copy()], &state, &local).unwrap();
+        assert_eq!(plan.upload()[0].id(), audio.id());
+        assert_eq!(plan.upload()[0].note_id(), memo.id());
+    }
+
+    #[test]
+    fn a_bad_attachment_is_an_error() {
+        let make = |size: f64, text: &str| {
+            Attachment::make(
+                "x".into(),
+                "audio".into(),
+                "audio/mp4".into(),
+                size,
+                None,
+                text,
+            )
+        };
+        assert!(make(1.5, "none").is_err());
+        assert!(make(-1.0, "none").is_err());
+        assert!(make(1.0, "maybe").is_err());
+        assert!(make(1.0, "none").is_ok());
+        assert!(blobs(&[], "nope", &[]).is_err());
     }
 
     #[test]

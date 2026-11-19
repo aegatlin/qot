@@ -17,10 +17,10 @@ import Testing
     }()
 
     @Test func thereAreVectors() {
-        #expect(Self.cases.count >= 10)
+        #expect(Self.cases.count >= 20)
     }
 
-    @Test(arguments: 0..<12)
+    @Test(arguments: 0..<40)
     func theBindingMatchesTheVectors(_ index: Int) throws {
         guard index < Self.cases.count else { return }
         let c = Self.cases[index]
@@ -30,9 +30,17 @@ import Testing
         let expect = c["expect"] as! [String: Any]
 
         let push = planPush(notes: notes, state: state).map {
-            ["note_id": $0.noteId, "data": $0.data.base64EncodedString(), "heads": $0.heads] as NSDictionary
+            [
+                "note_id": $0.noteId, "data": $0.data.base64EncodedString(), "heads": $0.heads,
+                "deleted_blobs": $0.deletedBlobs,
+            ] as NSDictionary
         }
         #expect(push == (expect["push"] as! [NSDictionary]), "\(name): push")
+
+        let local = c["local_blobs"] as! [String]
+        #expect(
+            blobs(planBlobs(notes: notes, state: state, local: local))
+                == (expect["blobs"] as! NSDictionary), "\(name): blobs")
 
         let incoming = (c["incoming"] as! [[String: Any]]).map {
             Incoming(
@@ -48,17 +56,42 @@ import Testing
         #expect(try object(pulled.state.toJson()) == (want["state"] as! NSDictionary), "\(name): state")
 
         let changed = pulled.changed.sorted { $0.id() < $1.id() }.map {
-            ["id": $0.id(), "content": $0.content(), "deleted": $0.isDeleted(), "heads": $0.heads()]
-                as NSDictionary
+            [
+                "id": $0.id(), "content": $0.content(), "deleted": $0.isDeleted(), "heads": $0.heads(),
+                "attachments": $0.attachments().map(view),
+            ] as NSDictionary
         }
         #expect(changed == (want["changed"] as! [NSDictionary]), "\(name): changed")
 
         var saved = Dictionary(uniqueKeysWithValues: notes.map { ($0.id(), $0) })
         for note in pulled.changed { saved[note.id()] = note }
-        let after = planPush(
-            notes: saved.keys.sorted().map { saved[$0]! }, state: pulled.state
-        ).map(\.noteId)
+        let all = saved.keys.sorted().map { saved[$0]! }
+        #expect(
+            blobs(planBlobs(notes: all, state: pulled.state, local: local))
+                == (want["blobs_after"] as! NSDictionary), "\(name): blobs after")
+        let after = planPush(notes: all, state: pulled.state).map(\.noteId)
         #expect(after == (want["push_after"] as! [String]), "\(name): push after")
+    }
+
+    private func blobs(_ plan: BlobPlan) -> NSDictionary {
+        [
+            "upload": plan.upload.map { ["id": $0.id, "note_id": $0.noteId] as NSDictionary },
+            "discard": plan.discard,
+        ]
+    }
+
+    private func view(_ a: QotKit.Attachment) -> NSDictionary {
+        let text: String =
+            switch a.text {
+            case .none: "none"
+            case .pending: "pending"
+            case .done: "done"
+            }
+        return [
+            "id": a.id, "kind": a.kind, "media_type": a.mediaType, "size": a.size,
+            "duration_ms": a.durationMs.map { $0 as Any } ?? NSNull(), "text": text,
+            "label": attachmentLabel(attachment: a),
+        ]
     }
 
     private func json(_ value: Any) throws -> String {

@@ -37,12 +37,15 @@ Follow-ups are issues: #78 tracks audio and lists the build steps; #79
 
 ## The note model
 
-A note gains `attachments`: an Automerge map keyed by attachment id, so two
-devices adding attachments merge, and removing one is deleting its key.
+A note gains attachments: each is its own Automerge map at the note's root,
+under the key `attachment:<id>`, so two devices adding attachments merge, and
+removing one is deleting its key. (Not entries in one shared `attachments`
+map: two devices that each added the first attachment to an older note would
+both create that map, and one side's attachment would vanish in the merge.)
 
 | Field | What |
 |---|---|
-| key | The attachment's id, a UUIDv7 made by the capturing client. Also the blob's id on the server. |
+| `<id>` | In the key: a UUIDv7 made by the capturing client. Also the blob's id on the server. |
 | `kind` | `audio` now; `image`, `video` later. |
 | `media_type` | e.g. `audio/mp4`. |
 | `size` | Bytes. |
@@ -138,7 +141,8 @@ shared test vectors. Bytes on a device live beside the notes
 
 - **The note goes up first, the bytes after.** Text reaches other devices
   quickly; a blob is uploaded only once the change that added its attachment
-  has been pushed. `SyncState` records which blobs were uploaded.
+  has been pushed (`plan_blobs`). `SyncState` records which blobs are known
+  to be on the server: uploaded from this device, or downloaded to it.
 - **Before uploading, check the note**: if it is deleted or no longer has
   that attachment, drop the local file instead.
 - **`plan_push` also returns the blobs to delete**: attachments the note had
@@ -146,7 +150,7 @@ shared test vectors. Bytes on a device live beside the notes
   tombstone). They go in the same push, so a failed push retries them with
   it.
 - **Other devices are told nothing.** After any pull, a client removes local
-  blob files that no live note refers to. A recording in progress is written
+  blob files that no live note refers to (`plan_blobs` lists them). A recording in progress is written
   elsewhere and moved into `blobs/` in the same locked step that saves its
   note, so it is never swept.
 - **Downloads are lazy.** A client fetches a blob when the note is opened or

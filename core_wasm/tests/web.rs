@@ -64,7 +64,7 @@ fn the_binding_matches_the_shared_vectors() {
     let vectors: Value =
         serde_json::from_str(include_str!("../../core/tests/vectors/sync.json")).unwrap();
     let cases = vectors["cases"].as_array().unwrap();
-    assert!(cases.len() >= 10);
+    assert!(cases.len() >= 20);
     let decode = |v: &Value| B64.decode(v.as_str().unwrap()).unwrap();
 
     for case in cases {
@@ -81,9 +81,35 @@ fn the_binding_matches_the_shared_vectors() {
         let push: Vec<Value> = plan_push(notes.iter().map(Note::copy).collect(), &state)
             .unwrap()
             .iter()
-            .map(|o| json!({"note_id": o.note_id(), "data": B64.encode(o.data()), "heads": o.heads()}))
+            .map(|o| {
+                json!({
+                    "note_id": o.note_id(), "data": B64.encode(o.data()), "heads": o.heads(),
+                    "deleted_blobs": o.deleted_blobs(),
+                })
+            })
             .collect();
         assert_eq!(Value::from(push), expect["push"], "{name}: push");
+
+        let local: Vec<String> = case["local_blobs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|id| id.as_str().unwrap().to_string())
+            .collect();
+        let blobs = |notes: Vec<Note>, state: &str| {
+            let plan = plan_blobs(notes, state, local.clone()).unwrap();
+            let upload: Vec<Value> = plan
+                .upload()
+                .iter()
+                .map(|u| json!({"id": u.id(), "note_id": u.note_id()}))
+                .collect();
+            json!({"upload": upload, "discard": plan.discard()})
+        };
+        assert_eq!(
+            blobs(notes.iter().map(Note::copy).collect(), &state),
+            expect["blobs"],
+            "{name}: blobs"
+        );
 
         let incoming: Vec<Incoming> = case["incoming"]
             .as_array()
@@ -112,7 +138,23 @@ fn the_binding_matches_the_shared_vectors() {
         changed.sort_by_key(|n| n.id());
         let views: Vec<Value> = changed
             .iter()
-            .map(|n| json!({"id": n.id(), "content": n.content(), "deleted": n.is_deleted(), "heads": n.heads()}))
+            .map(|n| {
+                let attachments: Vec<Value> = n
+                    .attachments()
+                    .iter()
+                    .map(|a| {
+                        json!({
+                            "id": a.id(), "kind": a.kind(), "media_type": a.media_type(),
+                            "size": a.size() as u64, "duration_ms": a.duration_ms().map(|d| d as u64),
+                            "text": a.text(), "label": a.label(),
+                        })
+                    })
+                    .collect();
+                json!({
+                    "id": n.id(), "content": n.content(), "deleted": n.is_deleted(),
+                    "heads": n.heads(), "attachments": attachments,
+                })
+            })
             .collect();
         assert_eq!(Value::from(views), want["changed"], "{name}: changed");
 
@@ -121,6 +163,11 @@ fn the_binding_matches_the_shared_vectors() {
         for n in &changed {
             saved.insert(n.id(), n.copy());
         }
+        assert_eq!(
+            blobs(saved.values().map(Note::copy).collect(), &pulled.state()),
+            want["blobs_after"],
+            "{name}: blobs after"
+        );
         let after: Vec<String> = plan_push(saved.into_values().collect(), &pulled.state())
             .unwrap()
             .iter()
@@ -128,4 +175,35 @@ fn the_binding_matches_the_shared_vectors() {
             .collect();
         assert_eq!(Value::from(after), want["push_after"], "{name}: push after");
     }
+}
+
+#[wasm_bindgen_test]
+fn a_voice_memo_is_made_edited_and_cleaned_up() {
+    let audio = Attachment::new(
+        Attachment::new_id(),
+        "audio".into(),
+        "audio/mp4".into(),
+        340_000.0,
+        Some(42_000.0),
+        "pending",
+    )
+    .unwrap();
+    let memo = Note::with_attachment("", &audio).unwrap();
+    assert!(!memo.is_empty());
+    let memo = memo.fill_text(&audio.id(), "call the plumber").unwrap();
+    assert_eq!(memo.content(), "call the plumber");
+    assert_eq!(memo.attachments()[0].text(), "done");
+    assert_eq!(memo.attachments()[0].label(), "audio 0:42");
+
+    let out = plan_push(vec![memo.copy()], &empty_sync_state()).unwrap();
+    let state = mark_pushed(&empty_sync_state(), out).unwrap();
+    let state = mark_uploaded(&state, vec![audio.id()]).unwrap();
+    let text_only = memo.detach(&audio.id()).unwrap();
+    let out = plan_push(vec![text_only.copy()], &state).unwrap();
+    assert_eq!(out[0].deleted_blobs(), vec![audio.id()]);
+    let plan = plan_blobs(vec![text_only.copy()], &state, vec![audio.id()]).unwrap();
+    assert_eq!(plan.discard(), vec![audio.id()]);
+    let state = forget_blobs(&state, plan.discard()).unwrap();
+    assert!(!state.contains("uploaded"));
+    assert!(Attachment::new("x".into(), "audio".into(), "a/b".into(), 1.0, None, "maybe").is_err());
 }

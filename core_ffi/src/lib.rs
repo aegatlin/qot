@@ -39,6 +39,75 @@ impl From<qot_core::NoteError> for QotError {
 
 type QotResult<T> = Result<T, QotError>;
 
+/// Whether an attachment's text (a recording's transcript) is in the note.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum AttachmentText {
+    /// No text is expected.
+    None,
+    /// Expected, and not written into the note yet.
+    Pending,
+    /// Written into the note's content.
+    Done,
+}
+
+/// Media on a note. The bytes are a blob with the same id, never in the note.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct Attachment {
+    pub id: String,
+    /// `audio`; a kind this build doesn't know is still listed and kept.
+    pub kind: String,
+    pub media_type: String,
+    pub size: u64,
+    pub duration_ms: Option<u64>,
+    pub text: AttachmentText,
+}
+
+impl From<qot_core::Attachment> for Attachment {
+    fn from(a: qot_core::Attachment) -> Self {
+        Attachment {
+            id: a.id,
+            kind: a.kind,
+            media_type: a.media_type,
+            size: a.size,
+            duration_ms: a.duration_ms,
+            text: match a.text {
+                qot_core::AttachmentText::None => AttachmentText::None,
+                qot_core::AttachmentText::Pending => AttachmentText::Pending,
+                qot_core::AttachmentText::Done => AttachmentText::Done,
+            },
+        }
+    }
+}
+
+impl From<Attachment> for qot_core::Attachment {
+    fn from(a: Attachment) -> Self {
+        qot_core::Attachment {
+            id: a.id,
+            kind: a.kind,
+            media_type: a.media_type,
+            size: a.size,
+            duration_ms: a.duration_ms,
+            text: match a.text {
+                AttachmentText::None => qot_core::AttachmentText::None,
+                AttachmentText::Pending => qot_core::AttachmentText::Pending,
+                AttachmentText::Done => qot_core::AttachmentText::Done,
+            },
+        }
+    }
+}
+
+/// An id for a new attachment (a UUIDv7).
+#[uniffi::export]
+pub fn new_attachment_id() -> String {
+    qot_core::Attachment::new_id()
+}
+
+/// What to show where the attachment can't be: `audio 0:42`, `image, 2 MB`.
+#[uniffi::export]
+pub fn attachment_label(attachment: Attachment) -> String {
+    qot_core::Attachment::from(attachment).label()
+}
+
 /// One note. Immutable: every edit returns a new `Note`.
 #[derive(Debug, Clone, uniffi::Object)]
 pub struct Note(qot_core::Note);
@@ -52,6 +121,16 @@ impl Note {
     #[uniffi::constructor]
     pub fn new(content: String) -> Arc<Self> {
         wrap(qot_core::Note::new(&content))
+    }
+
+    /// A new note that starts with an attachment: a voice memo, whose
+    /// content is its transcript (empty if there is none yet).
+    #[uniffi::constructor]
+    pub fn with_attachment(content: String, attachment: Attachment) -> QotResult<Arc<Self>> {
+        Ok(wrap(qot_core::Note::with_attachment(
+            &content,
+            &attachment.into(),
+        )?))
     }
 
     /// A note saved with `to_bytes`. Bytes that aren't a note are an error.
@@ -104,6 +183,31 @@ impl Note {
     pub fn heads(&self) -> Vec<String> {
         self.0.heads()
     }
+
+    /// The note's attachments, oldest first.
+    pub fn attachments(&self) -> Vec<Attachment> {
+        self.0.attachments().into_iter().map(Into::into).collect()
+    }
+
+    /// No text and no attachments: nothing to keep.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn attach(&self, attachment: Attachment) -> QotResult<Arc<Note>> {
+        Ok(wrap(self.0.attach(&attachment.into())?))
+    }
+
+    /// Removes an attachment and keeps the text. Sync deletes the blob.
+    pub fn detach(&self, id: String) -> QotResult<Arc<Note>> {
+        Ok(wrap(self.0.detach(&id)?))
+    }
+
+    /// Writes a pending attachment's text into the note and marks it done;
+    /// unchanged if it wasn't pending.
+    pub fn fill_text(&self, id: String, text: String) -> QotResult<Arc<Note>> {
+        Ok(wrap(self.0.fill_text(&id, &text)?))
+    }
 }
 
 /// What a device persists between syncs. Stored as JSON, the same format the
@@ -143,6 +247,24 @@ pub struct Outgoing {
     pub note_id: String,
     pub data: Vec<u8>,
     pub heads: Vec<String>,
+    /// Blobs for the server to delete with this push.
+    pub deleted_blobs: Vec<String>,
+}
+
+/// A blob to upload.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct BlobUpload {
+    pub id: String,
+    pub note_id: String,
+}
+
+/// What to do with the blob files on this device.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct BlobPlan {
+    /// Upload these, then `mark_uploaded`.
+    pub upload: Vec<BlobUpload>,
+    /// Delete these files, then `forget_blobs`.
+    pub discard: Vec<String>,
 }
 
 /// One change pulled from the server log.
@@ -170,8 +292,41 @@ pub fn plan_push(notes: Vec<Arc<Note>>, state: Arc<SyncState>) -> Vec<Outgoing> 
             note_id: o.note_id,
             data: o.data,
             heads: o.heads,
+            deleted_blobs: o.deleted_blobs,
         })
         .collect()
+}
+
+/// What to do with the blob files this device holds (`local`, by attachment
+/// id): upload the ones whose note has been pushed, discard the ones no live
+/// note refers to. A recording still being made must not be in `local`.
+#[uniffi::export]
+pub fn plan_blobs(notes: Vec<Arc<Note>>, state: Arc<SyncState>, local: Vec<String>) -> BlobPlan {
+    let notes: Vec<qot_core::Note> = notes.iter().map(|n| n.0.clone()).collect();
+    let plan = core_sync::plan_blobs(&notes, &state.0, &local);
+    BlobPlan {
+        upload: plan
+            .upload
+            .into_iter()
+            .map(|u| BlobUpload {
+                id: u.id,
+                note_id: u.note_id,
+            })
+            .collect(),
+        discard: plan.discard,
+    }
+}
+
+/// The state after these blobs reached the server, or were fetched from it.
+#[uniffi::export]
+pub fn mark_uploaded(state: Arc<SyncState>, ids: Vec<String>) -> Arc<SyncState> {
+    Arc::new(SyncState(core_sync::mark_uploaded(&state.0, &ids)))
+}
+
+/// The state after these blob files were discarded.
+#[uniffi::export]
+pub fn forget_blobs(state: Arc<SyncState>, ids: Vec<String>) -> Arc<SyncState> {
+    Arc::new(SyncState(core_sync::forget_blobs(&state.0, &ids)))
 }
 
 /// The state after the server accepted `sent`.
@@ -183,6 +338,7 @@ pub fn mark_pushed(state: Arc<SyncState>, sent: Vec<Outgoing>) -> Arc<SyncState>
             note_id: o.note_id,
             data: o.data,
             heads: o.heads,
+            deleted_blobs: o.deleted_blobs,
         })
         .collect();
     Arc::new(SyncState(core_sync::mark_pushed(&state.0, &sent)))
@@ -287,6 +443,54 @@ mod tests {
         assert_eq!(pulled.changed.len(), 1);
         assert_eq!(pulled.changed[0].content(), "get milk");
         assert_eq!(pulled.changed[0].id(), phone_note.id());
+    }
+
+    #[test]
+    fn a_voice_memo_syncs_and_its_blob_follows_the_note() {
+        let audio = Attachment {
+            id: new_attachment_id(),
+            kind: "audio".into(),
+            media_type: "audio/mp4".into(),
+            size: 340_000,
+            duration_ms: Some(42_000),
+            text: AttachmentText::Pending,
+        };
+        assert_eq!(attachment_label(audio.clone()), "audio 0:42");
+        let memo = Note::with_attachment(String::new(), audio.clone()).unwrap();
+        assert!(!memo.is_empty());
+        assert_eq!(memo.attachments(), vec![audio.clone()]);
+        let memo = memo
+            .fill_text(audio.id.clone(), "call the plumber".into())
+            .unwrap();
+        assert_eq!(memo.content(), "call the plumber");
+        assert_eq!(memo.attachments()[0].text, AttachmentText::Done);
+
+        let local = vec![audio.id.clone()];
+        let state = SyncState::empty();
+        assert!(
+            plan_blobs(vec![memo.clone()], state.clone(), local.clone())
+                .upload
+                .is_empty()
+        );
+        let out = plan_push(vec![memo.clone()], state.clone());
+        let state = mark_pushed(state, out);
+        let plan = plan_blobs(vec![memo.clone()], state.clone(), local.clone());
+        assert_eq!(plan.upload[0].id, audio.id);
+        assert_eq!(plan.upload[0].note_id, memo.id());
+        let state = mark_uploaded(state, local.clone());
+        assert!(
+            plan_blobs(vec![memo.clone()], state.clone(), local.clone())
+                .upload
+                .is_empty()
+        );
+
+        let text_only = memo.detach(audio.id.clone()).unwrap();
+        let out = plan_push(vec![text_only.clone()], state.clone());
+        assert_eq!(out[0].deleted_blobs, local);
+        let plan = plan_blobs(vec![text_only], state.clone(), local.clone());
+        assert_eq!(plan.discard, local);
+        let state = forget_blobs(state, plan.discard);
+        assert!(!state.to_json().contains("uploaded"));
     }
 
     #[test]
