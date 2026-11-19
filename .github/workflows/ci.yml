@@ -23,7 +23,7 @@ jobs:
       erlang: ${{ steps.read.outputs.erlang }}
       elixir: ${{ steps.read.outputs.elixir }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - id: read
         run: |
           rust=$(sed -nE 's/^rust = \{ version = "([^"]+)".*/\1/p' mise.toml)
@@ -41,7 +41,7 @@ jobs:
     needs: versions
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ needs.versions.outputs.rust }}
@@ -72,13 +72,13 @@ jobs:
       PGPASSWORD: postgres
       PGHOST: localhost
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{ needs.versions.outputs.erlang }}
           elixir-version: ${{ needs.versions.outputs.elixir }}
           version-type: strict
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             server_web/deps
@@ -94,9 +94,9 @@ jobs:
   docker-web:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: client_web/Dockerfile
@@ -109,9 +109,9 @@ jobs:
   docker:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: server_web
           push: false
@@ -122,8 +122,8 @@ jobs:
   site:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: jdx/mise-action@v3
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
         with:
           install_args: node
       - name: site_web/Dockerfile pins the Node mise.toml pins
@@ -138,9 +138,9 @@ jobs:
   docker-site:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: site_web/Dockerfile
@@ -177,10 +177,10 @@ jobs:
       # pointed at mise's Elixir directory, where setup-beam's Hex isn't.
       MISE_DISABLE_TOOLS: erlang,elixir
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # Rust, Node and the wasm tools at the versions mise.toml pins; Erlang
       # and Elixir (for the e2e server) as the server job installs them.
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v5
         with:
           install_args: rust node github:wasm-bindgen/wasm-bindgen github:WebAssembly/binaryen
       - uses: erlef/setup-beam@v1
@@ -189,7 +189,7 @@ jobs:
           elixir-version: ${{ needs.versions.outputs.elixir }}
           version-type: strict
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             server_web/deps

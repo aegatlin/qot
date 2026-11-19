@@ -47,7 +47,7 @@ jobs:
       (github.event.deployment.environment == 'qot / staging' &&
        contains(fromJSON('["success", "failure", "error"]'), github.event.deployment_status.state))
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # Whole history: staging is checked against the last commit that
           # changed this service, which may be far back.
