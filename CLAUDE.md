@@ -317,10 +317,13 @@ the rules the CLI is tested with:
   (`tests/sync_test.rs`).
 - **Releasing** is [dist](https://axodotdev.github.io/cargo-dist/): bump
   `version` in `client_cli/Cargo.toml`, merge, then push a `cli/vX.Y.Z`
-  tag on that merge commit. A person pushes release tags by hand
-  (`docs/records/2026-11-06-release-tags-by-hand.md`). Cloud sessions
-  can't push tags at all: Anthropic's GitHub proxy allows branch pushes
-  only, and agents don't push tags anywhere else either. Check the tag
+  tag on that merge commit. **Who pushes release tags** (every component:
+  `cli/v*`, `server/v*`, `web/v*`, `site/v*`): a person, or an agent the
+  repo owner has authorized to release, in that session or in memory
+  (`docs/records/2026-11-19-agents-may-release.md`); without that, agents
+  don't push tags or move the production branches. Cloud sessions can't
+  push tags at all: Anthropic's GitHub proxy allows branch pushes only.
+  Check the tag
   matches the version, since dist fails on a mismatch (dist parses `cli/`,
   not `cli-`; the namespace keeps `server/v*` tags from triggering it).
   `.github/workflows/cli-release.yml`
@@ -568,8 +571,8 @@ the rules the CLI is tested with:
   no-referrer` (sign-in links carry a token). Staging deploys green pushes
   to `main` touching `client_web/`, `core/`, `core_wasm/` or `Cargo.lock`;
   production deploys the `production-web` branch, which
-  `.github/workflows/release-web.yml` moves to a `web/v*` tag (a person
-  pushes it) and then smoke-tests (`scripts/smoke-test-web <app> <api>
+  `.github/workflows/release-web.yml` moves to a `web/v*` tag (pushed by a
+  person or an authorized agent, see the CLI's Releasing) and then smoke-tests (`scripts/smoke-test-web <app> <api>
   [<sha>]`, also run for staging by `smoke-web.yml`; it checks the API's
   CORS for the app too).
 
@@ -614,7 +617,7 @@ the rules the CLI is tested with:
   proxy, and a CSP that allows scripts and connections to this origin only. Staging (`staging-www.`) deploys green pushes to `main`
   touching `site_web/`; production (`www.`) deploys the `production-site`
   branch, which `.github/workflows/release-site.yml` moves to a `site/v*` tag
-  (a person pushes it), then smoke-tests (`scripts/smoke-test-site <url>
+  (pushed by a person or an authorized agent, see the CLI's Releasing), then smoke-tests (`scripts/smoke-test-site <url>
   [<sha>]`, also run for staging by `smoke-site.yml` and on the image in CI).
 
 ## Server (`server_web`)
@@ -708,8 +711,21 @@ the rules the CLI is tested with:
   which `.github/workflows/release-server.yml` moves to a `server/v*` tag
   after CI passes. Production has **no watch pattern** on purpose: Railway
   checks only the files the pushed commit changed, so a tag on a docs-only
-  commit would be skipped. Agents can't deploy production; a person pushes
-  the tag.
+  commit would be skipped. The tag is pushed by a person, or by an agent
+  the repo owner has authorized to release (see the CLI's Releasing).
+  **The promote job pushes with a deploy key** (all three release
+  workflows): `RELEASE_DEPLOY_KEY`, a secret of the `production` GitHub
+  environment, is the private half of the deploy key "release workflows
+  (promote job)" (write access, this repo only; no expiry), handed to
+  `actions/checkout` as `ssh-key`. The workflow's `GITHUB_TOKEN` can't move
+  the branch: GitHub refuses a push from it that brings workflow file
+  changes, and it can't be given the `workflows` permission. To rotate:
+  `ssh-keygen -t ed25519`, `gh repo deploy-key add <pub> --allow-write`,
+  `gh secret set RELEASE_DEPLOY_KEY --env production < <private>`, delete
+  the old deploy key and the local files. If a release workflow can't
+  run, the same thing by hand is `git push --force origin
+  <sha>:refs/heads/production` (or `production-web`, `production-site`),
+  then the smoke workflow with `-f environment=production -f sha=<sha>`.
 - **Smoke test** after every deploy (`.github/workflows/smoke.yml`, running
   `scripts/smoke-test <url> [<sha>]`): waits until `/health` reports the
   deployed commit (`commit`, from Railway's `RAILWAY_GIT_COMMIT_SHA`), then

@@ -41,7 +41,7 @@ was considered and turned down.
 | 2026-11-04 | [Domain layout](2026-11-04-domain-layout.md) | decided (hosting of `app.`/`www.` and the sign-in host superseded 2026-11-06) |
 | 2026-11-04 | [Repo layout for many clients](2026-11-04-repo-layout-for-clients.md) | decided (its XcodeGen part superseded 2026-11-08) |
 | 2026-11-04 | [Open source or closed source](2026-11-04-open-source-or-closed.md) | decided |
-| 2026-11-06 | [Release tags are pushed by hand](2026-11-06-release-tags-by-hand.md) | decided |
+| 2026-11-06 | [Release tags are pushed by hand](2026-11-06-release-tags-by-hand.md) | decided (that agents never push tags superseded 2026-11-19) |
 | 2026-11-06 | [Hosting the PWA and the website](2026-11-06-hosting-the-pwa-and-website.md) | decided (the website's "no JavaScript" superseded 2026-11-10) |
 | 2026-11-06 | [Sign-in through the PWA](2026-11-06-sign-in-through-the-pwa.md) | decided |
 | 2026-11-08 | [A committed, Apple-native Xcode project](2026-11-08-apple-native-project.md) | decided |
@@ -50,3 +50,4 @@ was considered and turned down.
 | 2026-11-08 | [Sign in with Apple on Apple devices](2026-11-08-sign-in-with-apple.md) | decided |
 | 2026-11-10 | [Analytics on the website, not the apps](2026-11-10-website-analytics.md) | decided |
 | 2026-11-19 | [Attachments in notes, and voice memos first](2026-11-19-attachments-and-voice-memos.md) | decided |
+| 2026-11-19 | [Agents may release when the owner has authorized it](2026-11-19-agents-may-release.md) | decided |

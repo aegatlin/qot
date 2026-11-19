@@ -1,9 +1,15 @@
 # Release tags are pushed by hand
 
-Status: decided
+Status: decided (that agents never push tags superseded by 2026-11-19-agents-may-release.md)
 Date: 2026-11-06
 Question: Who creates release tags (`cli/v*`, `server/v*`, later `ios/v*`),
 now that cloud agent sessions can't push tags?
+
+> **Since then:** an agent may push release tags and move the production
+> branches when the repo owner has authorized it, in that session or in
+> memory ([Agents may release](2026-11-19-agents-may-release.md)). No
+> workflow creates tags, and cloud sessions still can't push them: that
+> part stands.
 
 ## Answer
 
