@@ -7,9 +7,12 @@ on:
   # Release workflows run the same checks on the tagged commit first.
   workflow_call:
 
+# A newer push cancels the run before it, except on main: Railway skips the
+# staging deploy of a commit whose CI was cancelled, and the next commit may
+# not touch that service, so the deploy would be lost.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # Tool versions are read from mise.toml so it stays the single source of truth.
