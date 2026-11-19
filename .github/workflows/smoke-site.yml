@@ -75,7 +75,9 @@ jobs:
             # anything older is a skipped deploy, and the smoke test fails
             # instead of passing quietly.
             last=$(git log -1 --format=%H HEAD -- site_web)
-            want="$last $(git rev-list "$last"..HEAD | tr '\n' ' ')"
+            # Up to main, not only this deploy's commit: a status Railway
+            # reports late arrives after a newer commit is already running.
+            want="$last $(git rev-list "$last"..origin/main | tr '\n' ' ')"
             echo "staging should run $last (the last change to site_web/) or later"
           fi
           {
