@@ -36,3 +36,6 @@ config :qot, :apple_keys_source, Qot.AppleTestKeys
 config :qot, :apple_keys_min_refetch_ms, 0
 # Apple's token endpoints (exchange, revoke): test/support/apple_test_tokens.ex.
 config :qot, :apple_tokens_api, Qot.AppleTestTokens
+
+# Small blob limits, so tests of them stay small (Qot.BlobsTest).
+config :qot, :blob_limits, %{max_bytes: 1000, quota_bytes: 2500}

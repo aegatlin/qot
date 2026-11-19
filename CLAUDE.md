@@ -24,8 +24,10 @@ issues are closed as not planned, to reopen when a launch makes them matter.
 iPhone records a memo, and both the recording and its text reach every
 client that can show them (#78). Notes hold media as attachments, audio
 first; the design, and what it asks of end-to-end encryption, is
-`docs/records/2026-11-19-attachments-and-voice-memos.md`. Not built yet:
-until #78's steps land, notes are text only.
+`docs/records/2026-11-19-attachments-and-voice-memos.md`. Being built, in
+#78's order: the core knows attachments (#96) and the server stores blobs
+(#97); the clients don't yet, so in every client notes are still text
+only.
 
 qot is an **Abstract Syntax LLC** product: every outside account (Apple,
 Railway, later Stripe and the rest) belongs to the company, never to a
@@ -161,7 +163,18 @@ mise run xcode         # builds the Apple core, opens the Xcode project
 ## The note model (`qot_core`)
 
 - One note is one small Automerge document: `id` (UUIDv7, so ids sort by
-  creation time), `content` (Automerge text) and `deleted`.
+  creation time), `content` (Automerge text), `deleted`, and any
+  attachments.
+- **Attachments** (`attachment.rs`; a recording, later images and video):
+  each is a map at the note's root under `attachment:<id>` (`kind`,
+  `media_type`, `size`, `duration_ms`, `text`), never one shared map, which
+  two devices could both create and lose an attachment in the merge. The
+  bytes are a blob with the same id, outside the note. `attach`, `detach`
+  (keeps the text), `fill_text` (writes a `pending` transcript into the
+  content, once). A note with an attachment and no text is a note:
+  "empty" is `is_empty()`, no text and no attachments. A kind or field
+  this code doesn't know is listed (`label()`: `audio 0:42`, `image, 2 MB`)
+  and survives every edit.
 - **Delete is a tombstone**, never removing the document: a removed note
   would be resurrected by the next sync from a device that still has it.
   Clients hide tombstones.
@@ -191,7 +204,9 @@ or transcribing a recording for a client that can't) must be an explicit
 opt-in and must not weaken this default.
 
 - `POST /api/sync/push` `{changes: [{note_id, data}]}` (data base64) appends
-  and returns `{cursor}`.
+  and returns `{cursor}`. Optional `deleted_blobs: [id]` deletes those blobs
+  in the same transaction: the server can't see in a change that an
+  attachment went, so the client says so.
 - `GET /api/sync/pull?since=N&limit=M` returns `{changes: [{seq, note_id,
   data}], cursor, more}`. A client stores `cursor` and pulls from it next.
 - The `notes:user:#{user_id}` channel only nudges (`"changed"` with the new
@@ -201,6 +216,19 @@ opt-in and must not weaken this default.
   would let a reader at cursor N miss a slower transaction that commits a seq
   below N later. `Qot.SyncConcurrencyTest` pins this.
 - Request parsing is pure (`Qot.Sync.Batch`); `Qot.Sync` is the I/O shell.
+- **Blobs** (`Qot.Blobs`; attachments' bytes) are as opaque as changes: no
+  media type is stored and the bytes are never inspected. `PUT
+  /api/blobs/:id?note_id=` takes the raw body whatever its `content-type`
+  (the endpoint skips `Plug.Parsers` for `/api/blobs`, which would consume
+  or reject it) and is idempotent: 204, 413 `too_large`, 403
+  `quota_exceeded`, 410 `deleted`. `GET /api/blobs/:id` answers
+  `application/octet-stream`, 404 when it isn't there or isn't yours. Ids
+  are the attachment's, unique per user. A deleted blob keeps its row
+  without the bytes, and an id deleted before it was uploaded gets one too,
+  so a late upload from a device that was offline is refused. Limits
+  (`:blob_limits`; 25 MB a blob, 1 GB an account; `BLOB_MAX_BYTES`,
+  `BLOB_QUOTA_BYTES`) are checked under the user row's lock. In Postgres
+  for now; the record says when to move the bytes to a bucket.
 
 ## Client sync (`qot_core::sync`)
 
@@ -218,6 +246,17 @@ the rules the CLI is tested with:
 - `apply_pulled` moves a note's "pushed" heads only if nothing local was
   waiting, so local edits made before a pull still go up next time.
 - A device pulls back its own pushes; applying them is a no-op.
+- **Blobs** (attachments' bytes) move beside the change log. `plan_push`
+  names, per note, the blobs to delete with that push (`deleted_blobs`:
+  attachments it had at the heads last pushed and has no more, or the note
+  is a tombstone). `plan_blobs(notes, state, local)` says what to do with
+  the blob files a device holds: upload those whose attachment has been
+  pushed (note first, bytes after) and aren't in `SyncState.uploaded`, and
+  discard those no live note refers to, which is how a delete made
+  elsewhere removes the file here. `mark_uploaded` after an upload or a
+  download; `forget_blobs` after a discard. A recording in progress is kept
+  out of `local` until its note is saved. No client or server uses these
+  yet (#98 to #100).
 - **Shared test vectors** (`core/tests/vectors/sync.json`) pin these rules
   for every binding: `core/tests/sync_vectors.rs` (Rust, which also
   regenerates them), `SyncVectorTests` (Swift) and `core_wasm/tests/web.rs`
@@ -553,13 +592,14 @@ the rules the CLI is tested with:
   are best effort: a failed exchange or revoke is logged, never blocking a
   sign-in or a deletion.
 - **Account deletion**: `DELETE /api/account {confirm: <the account's
-  email>}` removes the user, refresh tokens, change log and sign-ins
+  email>}` removes the user, refresh tokens, change log, blobs and sign-ins
   (`Qot.Accounts.delete_user/1`), revokes its Apple token if it has one, and
   closes the user's sockets. A
   server-side export would only be opaque change blobs, so export is the
   client's job.
 - **Contexts**: `Qot.Accounts` (users, device sign-in, Sign in with Apple, tokens), `Qot.Sync`
-  (the change log, always scoped by `user_id`).
+  (the change log, always scoped by `user_id`), `Qot.Blobs` (attachments'
+  bytes, the same).
 - **Per-user isolation**: every sync call takes `user_id` from the token;
   channels are `notes:user:#{user_id}`, joinable only by that user.
 - Mail: Swoosh's own Resend adapter with the Req client (no `resend`,
@@ -611,6 +651,7 @@ the rules the CLI is tested with:
   `APPLE_SIWA_KEY_ID` (the Sign in with Apple .p8 and its id, both or
   neither, in fnox; without them deleting can't revoke Apple tokens),
   `APPLE_TEAM_ID` (default `H88537CLVC`),
+  `BLOB_MAX_BYTES` and `BLOB_QUOTA_BYTES` (the blob limits),
   `CLIENT_IP_HEADER` (default `x-real-ip`), `DATABASE_SSL=false` (a database on the host's private network; TLS with
   certificate verification is the default), `ECTO_IPV6=true`, `POOL_SIZE`,
   `PORT`. Dev and test need none.

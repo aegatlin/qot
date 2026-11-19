@@ -27,6 +27,27 @@ if config_env() != :test do
   end
 end
 
+# Blob limits, in bytes. Optional; config.exs has the defaults.
+blob_limit = fn name, default ->
+  case System.get_env(name) do
+    nil ->
+      default
+
+    value ->
+      case Integer.parse(value) do
+        {n, ""} when n > 0 -> n
+        _ -> raise "#{name} must be a positive whole number of bytes, got: #{inspect(value)}"
+      end
+  end
+end
+
+blob_limits = Application.compile_env(:qot, :blob_limits)
+
+config :qot, :blob_limits, %{
+  max_bytes: blob_limit.("BLOB_MAX_BYTES", blob_limits.max_bytes),
+  quota_bytes: blob_limit.("BLOB_QUOTA_BYTES", blob_limits.quota_bytes)
+}
+
 # Sign in with Apple: the client ids an identity token may be for, comma
 # separated. Optional; config.exs has the iOS app's bundle id.
 case System.get_env("APPLE_CLIENT_IDS") do

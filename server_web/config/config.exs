@@ -14,6 +14,11 @@ config :qot, QotWeb.Endpoint,
 # any `window` seconds, per address and per client IP.
 config :qot, :sign_in_limits, %{email: {5, 3600}, ip: {20, 3600}}
 
+# Attachments' bytes (Qot.Blobs): the largest one blob may be, and how much an
+# account may hold. BLOB_MAX_BYTES and BLOB_QUOTA_BYTES override them at
+# runtime.
+config :qot, :blob_limits, %{max_bytes: 25_000_000, quota_bytes: 1_000_000_000}
+
 # The header a trusted proxy sets to the client's IP (see
 # QotWeb.Plugs.ClientIP). Unset: the peer address is the client.
 config :qot, :client_ip_header, nil

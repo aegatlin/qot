@@ -67,6 +67,32 @@ defmodule Qot.Sync.Batch do
     end
   end
 
+  @doc """
+  Parses a push body's optional `deleted_blobs`: the ids of blobs to delete
+  with the push. Repeats are dropped; one bad id rejects the push.
+  """
+  @spec parse_deleted_blobs(map()) :: {:ok, [Ecto.UUID.t()]} | {:error, String.t()}
+  def parse_deleted_blobs(%{"deleted_blobs" => ids}) when is_list(ids) do
+    if length(ids) > @max_changes do
+      {:error, "a push may delete at most #{@max_changes} blobs"}
+    else
+      ids
+      |> Enum.reduce_while({:ok, []}, fn id, {:ok, acc} ->
+        case is_binary(id) && Ecto.UUID.cast(id) do
+          {:ok, uuid} -> {:cont, {:ok, [String.downcase(uuid) | acc]}}
+          _ -> {:halt, {:error, "deleted_blobs must be UUIDs"}}
+        end
+      end)
+      |> case do
+        {:ok, ids} -> {:ok, ids |> Enum.reverse() |> Enum.uniq()}
+        error -> error
+      end
+    end
+  end
+
+  def parse_deleted_blobs(%{"deleted_blobs" => _}), do: {:error, "deleted_blobs must be a list"}
+  def parse_deleted_blobs(_), do: {:ok, []}
+
   @doc "Parses pull params: `since` (default 0) and `limit` (clamped)."
   @spec parse_pull(map()) ::
           {:ok, %{since: non_neg_integer(), limit: pos_integer()}} | {:error, String.t()}

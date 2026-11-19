@@ -8,6 +8,31 @@ defmodule Qot.Sync.BatchTest do
   defp change(note_id \\ @note_id, data \\ "change-bytes"),
     do: %{"note_id" => note_id, "data" => Base.encode64(data)}
 
+  describe "parse_deleted_blobs/1" do
+    @blob "0199a7e2-5c3b-7c4e-9a1d-2f6b8e4d3c31"
+
+    test "is empty when the push names none" do
+      assert {:ok, []} = Batch.parse_deleted_blobs(%{"changes" => [change()]})
+      assert {:ok, []} = Batch.parse_deleted_blobs(%{"deleted_blobs" => []})
+    end
+
+    test "normalises ids and drops repeats" do
+      assert {:ok, [@blob]} =
+               Batch.parse_deleted_blobs(%{"deleted_blobs" => [String.upcase(@blob), @blob]})
+    end
+
+    test "rejects anything that isn't a list of UUIDs" do
+      assert {:error, _} = Batch.parse_deleted_blobs(%{"deleted_blobs" => "nope"})
+      assert {:error, _} = Batch.parse_deleted_blobs(%{"deleted_blobs" => ["nope"]})
+      assert {:error, _} = Batch.parse_deleted_blobs(%{"deleted_blobs" => [1]})
+    end
+
+    test "rejects more than a push may hold" do
+      ids = for _ <- 0..Batch.max_changes(), do: Ecto.UUID.generate()
+      assert {:error, _} = Batch.parse_deleted_blobs(%{"deleted_blobs" => ids})
+    end
+  end
+
   describe "parse_push/1" do
     test "decodes changes in order" do
       assert {:ok, [%{note_id: @note_id, data: "a"}, %{note_id: @note_id, data: "b"}]} =

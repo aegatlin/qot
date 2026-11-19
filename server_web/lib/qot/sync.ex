@@ -9,20 +9,24 @@ defmodule Qot.Sync do
   Seqs are per user and gap-free: a push takes the user row's lock to reserve
   its range, so a reader holding cursor N can never miss a change committed
   later with a seq below N.
+
+  A push may also name blobs to delete (`Qot.Blobs`): attachments the pushed
+  changes removed. The server can't see that in the changes, so the client
+  says so, and both happen in one transaction.
   """
 
   import Ecto.Query
 
-  alias Qot.Repo
+  alias Qot.{Blobs, Repo}
   alias Qot.Sync.{Batch, Change}
 
   @pubsub Qot.PubSub
 
   def topic(user_id), do: "notes:user:#{user_id}"
 
-  @spec push(Ecto.UUID.t(), [Batch.entry(), ...]) ::
+  @spec push(Ecto.UUID.t(), [Batch.entry(), ...], [Ecto.UUID.t()]) ::
           {:ok, pos_integer()} | {:error, :unknown_user}
-  def push(user_id, [_ | _] = entries) do
+  def push(user_id, [_ | _] = entries, deleted_blobs \\ []) do
     now = DateTime.utc_now()
 
     result =
@@ -35,6 +39,7 @@ defmodule Qot.Sync do
               |> Enum.map(&Map.merge(&1, %{user_id: user_id, inserted_at: now}))
 
             Repo.insert_all(Change, rows)
+            Blobs.mark_deleted(user_id, deleted_blobs, now)
             last_seq
 
           :error ->

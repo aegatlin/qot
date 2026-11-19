@@ -6,7 +6,8 @@ defmodule QotWeb.SyncController do
 
   def push(conn, params) do
     with {:ok, entries} <- Batch.parse_push(params),
-         {:ok, cursor} <- Sync.push(conn.assigns.user_id, entries) do
+         {:ok, deleted_blobs} <- Batch.parse_deleted_blobs(params),
+         {:ok, cursor} <- Sync.push(conn.assigns.user_id, entries, deleted_blobs) do
       json(conn, %{cursor: cursor})
     else
       {:error, :unknown_user} ->

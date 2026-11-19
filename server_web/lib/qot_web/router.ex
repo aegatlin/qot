@@ -1,6 +1,6 @@
 defmodule QotWeb.Router do
   use Phoenix.Router
-  import Phoenix.Controller, only: [accepts: 2, put_secure_browser_headers: 2]
+  import Phoenix.Controller, only: [accepts: 2, put_format: 2, put_secure_browser_headers: 2]
 
   pipeline :api do
     plug(:accepts, ["json"])
@@ -11,6 +11,13 @@ defmodule QotWeb.Router do
   pipeline :page do
     plug(:accepts, ["html"])
     plug(:put_secure_browser_headers)
+  end
+
+  # Blobs are raw bytes both ways, so there is no content negotiation: any
+  # `accept` will do, and errors are JSON.
+  pipeline :bytes do
+    plug(:put_format, "json")
+    plug(QotWeb.Plugs.ClientIP)
   end
 
   pipeline :authenticated do
@@ -45,5 +52,12 @@ defmodule QotWeb.Router do
     post("/sync/push", SyncController, :push)
     get("/sync/pull", SyncController, :pull)
     delete("/account", AccountController, :delete)
+  end
+
+  scope "/api", QotWeb do
+    pipe_through([:bytes, :authenticated])
+
+    put("/blobs/:id", BlobController, :put)
+    get("/blobs/:id", BlobController, :show)
   end
 end
