@@ -29,7 +29,8 @@ const QUICK_SYNC: Duration = Duration::from_secs(3);
     qot login me@x.com    # Sign in to sync between devices\n  \
     qot sync              # Sync now\n  \
     qot status            # Account, server and what's waiting to sync\n  \
-    qot export > n.json   # All notes as JSON")]
+    qot export > n.json   # All notes as JSON\n  \
+    qot export --dir out  # Notes and their recordings, as files")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -77,7 +78,12 @@ enum Commands {
     #[command(visible_alias = "s")]
     Sync,
     /// Print every note as JSON (id, created_at, content)
-    Export,
+    Export {
+        /// Write notes.json and each note's attachments (recordings) to this
+        /// directory instead of printing
+        #[arg(long)]
+        dir: Option<std::path::PathBuf>,
+    },
     /// Show the account, server and notes on this device (no network)
     Status,
     /// Delete your account and synced notes on the server (notes on this device stay)
@@ -104,12 +110,16 @@ fn main() {
         Some(Commands::Login { email, server }) => login(&mut notes, &email, server),
         Some(Commands::Logout) => logout(&notes),
         Some(Commands::Sync) => sync_now(&mut notes),
-        Some(Commands::Export) => {
+        Some(Commands::Export { dir: None }) => {
             quick_sync(&mut notes);
             match notes.export() {
                 Ok(json) => println!("{json}"),
                 Err(e) => fail(&format!("Error exporting notes: {e}")),
             }
+        }
+        Some(Commands::Export { dir: Some(dir) }) => {
+            quick_sync(&mut notes);
+            export_to(&mut notes, &dir);
         }
         Some(Commands::DeleteAccount) => delete_account(&notes),
         Some(Commands::Status) => status(&notes),
@@ -141,7 +151,7 @@ fn list_notes(notes: &mut NoteService) {
         Ok(list) if list.is_empty() => println!("No notes yet. Create one with: qot get milk"),
         Ok(list) => {
             for (i, note) in list.iter().enumerate() {
-                println!("{}. {}", i + 1, note.content);
+                println!("{}. {}", i + 1, note.line());
             }
         }
         Err(e) => fail(&format!("Error listing notes: {e}")),
@@ -161,16 +171,52 @@ fn edit_note(notes: &mut NoteService, index: usize) {
         .unwrap_or_else(|e| fail(&e));
     match edit::outcome(&original, &written) {
         edit::Outcome::Unchanged => println!("No changes."),
+        // A note that still has a recording isn't empty without its text.
+        edit::Outcome::Empty if !base.attachments().is_empty() => save_edit(notes, &base, ""),
         edit::Outcome::Empty => fail(&format!(
             "The note is empty, so it wasn't saved. To delete it, run: qot delete {index}"
         )),
-        edit::Outcome::Changed(text) => {
-            match notes.save_edit(&base, &text) {
-                Ok(note) => println!("Edited: {}", note.content),
-                Err(e) => fail(&format!("Error saving note: {e}")),
-            }
-            quick_sync(notes);
+        edit::Outcome::Changed(text) => save_edit(notes, &base, &text),
+    }
+}
+
+fn save_edit(notes: &mut NoteService, base: &qot_core::Note, text: &str) {
+    match notes.save_edit(base, text) {
+        Ok(note) => println!("Edited: {}", note.line()),
+        Err(e) => fail(&format!("Error saving note: {e}")),
+    }
+    quick_sync(notes);
+}
+
+/// `qot export --dir`: the notes as `notes.json` and their attachments as
+/// files beside it.
+fn export_to(notes: &mut NoteService, dir: &std::path::Path) {
+    let mut creds = signed_in(notes);
+    let api = creds
+        .as_ref()
+        .map(|c| Api::new(&c.server, Duration::from_secs(120)));
+    let report = notes
+        .export_to(dir, api.as_ref().zip(creds.as_mut()))
+        .unwrap_or_else(|e| fail(&format!("Export incomplete: {e}")));
+    println!(
+        "Exported {} and {} to {}",
+        count(report.notes, "note"),
+        count(report.attachments, "attachment"),
+        dir.display()
+    );
+    if !report.missing.is_empty() {
+        for id in &report.missing {
+            eprintln!("Attachment {id} isn't on the server (yet), so it wasn't exported.");
         }
+        fail("Export incomplete: sync the device that made them, then export again.");
+    }
+}
+
+fn count(n: usize, what: &str) -> String {
+    if n == 1 {
+        format!("1 {what}")
+    } else {
+        format!("{n} {what}s")
     }
 }
 

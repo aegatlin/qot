@@ -8,6 +8,10 @@ use serde_json::{Value, json};
 use std::time::Duration;
 use ureq::Agent;
 
+/// The most one attachment's download may be: above any limit the server
+/// sets (25 MB today), so a raised limit doesn't break an older CLI.
+const MAX_BLOB_BYTES: u64 = 1_000_000_000;
+
 pub struct Api {
     base: String,
     agent: Agent,
@@ -163,18 +167,50 @@ impl Api {
 
     /// Pushes changes; returns the server's new cursor.
     pub fn push(&self, token: &str, changes: &[Outgoing]) -> Result<u64, ApiError> {
-        let body = json!({
+        let mut body = json!({
             "changes": changes
                 .iter()
                 .map(|c| json!({ "note_id": c.note_id, "data": B64.encode(&c.data) }))
                 .collect::<Vec<_>>()
         });
+        // Blobs whose attachment these changes removed, for the server to
+        // delete in the same step.
+        let deleted: Vec<&String> = changes.iter().flat_map(|c| &c.deleted_blobs).collect();
+        if !deleted.is_empty() {
+            body["deleted_blobs"] = json!(deleted);
+        }
         match self.post("/api/sync/push", Some(token), body)? {
             (200, body) => body["cursor"]
                 .as_u64()
                 .ok_or_else(|| ApiError::Other("no cursor in reply".into())),
             (401, _) => Err(ApiError::Unauthorized),
             (_, body) => Err(ApiError::Other(error_text(&body))),
+        }
+    }
+
+    /// An attachment's bytes; `None` when the server doesn't have them (not
+    /// uploaded yet by the device that made it, or deleted).
+    pub fn get_blob(&self, token: &str, id: &str) -> Result<Option<Vec<u8>>, ApiError> {
+        let mut res = self
+            .agent
+            .get(format!("{}/api/blobs/{id}", self.base))
+            .header("authorization", format!("Bearer {token}"))
+            .call()
+            .map_err(net)?;
+        match res.status().as_u16() {
+            200 => res
+                .body_mut()
+                .with_config()
+                .limit(MAX_BLOB_BYTES)
+                .read_to_vec()
+                .map(Some)
+                .map_err(|e| ApiError::Other(format!("couldn't read the attachment: {e}"))),
+            404 => Ok(None),
+            401 => Err(ApiError::Unauthorized),
+            _ => {
+                let body = res.body_mut().read_json::<Value>().unwrap_or(Value::Null);
+                Err(ApiError::Other(error_text(&body)))
+            }
         }
     }
 

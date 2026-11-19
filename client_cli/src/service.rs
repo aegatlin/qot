@@ -18,6 +18,32 @@ pub const DATA_DIR_ENV: &str = "QOT_DATA_DIR";
 pub struct Note {
     pub id: String,
     pub content: String,
+    pub attachments: Vec<qot_core::Attachment>,
+}
+
+impl Note {
+    /// The note on one line of output: a marker for each attachment, which
+    /// a terminal can't show (`[audio 0:42]`), then the text.
+    pub fn line(&self) -> String {
+        let mut parts: Vec<String> = self
+            .attachments
+            .iter()
+            .map(|a| format!("[{}]", a.label()))
+            .collect();
+        if !self.content.is_empty() {
+            parts.push(self.content.clone());
+        }
+        parts.join(" ")
+    }
+}
+
+/// What `qot export --dir` wrote.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct ExportReport {
+    pub notes: usize,
+    pub attachments: usize,
+    /// Attachments the server doesn't have (yet), by id.
+    pub missing: Vec<String>,
 }
 
 pub struct NoteService {
@@ -112,20 +138,69 @@ impl NoteService {
     }
 
     /// Live notes, oldest first, as a JSON array of `{id, created_at,
-    /// content}`: everything a person wrote, readable without qot.
+    /// content}`: everything a person wrote, readable without qot. A note
+    /// with attachments also lists them (`attachments`: `id`, `kind`,
+    /// `media_type`, `size`, `duration_ms`).
     pub fn export(&mut self) -> Result<String, String> {
-        let notes: Vec<serde_json::Value> = self
-            .list()?
-            .iter()
-            .map(|n| {
-                serde_json::json!({
-                    "id": n.id,
-                    "created_at": created_at(&n.id),
-                    "content": n.content,
-                })
-            })
-            .collect();
-        serde_json::to_string_pretty(&notes).map_err(|e| e.to_string())
+        export_json(&self.list()?, &BTreeMap::new())
+    }
+
+    /// Writes the export to `dir`: `notes.json`, and each attachment's bytes
+    /// under `attachments/`, fetched from the server (the CLI keeps none of
+    /// its own), named in the JSON as `file`. The notes are written even
+    /// when some attachment can't be fetched; `signed_in` is needed only if
+    /// there are attachments.
+    pub fn export_to(
+        &mut self,
+        dir: &std::path::Path,
+        signed_in: Option<(&Api, &mut Credentials)>,
+    ) -> Result<ExportReport, String> {
+        let notes = self.list()?;
+        let io = |e: std::io::Error| format!("Can't write to {}: {e}", dir.display());
+        std::fs::create_dir_all(dir).map_err(io)?;
+        let wanted: Vec<&qot_core::Attachment> =
+            notes.iter().flat_map(|n| &n.attachments).collect();
+        let mut report = ExportReport {
+            notes: notes.len(),
+            ..Default::default()
+        };
+        let mut files: BTreeMap<String, String> = BTreeMap::new();
+        let mut failure = None;
+
+        match signed_in {
+            Some((api, creds)) if !wanted.is_empty() => {
+                std::fs::create_dir_all(dir.join("attachments")).map_err(io)?;
+                for a in &wanted {
+                    match authed(api, creds, &self.dir, |token| api.get_blob(token, &a.id)) {
+                        Ok(Some(bytes)) => {
+                            let file = format!("attachments/{}.{}", a.id, extension(&a.media_type));
+                            std::fs::write(dir.join(&file), bytes).map_err(io)?;
+                            files.insert(a.id.clone(), file);
+                            report.attachments += 1;
+                        }
+                        Ok(None) => report.missing.push(a.id.clone()),
+                        Err(e) => {
+                            failure = Some(format!("Couldn't fetch attachment {}: {e}", a.id));
+                            break;
+                        }
+                    }
+                }
+            }
+            None if !wanted.is_empty() => {
+                failure = Some(
+                    "Some notes have attachments, which are fetched from the server.                      Sign in first: qot login <email>"
+                        .to_string(),
+                );
+            }
+            _ => {}
+        }
+
+        let json = export_json(&notes, &files)?;
+        std::fs::write(dir.join("notes.json"), json + "\n").map_err(io)?;
+        match failure {
+            Some(message) => Err(message),
+            None => Ok(report),
+        }
     }
 
     /// Forgets what has been synced, so the next sign-in starts afresh.
@@ -183,11 +258,12 @@ impl NoteService {
             .collect())
     }
 
+    /// Deletes the note; returns it as it was listed.
     pub fn delete_by_index(&mut self, index: usize) -> Result<String, String> {
         let note = self.live_note(index)?;
         let deleted = note.delete().map_err(|e| e.to_string())?;
         self.save(&deleted)?;
-        Ok(note.content())
+        Ok(view(&note).line())
     }
 
     /// The live note at `index` as `qot list` numbers them (from 1).
@@ -306,6 +382,71 @@ fn view(note: &qot_core::Note) -> Note {
     Note {
         id: note.id(),
         content: note.content(),
+        attachments: note.attachments(),
+    }
+}
+
+/// The export's JSON. `files` maps an attachment id to the file its bytes
+/// were written to, relative to the JSON.
+fn export_json(notes: &[Note], files: &BTreeMap<String, String>) -> Result<String, String> {
+    let notes: Vec<serde_json::Value> = notes
+        .iter()
+        .map(|n| {
+            let mut note = serde_json::json!({
+                "id": n.id,
+                "created_at": created_at(&n.id),
+                "content": n.content,
+            });
+            if !n.attachments.is_empty() {
+                let attachments: Vec<serde_json::Value> = n
+                    .attachments
+                    .iter()
+                    .map(|a| {
+                        let mut entry = serde_json::json!({
+                            "id": a.id,
+                            "kind": a.kind,
+                            "media_type": a.media_type,
+                            "size": a.size,
+                        });
+                        if let Some(ms) = a.duration_ms {
+                            entry["duration_ms"] = ms.into();
+                        }
+                        if let Some(file) = files.get(&a.id) {
+                            entry["file"] = file.as_str().into();
+                        }
+                        entry
+                    })
+                    .collect();
+                note["attachments"] = attachments.into();
+            }
+            note
+        })
+        .collect();
+    serde_json::to_string_pretty(&notes).map_err(|e| e.to_string())
+}
+
+/// A file extension for an exported attachment, from its media type.
+fn extension(media_type: &str) -> String {
+    let known = match media_type {
+        "audio/mp4" | "audio/x-m4a" => "m4a",
+        "audio/mpeg" => "mp3",
+        "image/jpeg" => "jpg",
+        "video/quicktime" => "mov",
+        _ => "",
+    };
+    if !known.is_empty() {
+        return known.to_string();
+    }
+    // Otherwise the subtype, if it is plain enough to be a file extension.
+    match media_type.split_once('/') {
+        Some((_, sub))
+            if !sub.is_empty()
+                && sub.len() <= 8
+                && sub.chars().all(|c| c.is_ascii_alphanumeric()) =>
+        {
+            sub.to_ascii_lowercase()
+        }
+        _ => "bin".to_string(),
     }
 }
 
@@ -351,6 +492,17 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let service = NoteService::at(temp_dir.path().to_path_buf()).unwrap();
         assert!(service.live_note(1).unwrap_err().contains("out of range"));
+    }
+
+    #[test]
+    fn an_exported_attachment_gets_a_sensible_extension() {
+        assert_eq!(extension("audio/mp4"), "m4a");
+        assert_eq!(extension("image/jpeg"), "jpg");
+        assert_eq!(extension("image/png"), "png");
+        assert_eq!(extension("video/mp4"), "mp4");
+        assert_eq!(extension("model/x-holo"), "bin");
+        assert_eq!(extension("../../etc/passwd"), "bin");
+        assert_eq!(extension(""), "bin");
     }
 
     #[test]

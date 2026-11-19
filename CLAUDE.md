@@ -25,9 +25,9 @@ iPhone records a memo, and both the recording and its text reach every
 client that can show them (#78). Notes hold media as attachments, audio
 first; the design, and what it asks of end-to-end encryption, is
 `docs/records/2026-11-19-attachments-and-voice-memos.md`. Being built, in
-#78's order: the core knows attachments (#96) and the server stores blobs
-(#97); the clients don't yet, so in every client notes are still text
-only.
+#78's order: the core knows attachments (#96), the server stores blobs
+(#97) and the CLI lists and exports them (#98); nothing records yet, and
+the PWA (#99) and iOS (#100) still show text only.
 
 qot is an **Abstract Syntax LLC** product: every outside account (Apple,
 Railway, later Stripe and the rest) belongs to the company, never to a
@@ -256,7 +256,7 @@ the rules the CLI is tested with:
   elsewhere removes the file here. `mark_uploaded` after an upload or a
   download; `forget_blobs` after a discard. A recording in progress is kept
   out of `local` until its note is saved. No client or server uses these
-  yet (#98 to #100).
+  yet but the CLI (#99, #100).
 - **Shared test vectors** (`core/tests/vectors/sync.json`) pin these rules
   for every binding: `core/tests/sync_vectors.rs` (Rust, which also
   regenerates them), `SyncVectorTests` (Swift) and `core_wasm/tests/web.rs`
@@ -272,8 +272,13 @@ the rules the CLI is tested with:
   `--server http://localhost:4000`, or `QOT_SERVER` in `mise.local.toml`.
   `qot logout` revokes and forgets credentials and sync state; notes stay.
   `qot sync` syncs and reports errors. `qot export` prints live notes as
-  JSON (`id`, `created_at` from the UUIDv7, `content`): the data export,
-  since a synced device has everything the server has. `qot delete-account`
+  JSON (`id`, `created_at` from the UUIDv7, `content`, and `attachments`
+  when a note has any): the data export, since a synced device has
+  everything the server has. `qot export --dir <dir>` writes `notes.json`
+  and each attachment's bytes (`attachments/<id>.m4a`, named in the JSON as
+  `file`), fetched from the server, so it needs a sign-in when there are
+  attachments; one the server doesn't have is named and the command fails,
+  with the notes still written. `qot delete-account`
   asks for the email to be typed, then deletes the account on the server;
   notes stay on the device. `qot status` shows the account, the server
   (labelled production, staging, local or custom), live notes and how many
@@ -285,8 +290,14 @@ the rules the CLI is tested with:
   `code --wait` work. The edit is made against the version the editor was
   shown and merged into the note on disk, so a change synced in meanwhile is
   kept. Unchanged text saves nothing; emptied text is refused (deleting is
-  `qot delete`'s job); a failing editor leaves the note alone. Rules in
+  `qot delete`'s job) unless the note has an attachment, which is then
+  kept without text; a failing editor leaves the note alone. Rules in
   `edit.rs` (pure), tests in `tests/edit_test.rs`.
+- **Attachments**: the CLI can't record or play, and keeps no blob files.
+  A note's line (`qot list`, and what `edit` and `delete` print) starts
+  with a marker per attachment, `[audio 0:42]`, from the core's `label()`,
+  so kinds it doesn't know show too. Deleting a note that has a recording
+  sends `deleted_blobs` with the push (`tests/attachments_test.rs`).
 - Capture never waits on the network: `add` (and the bare form, `qot get
   milk`), `delete`, `list` and `export` run a best-effort sync with a 3 s timeout when signed in, and print
   `(not synced: …)` to stderr when offline. The note is saved first.
