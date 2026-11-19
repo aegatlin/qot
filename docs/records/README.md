@@ -51,3 +51,4 @@ was considered and turned down.
 | 2026-11-10 | [Analytics on the website, not the apps](2026-11-10-website-analytics.md) | decided |
 | 2026-11-19 | [Attachments in notes, and voice memos first](2026-11-19-attachments-and-voice-memos.md) | decided |
 | 2026-11-19 | [Agents may release when the owner has authorized it](2026-11-19-agents-may-release.md) | decided |
+| 2026-11-19 | [The app icon: two bubbles on ink](2026-11-19-app-icon-design.md) | decided |
