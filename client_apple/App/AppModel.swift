@@ -18,6 +18,9 @@ final class AppModel {
     private(set) var syncProblem: String?
     var error: String?
 
+    /// Voice memos: the list's record button, and what it shows meanwhile.
+    let recorder = MemoRecorder.shared
+
     private var syncAgain = false
     private var live: LiveNudges?
 
@@ -68,6 +71,20 @@ final class AppModel {
 
     func delete(id: String) {
         if perform({ try $0.delete(id: id) }) { syncInBackground() }
+    }
+
+    /// Takes a recording off a note; the text stays.
+    func removeAttachment(noteID: String, attachmentID: String) {
+        if perform({ try $0.removeAttachment(noteID: noteID, attachmentID: attachmentID) }) {
+            syncInBackground()
+        }
+    }
+
+    /// A recording's file: on this device, else fetched from the server and
+    /// kept. Throws `BlobError.notOnServerYet` while it hasn't been sent.
+    func recording(_ attachmentID: String) async throws -> URL {
+        guard let account else { throw SyncError.signedOut }
+        return try await account.syncer.blob(attachmentID)
     }
 
     func note(id: String) -> NoteItem? {

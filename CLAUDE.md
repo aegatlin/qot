@@ -27,9 +27,11 @@ first; the design, and what it asks of end-to-end encryption, is
 `docs/records/2026-11-19-attachments-and-voice-memos.md`. Being built, in
 #78's order: the core knows attachments (#96), the server stores blobs
 (#97), the CLI lists and exports them (#98) and the PWA shows and plays
-them (#99). Nothing records yet: on iOS (#100) the shared logic is done
-and tested, and recording, transcription, the Control Center control and
-playback in the app are what is left.
+them (#99), and the iPhone app records, transcribes and plays them (#100).
+The iPhone part is built and was checked in the simulator only (record in
+the app, save, play back): starting from Control Center with the app
+closed, on-device transcription and the upload after the phone is pocketed
+are **not verified on a phone yet**, and #100 stays open until they are.
 
 qot is an **Abstract Syntax LLC** product: every outside account (Apple,
 Railway, later Stripe and the rest) belongs to the company, never to a
@@ -261,8 +263,7 @@ the rules the CLI is tested with:
   discard those no live note refers to, which is how a delete made
   elsewhere removes the file here. `mark_uploaded` after an upload or a
   download; `forget_blobs` after a discard. A recording in progress is kept
-  out of `local` until its note is saved. No client or server uses these
-  but the CLI, the PWA and QotKit yet (the iOS app is #100). `plan_blobs` also discards a
+  out of `local` until its note is saved. `plan_blobs` also discards a
   blob the state remembers as uploaded once no live note has it, so
   `SyncState.uploaded` doesn't grow.
 - **Shared test vectors** (`core/tests/vectors/sync.json`) pin these rules
@@ -373,8 +374,7 @@ the rules the CLI is tested with:
   `QOT_E2E_SERVER=http://localhost:4000` and `QOT_E2E_SERVER_LOG=<server
   log>` are set: two devices sign in (approving through the emailed link in
   the log), sync, and one is nudged live.
-- **Voice memos, the logic** (QotKit, part of #100; nothing in the app
-  records or plays yet): `NoteStore.addMemo` moves a finished recording
+- **Voice memos, the logic** (QotKit): `NoteStore.addMemo` moves a finished recording
   into `blobs/<attachment id>` and saves its note in one locked step
   (transcript nil = `pending`, filled in later by `fillTranscript`;
   `pendingTranscripts` lists what waits). `removeAttachment` keeps the
@@ -387,7 +387,42 @@ the rules the CLI is tested with:
   text and no attachments: what the editor discards) and
   `NoteList.title(of: NoteItem)` ("Voice Memo 0:42" for a recording with
   no text). Swift Testing has its own `Attachment`, so tests write
-  `QotKit.Attachment`. Tests: `VoiceMemoTests`.
+  `QotKit.Attachment`. A recording in progress is written to the store's
+  `recordings/` (`newRecordingURL`), which no sync looks at;
+  `strandedRecordings` finds ones a killed app left. `Capture.finishMemo`
+  is what happens when a recording stops, in the order that loses least
+  if the app is suspended part-way: save the memo with its text `pending`,
+  sync (the note and the audio go up), transcribe through an injected
+  closure, write the text in, sync again. The closure returns nil when
+  this device can't transcribe (the memo is marked done with no text) and
+  throws to be asked again (`transcribePending`, at the next launch; only
+  for recordings whose file is here, so only on the device that made
+  them). Tests: `VoiceMemoTests`, `MemoFlowTests`.
+- **Voice memos, the app** (#100; simulator-checked, not yet verified on
+  a phone): `MemoRecorder` (one per process; `AVAudioRecorder`, AAC in an
+  .m4a, mono, 64 kbps, stops itself at 30 minutes, and stops and saves on
+  an interruption such as a call) starts a Live Activity
+  (`MemoAttributes`; iOS stops an intent-started recording without one),
+  and on stop hands the file to `Capture.finishMemo` under a UIKit
+  background task. `Transcriber` is `SpeechAnalyzer` + `SpeechTranscriber`
+  over the file, on the device. At launch `MemoRecorder.launch()` takes
+  the intents' calls, saves stranded recordings and retries transcripts.
+  `Shared/MemoRecording.swift` (app and widget extension): `ToggleMemoIntent`
+  (the "Voice Memo" Control Center toggle, `MemoControl`),
+  `StartMemoIntent` and `StopMemoIntent` (Siri phrases in `QotShortcuts`,
+  Shortcuts; stop is also the Live Activity's button). They are
+  `AudioRecordingIntent`s, which iOS runs in the app's process, launching
+  it in the background; they reach the recorder through
+  `MemoRecording.set`, which only the app sets. The control's state is a
+  flag in the App Group's `UserDefaults`. The microphone question can only
+  be asked with the app in front, so the first memo must be recorded in
+  the app. In the app: the list's microphone button (`RecordButton`), and
+  in the editor a player above the text (`AttachmentList`, `RecordingRow`:
+  fetched on first open through `Syncer.blob`, "Audio on its way" retried
+  every 10 s) and More → Remove Audio. `Info.plist`: the `audio`
+  background mode and `NSSupportsLiveActivities`. The upload is the
+  ordinary sync, not a background `URLSession` (#103). Export notes
+  doesn't include the audio files (#104).
 - **The store is in the App Group** (`AppGroup.store()`: `<group
   container>/qot/`), in the CLI's layout (`notes/<id>.note`, `sync.json`,
   `blobs/<id>`), so intents and widgets share it; notes from the app's old Application
@@ -410,7 +445,8 @@ the rules the CLI is tested with:
   read the App Group store; the app reloads widget timelines whenever its
   notes change. `qot://capture` opens the app ready to type. Dictation
   (`Dictation.swift`) transcribes on the device (`requiresOnDeviceRecognition`)
-  into the draft for the person to check; audio is never kept or sent.
+  into the draft for the person to check; audio is never kept or sent. A
+  voice memo (above) is the separate gesture that keeps its recording.
 - The app syncs on launch and foreground, after every capture and delete
   (in the background; capture never waits), on pull-to-refresh, on the
   channel nudge while open, and in a `BGAppRefreshTask`

@@ -10,7 +10,8 @@ enum Route: Hashable {
 
 /// The notes list, as in Apple Notes: notes grouped by when they were last
 /// edited, search, swipe to delete, and the compose button in the bottom
-/// toolbar. Capture surfaces open a new note ready to type.
+/// toolbar, with the voice memo button opposite it. Capture surfaces open a
+/// new note ready to type.
 struct NotesView: View {
     @Bindable var model: AppModel
     @State private var path: [Route] = []
@@ -35,6 +36,9 @@ struct NotesView: View {
                             showingAccount = true
                         }
                     }
+                    ToolbarItem(placement: .bottomBar) {
+                        RecordButton(recorder: model.recorder)
+                    }
                     ToolbarSpacer(.flexible, placement: .bottomBar)
                     ToolbarItem(placement: .bottomBar) {
                         ListStatus(model: model).fixedSize()
@@ -55,11 +59,11 @@ struct NotesView: View {
         }
         .alert(
             "Something went wrong",
-            isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })
+            isPresented: Binding(get: { problem != nil }, set: { if !$0 { dismissProblem() } })
         ) {
-            Button("OK") { model.error = nil }
+            Button("OK", action: dismissProblem)
         } message: {
-            Text(model.error ?? "")
+            Text(problem ?? "")
         }
     }
 
@@ -101,6 +105,13 @@ struct NotesView: View {
         }
     }
 
+    private var problem: String? { model.error ?? model.recorder.problem }
+
+    private func dismissProblem() {
+        model.error = nil
+        model.recorder.problem = nil
+    }
+
     private func compose() {
         showingAccount = false
         path = [.new(UUID())]
@@ -118,6 +129,9 @@ struct NoteRow: View {
                 .lineLimit(1)
             HStack(spacing: 6) {
                 Text(Self.edited(note.updatedAt))
+                if note.attachments.contains(where: { $0.kind == "audio" }) {
+                    Image(systemName: "waveform").accessibilityLabel("Has a recording")
+                }
                 let preview = NoteList.preview(of: note.content)
                 Text(preview.isEmpty ? "No additional text" : preview)
                     .foregroundStyle(.secondary)
@@ -148,8 +162,13 @@ struct ListStatus: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text(model.notes.count == 1 ? "1 Note" : "\(model.notes.count) Notes")
-                .font(.caption)
+            if let started = model.recorder.startedAt {
+                Text("Recording \(Text(started, style: .timer))")
+                    .font(.caption.monospacedDigit())
+            } else {
+                Text(model.notes.count == 1 ? "1 Note" : "\(model.notes.count) Notes")
+                    .font(.caption)
+            }
             if let detail {
                 Text(detail)
                     .font(.caption2)

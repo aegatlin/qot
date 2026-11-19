@@ -4,7 +4,9 @@ import SwiftUI
 /// One note, full screen, saving as you type, as in Apple Notes. A new note
 /// (`noteID` nil) is created with its first non-blank text; a note left empty
 /// is discarded (deleted) when you go back, as Notes does. A note that has
-/// an attachment (a recording) isn't empty without text, and is kept.
+/// an attachment (a recording) isn't empty without text, and is kept; its
+/// attachments show above the text (`AttachmentList`), and "Remove Audio"
+/// in the menu takes a recording off the note and keeps the text.
 struct NoteEditor: View {
     @Bindable var model: AppModel
     @State private var noteID: String?
@@ -16,6 +18,8 @@ struct NoteEditor: View {
     @State private var dictation = Dictation()
     /// The text as it was when dictation started; what's heard goes after it.
     @State private var beforeDictation = ""
+    /// The recording "Remove Audio" is asking about.
+    @State private var removing: QotKit.Attachment?
     @FocusState private var focused: Bool
     @Environment(\.dismiss) private var dismiss
 
@@ -30,15 +34,39 @@ struct NoteEditor: View {
     private var note: NoteItem? { noteID.flatMap(model.note(id:)) }
 
     var body: some View {
-        TextEditor(text: $text)
-            .focused($focused)
-            .scrollDismissesKeyboard(.interactively)
-            .contentMargins(.horizontal, 16, for: .scrollContent)
+        VStack(spacing: 0) {
+            if let attachments = note?.attachments, !attachments.isEmpty {
+                AttachmentList(attachments: attachments, model: model)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+            }
+            TextEditor(text: $text)
+                .focused($focused)
+                .scrollDismissesKeyboard(.interactively)
+                .contentMargins(.horizontal, 16, for: .scrollContent)
+        }
             .navigationBarTitleDisplayMode(.inline)
+            .confirmationDialog(
+                "Remove the audio from this note?", isPresented: removingShown, titleVisibility: .visible,
+                presenting: removing
+            ) { attachment in
+                Button("Remove Audio", role: .destructive) {
+                    if let noteID {
+                        model.removeAttachment(noteID: noteID, attachmentID: attachment.id)
+                    }
+                }
+            } message: { _ in
+                Text("The recording is deleted from all your devices. The note's text stays.")
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu("More", systemImage: "ellipsis") {
                         ShareLink(item: text)
+                        ForEach(note?.attachments.filter { $0.kind == "audio" } ?? [], id: \.id) { audio in
+                            Button("Remove Audio", systemImage: "waveform.slash", role: .destructive) {
+                                removing = audio
+                            }
+                        }
                         Button("Delete", systemImage: "trash", role: .destructive, action: delete)
                             .disabled(noteID == nil)
                     }
@@ -86,6 +114,10 @@ struct NoteEditor: View {
                 saved = synced
             }
             .onDisappear(perform: leave)
+    }
+
+    private var removingShown: Binding<Bool> {
+        Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })
     }
 
     private func scheduleSave() {

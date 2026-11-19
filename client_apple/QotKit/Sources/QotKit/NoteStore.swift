@@ -180,6 +180,35 @@ public final class NoteStore: Sendable {
         }
     }
 
+    // MARK: - Recordings in progress
+
+    private var recordingsDir: URL {
+        directory.appendingPathComponent("recordings", isDirectory: true)
+    }
+
+    /// Where a recorder writes a new recording: in the store's
+    /// `recordings/`, not `blobs/`, so no sync sees or sweeps it until
+    /// `addMemo` moves it in beside its note.
+    public func newRecordingURL() throws -> URL {
+        try FileManager.default.createDirectory(at: recordingsDir, withIntermediateDirectories: true)
+        return recordingsDir.appendingPathComponent("\(UUID().uuidString).m4a")
+    }
+
+    /// Recordings never handed to `addMemo`: the app was killed while one
+    /// was being made. Oldest first.
+    public func strandedRecordings() throws -> [URL] {
+        guard FileManager.default.fileExists(atPath: recordingsDir.path) else { return [] }
+        return try FileManager.default.contentsOfDirectory(
+            at: recordingsDir, includingPropertiesForKeys: [.creationDateKey]
+        )
+        .filter { !$0.lastPathComponent.hasPrefix(".") }
+        .sorted {
+            let a = (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+            let b = (try? $1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+            return (a, $0.path) < (b, $1.path)
+        }
+    }
+
     // MARK: - Blobs
 
     /// An attachment's bytes on this device, if they are here.

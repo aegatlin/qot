@@ -53,6 +53,76 @@ public struct Capture: Sendable {
         return Result(note: note, synced: await sync(within: limit))
     }
 
+    /// Turns a recording into text. Nil: this device can't (no speech model
+    /// for the language), so don't ask again. Throwing: try again later.
+    public typealias Transcribe = @Sendable (URL) async throws -> String?
+
+    public struct MemoResult: Sendable {
+        public let note: NoteItem
+        public let synced: Synced
+        /// False while the transcript still waits (`transcribePending`).
+        public let transcribed: Bool
+    }
+
+    /// What happens when a recording stops, in the order that loses least
+    /// if the app is suspended part-way: save the memo without text, send
+    /// the note and the audio, then transcribe, write the text in and sync
+    /// again. Only a failure to save throws.
+    public func finishMemo(
+        recording: URL, mediaType: String, durationMs: UInt64, transcribe: Transcribe,
+        syncFor limit: Duration = .seconds(25)
+    ) async throws -> MemoResult {
+        let saved = try store.addMemo(
+            recording: recording, mediaType: mediaType, durationMs: durationMs, transcript: nil)
+        NotesChanged.post()
+        var synced = await sync(within: limit)
+        guard let audio = saved.attachments.first, let file = store.localBlob(audio.id),
+            let note = await fill(noteID: saved.id, attachmentID: audio.id, file: file, transcribe)
+        else { return MemoResult(note: saved, synced: synced, transcribed: false) }
+        synced = await sync(within: limit)
+        return MemoResult(note: note, synced: synced, transcribed: true)
+    }
+
+    /// Transcribes the recordings made on this device that still wait for
+    /// their text (a transcription that failed, or was cut off), then
+    /// syncs. Returns how many were filled in.
+    @discardableResult
+    public func transcribePending(_ transcribe: Transcribe, syncFor limit: Duration = .seconds(25))
+        async -> Int
+    {
+        var filled = 0
+        for waiting in (try? store.pendingTranscripts()) ?? [] {
+            // No file: recorded on another device, which will transcribe it.
+            guard let file = waiting.file else { continue }
+            let note = await fill(
+                noteID: waiting.note.id, attachmentID: waiting.attachment.id, file: file, transcribe)
+            if note != nil { filled += 1 }
+        }
+        if filled > 0 {
+            NotesChanged.post()
+            _ = await sync(within: limit)
+        }
+        return filled
+    }
+
+    /// Nil if the transcript still waits.
+    private func fill(noteID: String, attachmentID: String, file: URL, _ transcribe: Transcribe) async
+        -> NoteItem?
+    {
+        let heard: String?
+        do {
+            heard = try await transcribe(file)
+        } catch {
+            return nil
+        }
+        // Nothing heard, or this device can't transcribe: marked done with
+        // no text, so it isn't asked again.
+        let note = try? store.fillTranscript(
+            noteID: noteID, attachmentID: attachmentID, text: heard ?? "")
+        NotesChanged.post()
+        return note
+    }
+
     /// Syncs, giving up after `limit`.
     public func sync(within limit: Duration) async -> Synced {
         await withTaskGroup(of: Synced.self) { group in

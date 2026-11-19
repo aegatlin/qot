@@ -7,6 +7,8 @@ import WidgetKit
 struct QotWidgets: WidgetBundle {
     var body: some Widget {
         CaptureControl()
+        MemoControl()
+        MemoLiveActivity()
         CaptureWidget()
         LatestNotesWidget()
     }
@@ -23,6 +25,76 @@ struct CaptureControl: ControlWidget {
         }
         .displayName("New Note")
         .description("Opens qot ready to type a note.")
+    }
+}
+
+/// Control Center, the Lock Screen's control slots and the Action button:
+/// on records a voice memo without opening qot; off stops and saves it.
+struct MemoControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: MemoRecording.controlKind, provider: Provider()) { recording in
+            ControlWidgetToggle("Voice Memo", isOn: recording, action: ToggleMemoIntent()) { on in
+                Label(on ? "Recording" : "Record", systemImage: on ? "stop.circle.fill" : "mic")
+            }
+            .tint(.red)
+        }
+        .displayName("Voice Memo")
+        .description("Records a voice memo in qot. The recording and its text are saved as a note.")
+    }
+
+    struct Provider: ControlValueProvider {
+        let previewValue = false
+        func currentValue() async throws -> Bool { MemoRecording.isRecording }
+    }
+}
+
+/// While a memo records: the time so far and a stop button, on the Lock
+/// Screen and in the Dynamic Island.
+struct MemoLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: MemoAttributes.self) { context in
+            HStack(spacing: 12) {
+                Image(systemName: "mic.fill").foregroundStyle(.red)
+                VStack(alignment: .leading) {
+                    Text("Recording").font(.headline)
+                    Text(context.state.startedAt, style: .timer)
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                StopButton()
+            }
+            .padding()
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    Label("Recording", systemImage: "mic.fill").foregroundStyle(.red)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    Text(context.state.startedAt, style: .timer)
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                }
+                DynamicIslandExpandedRegion(.bottom) { StopButton() }
+            } compactLeading: {
+                Image(systemName: "mic.fill").foregroundStyle(.red)
+            } compactTrailing: {
+                Text(context.state.startedAt, style: .timer)
+                    .monospacedDigit()
+                    .frame(maxWidth: 48)
+            } minimal: {
+                Image(systemName: "mic.fill").foregroundStyle(.red)
+            }
+        }
+    }
+
+    struct StopButton: View {
+        var body: some View {
+            Button(intent: StopMemoIntent()) {
+                Label("Stop", systemImage: "stop.fill")
+            }
+            .tint(.red)
+        }
     }
 }
 

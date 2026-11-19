@@ -12,7 +12,22 @@ const phrases = [
   "Tell qot something",
 ];
 
+const memoPhrases = ["Record a memo in qot", "Start a voice memo in qot", "Stop recording in qot"];
+
 const ways = [
+  {
+    id: "voice-memo",
+    title: "Voice Memo",
+    badge: "Talk, don't type",
+    lede: "One tap records. Put the phone back in your pocket and talk; qot keeps the recording and writes out what you said.",
+    setup: [
+      "Open Control Center, tap + at the top left, then Add a Control. Search for qot and choose Voice Memo. Tap it to record without opening qot, and again to stop. It can also go on the Lock Screen or the Action button (Settings → Action Button → Controls).",
+      "While it records, the Lock Screen and the Dynamic Island show the time and a Stop button. In the app, the microphone at the bottom left of the list does the same. Or ask Siri:",
+    ],
+    phrases: memoPhrases,
+    after:
+      "The recording is kept with the note and synced, so you can play it on your other devices; the words are written out on the iPhone itself. Record once in the app first, so iOS can ask for the microphone. A memo stops by itself after 30 minutes.",
+  },
   {
     id: "siri",
     title: "Siri",
@@ -21,7 +36,7 @@ const ways = [
     setup: [
       "Nothing to set up. Say one of these, and Siri asks “What's the note?”:",
     ],
-    phrases: true,
+    phrases,
     after:
       "“Quantum of Thought” works in place of “qot” if Siri mishears it. “Open qot to write” opens a new note instead.",
   },
@@ -89,7 +104,7 @@ const ways = [
 
 <Base
   title="qot on iPhone"
-  description="Every way to capture a note with qot on iPhone and Apple Watch: Siri, the Action button, Control Center, Lock Screen and Home Screen widgets, Back Tap, Shortcuts and dictation."
+  description="Every way to capture a note with qot on iPhone and Apple Watch: Siri, the Action button, Control Center, Lock Screen and Home Screen widgets, Back Tap, Shortcuts, dictation and voice memos."
 >
   <div class="pt-6">
     <h1 class="text-3xl font-bold tracking-tight">qot on iPhone</h1>
@@ -142,7 +157,7 @@ const ways = [
               ))}
               {way.phrases && (
                 <ul class="list-disc space-y-1 pl-5">
-                  {phrases.map((p) => (
+                  {way.phrases.map((p) => (
                     <li>“{p}”</li>
                   ))}
                 </ul>
@@ -171,7 +186,9 @@ const ways = [
           </p>
           <p>
             Tap the microphone below a note to dictate. Speech is transcribed on the iPhone itself: the audio never
-            leaves it and isn't kept, only the words you choose to save.
+            leaves it and isn't kept, only the words you choose to save. (A Voice Memo, above, is the one that keeps
+            its recording.) A note with a recording plays it at the top; More → Remove Audio deletes the recording
+            and keeps the text.
           </p>
         </CardContent>
       </Card>

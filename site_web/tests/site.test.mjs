@@ -108,6 +108,9 @@ test("the iPhone page names every way to capture", () => {
     /Back Tap/,
     /Apple Watch/,
     /dictat/i,
+    /Voice Memo/,
+    /Record a memo in qot/,
+    /Stop recording in qot/,
     /Sign in with Apple/,
     /iOS 26/,
   ]) {
@@ -142,6 +145,18 @@ test("the policies cover the iPhone app, which has shipped to testers", () => {
   assert.match(text("privacy.html"), /iPhone and Apple Watch apps/);
   assert.match(text("privacy.html"), /audio is never kept or sent/);
   assert.match(text("terms.html"), /iPhone app/);
+});
+
+// A voice memo keeps its recording and syncs it; dictation still keeps none.
+test("the policies and support say what happens to a voice memo's recording", () => {
+  const text = (page) => pages[page].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  const privacy = text("privacy.html");
+  assert.match(privacy, /voice memo/i);
+  assert.match(privacy, /Voice memo recordings/);
+  assert.match(privacy, /the server could play them/);
+  assert.match(privacy, /qot export --dir/);
+  assert.match(text("iphone.html"), /kept with the note and synced/);
+  assert.match(text("support.html"), /qot export --dir/);
 });
 
 test("the privacy policy says what the server stores", () => {

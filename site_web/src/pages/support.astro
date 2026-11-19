@@ -10,6 +10,11 @@ const faq = [
     a: "No. Every note is saved on the device first. The terminal prints (not synced: …) when it couldn't reach the server, and the note goes up with the next command or the next qot sync. The web app syncs when the connection comes back.",
   },
   {
+    id: "voice-memo",
+    q: "What happens to a voice memo's recording?",
+    a: "It is kept with the note and synced, so your other devices can play it; the words are written out on the iPhone itself. Removing the audio from the note, or deleting the note, deletes the recording everywhere. Dictating into a note is different: that audio is never kept.",
+  },
+  {
     id: "sign-in-email",
     q: "The sign-in email didn't arrive.",
     a: "Check spam for a message from mail.quantumofthought.com. The link is good for 15 minutes; after that, start again. To keep the inbox safe, one address can start only a few sign-ins an hour.",
@@ -74,7 +79,12 @@ const faq = [
         </p>
         <Command command="qot export > notes.json" />
         <p class="text-muted-foreground">
-          That is every note as JSON, with its id, when it was created, and its text.
+          That is every note as JSON, with its id, when it was created, and its text. Voice memos' recordings
+          are files, so they need a folder:
+        </p>
+        <Command command="qot export --dir qot-export" />
+        <p class="text-muted-foreground">
+          That writes notes.json and each recording as an audio file beside it.
         </p>
       </CardContent>
     </Card>
@@ -92,7 +102,7 @@ const faq = [
         <Command command="qot delete-account" />
         <p class="text-muted-foreground">
           That deletes your account and everything the server holds for it: your email address, your synced
-          notes and your sign-ins. Notes already on your devices stay there until you delete them or the app.
+          notes, your voice memos' recordings and your sign-ins. Notes already on your devices stay there until you delete them or the app.
           Export first if you want a copy.
         </p>
       </CardContent>

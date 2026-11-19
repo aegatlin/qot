@@ -9,6 +9,9 @@ struct QotApp: App {
 
     init() {
         WatchReceiver.shared.activate()
+        // Also when iOS starts the app in the background for a recording
+        // intent, which finds the recorder through this.
+        MemoRecorder.shared.launch()
     }
 
     var body: some Scene {

@@ -175,7 +175,13 @@ A voice memo keeps the recording and syncs it; choosing that control is the
 person's choice to keep audio, and the privacy policy, the website's iPhone
 page and support say so when it ships.
 
-Not verified, and the first thing to prototype on a real phone: that a
+Built the same day (#100) and checked in the simulator only: recording in
+the app, saving and playing back. The upload is the ordinary sync under a
+background task rather than a background `URLSession`; #103 decides whether
+that is enough. The microphone permission can only be asked with the app in
+front, so the first memo has to be recorded in the app.
+
+Still not verified, and the first thing to test on a real phone: that a
 Control Center control can start recording without opening the app
 (`AudioRecordingIntent`, which the docs show needs a Live Activity while it
 records), and that a background `URLSession` upload finishes after the app is

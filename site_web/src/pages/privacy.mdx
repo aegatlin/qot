@@ -2,7 +2,7 @@
 layout: ../layouts/Prose.astro
 title: Privacy policy
 description: What qot stores, where, and who else handles it. The server keeps your email address and your synced notes; until end-to-end encryption ships, it could read them.
-updated: November 17, 2026
+updated: November 19, 2026
 ---
 
 qot (Quantum of Thought) is made by Abstract Syntax LLC. This policy covers the qot apps (the
@@ -14,8 +14,8 @@ the sync server behind them, and this website. The
 
 - Your notes are saved on your devices. If you sign in, they are also kept on our server so
   they can reach your other devices.
-- **Notes are not end-to-end encrypted yet.** They are encrypted on the way to the server, but the
-  server could read them. We don't read them, and nothing we
+- **Notes are not end-to-end encrypted yet**, and neither are voice memo recordings. They are
+  encrypted on the way to the server, but the server could read them. We don't read them, and nothing we
   run does. End-to-end encryption, after which the server can't read them at all, is planned.
 - We keep your email address to sign you in. No advertising, no tracking, no selling of anything.
 - You can export everything and delete your account at any time ([Support](/support)).
@@ -34,6 +34,12 @@ When you dictate a note in the iPhone app, the speech is turned into text on the
 audio is never kept or sent anywhere. Siri and the Apple Watch's dictation are Apple's, under
 Apple's privacy policy; qot receives only the text.
 
+A **voice memo** is different, and is your choice each time you record one (the record button
+in the iPhone app, the Voice Memo control, or asking Siri to record a memo in qot). The
+recording is kept with the note, and its speech is turned into text on the phone, so no one
+else hears it for that. If you are signed in, the recording syncs with the note, so your
+other devices can play it.
+
 ## What the server stores
 
 Only if you sign in:
@@ -44,6 +50,10 @@ Only if you sign in:
 - **Your notes**, as the list of changes your devices sync (each note's text, when it was
   created, and whether it was deleted). Deleting a note keeps a marker that it was deleted, so
   that another device doesn't bring it back.
+- **Voice memo recordings**: the audio file of each voice memo you record while signed in, so
+  that your other devices can play it. Like notes, recordings are not end-to-end encrypted yet:
+  the server could play them, and we don't, and nothing we run does. Deleting the note, or
+  removing the audio from it, deletes the recording from the server.
 - **Sign-ins**: for each device, a token that keeps it signed in (stored as a one-way hash),
   and for each sign-in started, the email it was for and whether it was approved. These expire
   after 30 days and 15 minutes.
@@ -93,10 +103,11 @@ can read another's notes.
 
 - **Export**: `qot export` in the terminal, or Export notes in the iPhone app's account sheet,
   writes every note as JSON. A signed-in device has everything the
-  server has, so the export comes from the device.
+  server has, so the export comes from the device. `qot export --dir <folder>` also writes
+  each voice memo's recording as a file.
 - **Delete**: Delete account in the web app's Settings or the iPhone app's account sheet, or
   `qot delete-account` in the terminal, deletes your account, your email address, your synced
-  notes and your sign-ins from the server, immediately. Notes stay on your devices until you delete
+  notes, your recordings and your sign-ins from the server, immediately. Notes stay on your devices until you delete
   them.
 - **Correct or ask**: email us to ask what we hold about you, or anything else in this policy.
 

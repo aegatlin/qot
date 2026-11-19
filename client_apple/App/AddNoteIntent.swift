@@ -54,6 +54,23 @@ struct QotShortcuts: AppShortcutsProvider {
             shortTitle: "Add Note",
             systemImageName: "square.and.pencil")
         AppShortcut(
+            intent: StartMemoIntent(),
+            phrases: [
+                "Record a memo in \(.applicationName)",
+                "Record in \(.applicationName)",
+                "Start a voice memo in \(.applicationName)",
+            ],
+            shortTitle: "Record Voice Memo",
+            systemImageName: "mic")
+        AppShortcut(
+            intent: StopMemoIntent(),
+            phrases: [
+                "Stop recording in \(.applicationName)",
+                "Stop the memo in \(.applicationName)",
+            ],
+            shortTitle: "Stop Voice Memo",
+            systemImageName: "stop.circle")
+        AppShortcut(
             intent: OpenCaptureIntent(),
             phrases: ["Open \(.applicationName) to write"],
             shortTitle: "New Note",
