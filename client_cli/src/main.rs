@@ -1,6 +1,7 @@
 mod api;
 mod credentials;
 mod edit;
+mod play;
 mod service;
 mod storage;
 
@@ -25,6 +26,7 @@ const QUICK_SYNC: Duration = Duration::from_secs(3);
     qot add buy eggs      # Create a new note (explicit)\n  \
     qot list              # Show all notes\n  \
     qot edit 2            # Edit note #2 in $VISUAL / $EDITOR\n  \
+    qot play 2            # Play note #2's recording\n  \
     qot delete 2          # Delete note #2\n  \
     qot login me@x.com    # Sign in to sync between devices\n  \
     qot sync              # Sync now\n  \
@@ -56,6 +58,12 @@ enum Commands {
     /// Edit a note in $VISUAL or $EDITOR (default vi)
     #[command(visible_alias = "e")]
     Edit {
+        /// The index number shown in 'qot list' (e.g., 1, 2, 3)
+        index: usize,
+    },
+    /// Play a note's recording (with $QOT_PLAYER, else afplay, ffplay or mpv)
+    #[command(visible_alias = "p")]
+    Play {
         /// The index number shown in 'qot list' (e.g., 1, 2, 3)
         index: usize,
     },
@@ -103,6 +111,7 @@ fn main() {
             list_notes(&mut notes);
         }
         Some(Commands::Edit { index }) => edit_note(&mut notes, index),
+        Some(Commands::Play { index }) => play_note(&mut notes, index),
         Some(Commands::Delete { index }) => {
             delete_note(&mut notes, index);
             quick_sync(&mut notes);
@@ -186,6 +195,36 @@ fn save_edit(notes: &mut NoteService, base: &qot_core::Note, text: &str) {
         Err(e) => fail(&format!("Error saving note: {e}")),
     }
     quick_sync(notes);
+}
+
+/// `qot play`: fetches the note's recordings from the server (the CLI keeps
+/// none) and plays them one after another, waiting until they finish.
+fn play_note(notes: &mut NoteService, index: usize) {
+    let (note, recordings) = notes
+        .recordings(index)
+        .unwrap_or_else(|e| fail(&format!("Error playing note: {e}")));
+    if recordings.is_empty() {
+        fail(&format!("Note {index} has no recording to play."));
+    }
+    let command = play::player_command(std::env::var(play::PLAYER_ENV).ok(), play::installed)
+        .unwrap_or_else(|| fail(&play::no_player()));
+    let mut creds = signed_in(notes).unwrap_or_else(|| {
+        fail("Recordings are fetched from the server. Sign in first: qot login <email>")
+    });
+    let api = Api::new(&creds.server, Duration::from_secs(120));
+    println!("Playing: {}", note.line());
+    for recording in &recordings {
+        let bytes = notes
+            .recording_bytes(recording, &api, &mut creds)
+            .unwrap_or_else(|e| fail(&e));
+        let file = std::env::temp_dir().join(format!(
+            "qot-{}-{}.{}",
+            recording.id,
+            std::process::id(),
+            service::extension(&recording.media_type)
+        ));
+        play::play_file(&command, &file, &bytes).unwrap_or_else(|e| fail(&e));
+    }
 }
 
 /// `qot export --dir`: the notes as `notes.json` and their attachments as

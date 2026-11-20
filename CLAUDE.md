@@ -26,7 +26,7 @@ client that can show them (#78). Notes hold media as attachments, audio
 first; the design, and what it asks of end-to-end encryption, is
 `docs/records/2026-11-19-attachments-and-voice-memos.md`. Being built, in
 #78's order: the core knows attachments (#96), the server stores blobs
-(#97), the CLI lists and exports them (#98) and the PWA shows and plays
+(#97), the CLI lists, exports and plays them (#98) and the PWA shows and plays
 them (#99), and the iPhone app records, transcribes and plays them (#100).
 The iPhone part is built and was checked in the simulator only (record in
 the app, save, play back): starting from Control Center with the app
@@ -302,7 +302,15 @@ the rules the CLI is tested with:
   `qot delete`'s job) unless the note has an attachment, which is then
   kept without text; a failing editor leaves the note alone. Rules in
   `edit.rs` (pure), tests in `tests/edit_test.rs`.
-- **Attachments**: the CLI can't record or play, and keeps no blob files.
+- **Attachments**: the CLI can't record, and keeps no blob files. `qot
+  play <n>` (alias `p`) fetches note `n`'s recordings from the server (so
+  it needs a sign-in; one not uploaded yet says so), writes each to a
+  temporary file and runs the machine's player on it, waiting until it
+  ends: `$QOT_PLAYER` (a command line, run through `sh` like the editor),
+  else the first installed of `afplay` (macOS), `ffplay` and `mpv`. No
+  audio library is linked: it would need the system's sound libraries,
+  which the musl builds don't have. Rules in `play.rs` (pure). No
+  transcription in the CLI.
   A note's line (`qot list`, and what `edit` and `delete` print) starts
   with a marker per attachment, `[audio 0:42]`, from the core's `label()`,
   so kinds it doesn't know show too. Deleting a note that has a recording

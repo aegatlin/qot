@@ -279,6 +279,37 @@ impl NoteService {
         Ok(live.swap_remove(index - 1))
     }
 
+    /// The live note at `index` and its recordings (audio attachments), in
+    /// the note's order.
+    pub fn recordings(&self, index: usize) -> Result<(Note, Vec<qot_core::Attachment>), String> {
+        let note = view(&self.live_note(index)?);
+        let recordings = note
+            .attachments
+            .iter()
+            .filter(|a| a.kind == qot_core::AUDIO)
+            .cloned()
+            .collect();
+        Ok((note, recordings))
+    }
+
+    /// A recording's bytes, from the server: the CLI keeps none.
+    pub fn recording_bytes(
+        &self,
+        recording: &qot_core::Attachment,
+        api: &Api,
+        creds: &mut Credentials,
+    ) -> Result<Vec<u8>, String> {
+        authed(api, creds, &self.dir, |token| {
+            api.get_blob(token, &recording.id)
+        })
+        .map_err(|e| format!("Couldn't fetch the recording: {e}"))?
+        .ok_or_else(|| {
+            "The recording isn't on the server (yet). Sync the device that made it, \
+                 then play it again."
+                .to_string()
+        })
+    }
+
     /// Saves `text` as an edit of `base` (the note as it was shown in the
     /// editor), merged into the note as it is on disk now, so a change that
     /// synced in while the editor was open is kept.
@@ -426,7 +457,7 @@ fn export_json(notes: &[Note], files: &BTreeMap<String, String>) -> Result<Strin
 }
 
 /// A file extension for an exported attachment, from its media type.
-fn extension(media_type: &str) -> String {
+pub fn extension(media_type: &str) -> String {
     let known = match media_type {
         "audio/mp4" | "audio/x-m4a" => "m4a",
         "audio/mpeg" => "mp3",

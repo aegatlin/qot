@@ -1,5 +1,5 @@
-//! Notes with attachments in the CLI, which can't record or play them: it
-//! lists a marker, exports the files, and tells the server when a recording
+//! Notes with attachments in the CLI, which can't record them: it lists a
+//! marker, plays and exports the recordings, and tells the server when a recording
 //! is gone. The notes are made the way an iPhone would make them (through
 //! `qot_core`) and put straight into the store.
 
@@ -342,4 +342,122 @@ fn status_counts_a_recording_with_no_text_as_a_note() {
         .assert()
         .success()
         .stdout(predicate::str::contains("1"));
+}
+
+/// A stand-in for an audio player: copies the file it is asked to play.
+fn player(qot: &Qot) -> (String, PathBuf) {
+    let heard = qot.dir.path().join("heard");
+    let script = qot.editor(&format!(
+        "cp \"$1\" {heard}\necho \"$1\" > {heard}.name",
+        heard = heard.display()
+    ));
+    (script.display().to_string(), heard)
+}
+
+#[test]
+fn play_fetches_a_recording_and_hands_it_to_the_player() {
+    let server = MockServer::start();
+    empty_pull(&server);
+    let qot = Qot::new();
+    let (note, audio) = memo("call the plumber");
+    qot.save(&note);
+    qot.mark_synced(&[&note]);
+    qot.sign_in(&server);
+    let blob = server.mock(|when, then| {
+        when.method(GET)
+            .path(format!("/api/blobs/{}", audio.id))
+            .header("authorization", "Bearer good");
+        then.status(200).body(b"\x00\x01recording\xff");
+    });
+    let (command, heard) = player(&qot);
+
+    qot.cmd()
+        .env("QOT_PLAYER", &command)
+        .args(["play", "1"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[audio 0:42] call the plumber"));
+
+    blob.assert();
+    assert_eq!(std::fs::read(&heard).unwrap(), b"\x00\x01recording\xff");
+    // The player gets a file it can recognise, and the CLI keeps no copy.
+    let name = std::fs::read_to_string(heard.with_extension("name")).unwrap();
+    assert!(name.trim().ends_with(".m4a"), "{name}");
+    assert!(!std::path::Path::new(name.trim()).exists());
+    assert!(!qot.data().join("blobs").exists());
+}
+
+#[test]
+fn play_refuses_a_note_without_a_recording() {
+    let qot = Qot::new();
+    qot.save(&Note::new("just text"));
+    let (command, heard) = player(&qot);
+
+    qot.cmd()
+        .env("QOT_PLAYER", &command)
+        .args(["play", "1"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("no recording"));
+    assert!(!heard.exists());
+}
+
+#[test]
+fn play_says_when_the_recording_is_not_on_the_server_yet() {
+    let server = MockServer::start();
+    empty_pull(&server);
+    let qot = Qot::new();
+    let (note, audio) = memo("call the plumber");
+    qot.save(&note);
+    qot.mark_synced(&[&note]);
+    qot.sign_in(&server);
+    server.mock(|when, then| {
+        when.method(GET).path(format!("/api/blobs/{}", audio.id));
+        then.status(404).json_body(json!({ "error": "Not found" }));
+    });
+    let (command, heard) = player(&qot);
+
+    qot.cmd()
+        .env("QOT_PLAYER", &command)
+        .args(["play", "1"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("isn't on the server"));
+    assert!(!heard.exists());
+}
+
+#[test]
+fn play_needs_a_sign_in() {
+    let qot = Qot::new();
+    let (note, _) = memo("call the plumber");
+    qot.save(&note);
+
+    qot.cmd()
+        .env("QOT_PLAYER", "true")
+        .args(["play", "1"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("qot login"));
+}
+
+#[test]
+fn play_reports_a_player_that_fails() {
+    let server = MockServer::start();
+    empty_pull(&server);
+    let qot = Qot::new();
+    let (note, audio) = memo("call the plumber");
+    qot.save(&note);
+    qot.mark_synced(&[&note]);
+    qot.sign_in(&server);
+    server.mock(|when, then| {
+        when.method(GET).path(format!("/api/blobs/{}", audio.id));
+        then.status(200).body(b"recording");
+    });
+
+    qot.cmd()
+        .env("QOT_PLAYER", "false")
+        .args(["play", "1"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("QOT_PLAYER"));
 }
