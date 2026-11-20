@@ -2,6 +2,7 @@ mod api;
 mod credentials;
 mod edit;
 mod play;
+mod record;
 mod service;
 mod storage;
 mod web;
@@ -18,6 +19,8 @@ const SERVER_ENV: &str = "QOT_SERVER";
 const DEFAULT_SERVER: &str = "https://api.quantumofthought.com";
 /// How long a background sync after a command may take before giving up.
 const QUICK_SYNC: Duration = Duration::from_secs(3);
+/// How long a request may take when a recording may be going up with it.
+const UPLOAD_SYNC: Duration = Duration::from_secs(120);
 
 #[derive(Parser)]
 #[command(name = "qot")]
@@ -27,6 +30,7 @@ const QUICK_SYNC: Duration = Duration::from_secs(3);
     qot add buy eggs      # Create a new note (explicit)\n  \
     qot list              # Show all notes\n  \
     qot edit 2            # Edit note #2 in $VISUAL / $EDITOR\n  \
+    qot record            # Record a voice memo (Enter stops)\n  \
     qot play 2            # Play note #2's recording\n  \
     qot web               # Open your notes in the web app\n  \
     qot delete 2          # Delete note #2\n  \
@@ -62,6 +66,13 @@ enum Commands {
     Edit {
         /// The index number shown in 'qot list' (e.g., 1, 2, 3)
         index: usize,
+    },
+    /// Record a voice memo as a new note (with $QOT_RECORDER, else ffmpeg)
+    #[command(visible_alias = "r")]
+    Record {
+        /// Text for the note, if any (e.g., qot record call the plumber)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        content: Vec<String>,
     },
     /// Play a note's recording (with $QOT_PLAYER, else afplay, ffplay or mpv)
     #[command(visible_alias = "p")]
@@ -116,6 +127,7 @@ fn main() {
             list_notes(&mut notes);
         }
         Some(Commands::Edit { index }) => edit_note(&mut notes, index),
+        Some(Commands::Record { content }) => record_memo(&mut notes, &content),
         Some(Commands::Play { index }) => play_note(&mut notes, index),
         Some(Commands::Delete { index }) => {
             delete_note(&mut notes, index);
@@ -203,8 +215,36 @@ fn save_edit(notes: &mut NoteService, base: &qot_core::Note, text: &str) {
     quick_sync(notes);
 }
 
-/// `qot play`: fetches the note's recordings from the server (the CLI keeps
-/// none) and plays them one after another, waiting until they finish.
+/// `qot record`: the machine's recorder writes a file until Enter or
+/// Ctrl-C, which becomes a new note with that recording; then a sync that
+/// may take as long as the upload does.
+fn record_memo(notes: &mut NoteService, words: &[String]) {
+    let os = std::env::consts::OS;
+    let command = record::recorder_command(
+        std::env::var(record::RECORDER_ENV).ok(),
+        os,
+        play::installed,
+    )
+    .unwrap_or_else(|| fail(&record::no_recorder(os)));
+    let id = qot_core::Attachment::new_id();
+    let file = notes
+        .new_recording_path(&id, record::EXTENSION)
+        .unwrap_or_else(|e| fail(&e));
+    println!("Recording… press Enter to stop.");
+    let length = record::record(&command, &file).unwrap_or_else(|e| {
+        let _ = std::fs::remove_file(&file);
+        fail(&e)
+    });
+    match notes.add_memo(&words.join(" "), &id, &file, record::MEDIA_TYPE, length) {
+        Ok(note) => println!("Recorded: {}", note.line()),
+        Err(e) => fail(&e),
+    }
+    sync_within(notes, UPLOAD_SYNC);
+}
+
+/// `qot play`: plays the note's recordings one after another, waiting
+/// until they finish. One made on this device is played from its file;
+/// others are fetched from the server, which needs a sign-in.
 fn play_note(notes: &mut NoteService, index: usize) {
     let (note, recordings) = notes
         .recordings(index)
@@ -214,15 +254,21 @@ fn play_note(notes: &mut NoteService, index: usize) {
     }
     let command = play::player_command(std::env::var(play::PLAYER_ENV).ok(), play::installed)
         .unwrap_or_else(|| fail(&play::no_player()));
-    let mut creds = signed_in(notes).unwrap_or_else(|| {
-        fail("Recordings are fetched from the server. Sign in first: qot login <email>")
-    });
-    let api = Api::new(&creds.server, Duration::from_secs(120));
+    let mut server: Option<(Api, Credentials)> = None;
     println!("Playing: {}", note.line());
     for recording in &recordings {
-        let bytes = notes
-            .recording_bytes(recording, &api, &mut creds)
-            .unwrap_or_else(|e| fail(&e));
+        let bytes = notes.local_recording(recording).unwrap_or_else(|| {
+            if server.is_none() {
+                let creds = signed_in(notes).unwrap_or_else(|| {
+                    fail("Recordings are fetched from the server. Sign in first: qot login <email>")
+                });
+                server = Some((Api::new(&creds.server, Duration::from_secs(120)), creds));
+            }
+            let (api, creds) = server.as_mut().expect("just set");
+            notes
+                .recording_bytes(recording, api, creds)
+                .unwrap_or_else(|e| fail(&e))
+        });
         let file = std::env::temp_dir().join(format!(
             "qot-{}-{}.{}",
             recording.id,
@@ -279,8 +325,12 @@ fn signed_in(notes: &NoteService) -> Option<Credentials> {
 /// A best-effort sync around everyday commands. Offline is normal: the
 /// note is saved locally either way and goes up on the next sync.
 fn quick_sync(notes: &mut NoteService) {
+    sync_within(notes, QUICK_SYNC);
+}
+
+fn sync_within(notes: &mut NoteService, timeout: Duration) {
     if let Some(mut creds) = signed_in(notes) {
-        let api = Api::new(&creds.server, QUICK_SYNC);
+        let api = Api::new(&creds.server, timeout);
         if let Err(e) = notes.sync(&api, &mut creds) {
             eprintln!("(not synced: {e})");
         }
@@ -290,8 +340,14 @@ fn quick_sync(notes: &mut NoteService) {
 fn sync_now(notes: &mut NoteService) {
     let mut creds =
         signed_in(notes).unwrap_or_else(|| fail("Not signed in. Run: qot login <email>"));
-    let api = Api::new(&creds.server, Duration::from_secs(30));
+    let api = Api::new(&creds.server, UPLOAD_SYNC);
     match notes.sync(&api, &mut creds) {
+        Ok(r) if r.uploaded > 0 => println!(
+            "Synced: {} sent, {} received, {} uploaded",
+            r.pushed,
+            r.pulled,
+            count(r.uploaded, "recording")
+        ),
         Ok(r) => println!("Synced: {} sent, {} received", r.pushed, r.pulled),
         Err(e) => fail(&format!("Sync failed: {e}")),
     }

@@ -1,4 +1,4 @@
-//! Notes with attachments in the CLI, which can't record them: it lists a
+//! Notes with attachments made on another device, in the CLI: it lists a
 //! marker, plays and exports the recordings, and tells the server when a recording
 //! is gone. The notes are made the way an iPhone would make them (through
 //! `qot_core`) and put straight into the store.

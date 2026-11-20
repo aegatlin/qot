@@ -26,7 +26,7 @@ client that can show them (#78). Notes hold media as attachments, audio
 first; the design, and what it asks of end-to-end encryption, is
 `docs/records/2026-11-19-attachments-and-voice-memos.md`. Being built, in
 #78's order: the core knows attachments (#96), the server stores blobs
-(#97), the CLI lists, exports and plays them (#98) and the PWA shows and plays
+(#97), the CLI lists, exports, plays and records them (#98, #108) and the PWA shows and plays
 them (#99), and the iPhone app records, transcribes and plays them (#100).
 The iPhone part is built and was checked in the simulator only (record in
 the app, save, play back): starting from Control Center with the app
@@ -308,15 +308,28 @@ the rules the CLI is tested with:
   server signed in to before 0.4.0 says to sign in again. It prints the
   address, then runs `$BROWSER`, else `open` (macOS) or `xdg-open`. Rules
   in `web.rs` (pure), tests in `tests/web_test.rs`.
-- **Attachments**: the CLI can't record, and keeps no blob files. `qot
-  play <n>` (alias `p`) fetches note `n`'s recordings from the server (so
-  it needs a sign-in; one not uploaded yet says so), writes each to a
-  temporary file and runs the machine's player on it, waiting until it
+- **Attachments**: `qot record [words]` (alias `r`; 0.5.0) records a
+  voice memo with the machine's own recorder until Enter or Ctrl-C and
+  saves it as a new note (the words, if any, are its text): `$QOT_RECORDER`
+  (a command line run through `sh`, given the file; told to stop with `q`
+  on its input, then an interrupt), else `ffmpeg` on macOS (avfoundation)
+  and Linux (PulseAudio, which PipeWire answers for); anywhere else, or
+  without ffmpeg, it says what to install. AAC in an .m4a, mono, 64 kbps,
+  30 minutes at most, like the iPhone's; its text status is `none`,
+  since the CLI doesn't transcribe. The file is written to
+  `recordings/`, then becomes `blobs/<attachment id>` just before its note
+  is saved. A sync is push, pull, then blobs (`plan_blobs`): upload (`PUT
+  /api/blobs/:id`; a 410 "deleted" drops the file), and remove files no
+  live note has; `delete` removes them too. The CLI keeps blob files only
+  for recordings made on it. `qot play <n>` (alias `p`) plays note `n`'s
+  recordings: one made here from its file, others fetched from the server
+  (so those need a sign-in; one not uploaded yet says so) to a
+  temporary file. It runs the machine's player and waits until it
   ends: `$QOT_PLAYER` (a command line, run through `sh` like the editor),
   else the first installed of `afplay` (macOS), `ffplay` and `mpv`. No
   audio library is linked: it would need the system's sound libraries,
-  which the musl builds don't have. Rules in `play.rs` (pure). No
-  transcription in the CLI.
+  which the musl builds don't have. Rules in `record.rs` and `play.rs`
+  (pure), tests in `tests/record_test.rs`. No transcription in the CLI.
   A note's line (`qot list`, and what `edit` and `delete` print) starts
   with a marker per attachment, `[audio 0:42]`, from the core's `label()`,
   so kinds it doesn't know show too. Deleting a note that has a recording
@@ -325,7 +338,8 @@ the rules the CLI is tested with:
   milk`), `delete`, `list` and `export` run a best-effort sync with a 3 s timeout when signed in, and print
   `(not synced: …)` to stderr when offline. The note is saved first.
 - Store layout under the data dir: `notes/<id>.note` (Automerge bytes),
-  `sync.json` (`SyncState`), `credentials.json` (tokens, mode 0600).
+  `sync.json` (`SyncState`), `credentials.json` (tokens, mode 0600),
+  `blobs/<id>` (recordings made here) and `recordings/` (one being made).
 - Sync rules live in `qot_core::sync`; `service.rs` and `api.rs` are the
   I/O shell. Integration tests run the binary against `httpmock`
   (`tests/sync_test.rs`).

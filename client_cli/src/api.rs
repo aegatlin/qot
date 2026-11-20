@@ -60,6 +60,14 @@ impl std::fmt::Display for ApiError {
     }
 }
 
+/// What the server did with an uploaded blob.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Uploaded {
+    Stored,
+    /// Its attachment was deleted on another device first: drop the file.
+    Deleted,
+}
+
 pub struct Page {
     pub changes: Vec<Incoming>,
     pub more: bool,
@@ -207,6 +215,39 @@ impl Api {
                 .map_err(|e| ApiError::Other(format!("couldn't read the attachment: {e}"))),
             404 => Ok(None),
             401 => Err(ApiError::Unauthorized),
+            _ => {
+                let body = res.body_mut().read_json::<Value>().unwrap_or(Value::Null);
+                Err(ApiError::Other(error_text(&body)))
+            }
+        }
+    }
+
+    /// Uploads an attachment's bytes. The server takes them as they are,
+    /// whatever they are, and taking the same ones twice is fine.
+    pub fn put_blob(
+        &self,
+        token: &str,
+        id: &str,
+        note_id: &str,
+        bytes: &[u8],
+    ) -> Result<Uploaded, ApiError> {
+        let mut res = self
+            .agent
+            .put(format!("{}/api/blobs/{id}?note_id={note_id}", self.base))
+            .header("authorization", format!("Bearer {token}"))
+            .header("content-type", "application/octet-stream")
+            .send(bytes)
+            .map_err(net)?;
+        match res.status().as_u16() {
+            204 => Ok(Uploaded::Stored),
+            410 => Ok(Uploaded::Deleted),
+            401 => Err(ApiError::Unauthorized),
+            413 => Err(ApiError::Other(
+                "the recording is larger than the server takes".into(),
+            )),
+            403 => Err(ApiError::Other(
+                "the account's storage for recordings is full".into(),
+            )),
             _ => {
                 let body = res.body_mut().read_json::<Value>().unwrap_or(Value::Null);
                 Err(ApiError::Other(error_text(&body)))

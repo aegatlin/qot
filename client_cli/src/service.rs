@@ -1,8 +1,10 @@
-use crate::api::{Api, ApiError};
+use crate::api::{Api, ApiError, Uploaded};
 use crate::credentials::{self, Credentials};
 use crate::storage::{FileSystemStorage, Storage};
 use directories::ProjectDirs;
-use qot_core::sync::{SyncState, apply_pulled, mark_pushed, plan_push};
+use qot_core::sync::{
+    SyncState, apply_pulled, forget_blobs, mark_pushed, mark_uploaded, plan_blobs, plan_push,
+};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -56,6 +58,8 @@ pub struct NoteService {
 pub struct SyncReport {
     pub pushed: usize,
     pub pulled: usize,
+    /// Recordings whose bytes went up.
+    pub uploaded: usize,
 }
 
 /// What `qot status` reports about the local store.
@@ -120,7 +124,129 @@ impl NoteService {
             }
         }
 
+        // Blobs last: a recording goes up after the note that names it,
+        // and files no live note has any more go.
+        let plan = plan_blobs(&self.load_all()?, &state, &self.local_blobs()?);
+        self.remove_blobs(&plan.discard)?;
+        state = forget_blobs(&state, &plan.discard);
+        self.save_state(&state)?;
+        for upload in &plan.upload {
+            let bytes = std::fs::read(self.blob_path(&upload.id))
+                .map_err(|e| format!("can't read recording {}: {e}", upload.id))?;
+            let ids = std::slice::from_ref(&upload.id);
+            let result = authed(api, creds, &self.dir, |token| {
+                api.put_blob(token, &upload.id, &upload.note_id, &bytes)
+            })
+            .map_err(|e| format!("the recording wasn't uploaded: {e}"))?;
+            match result {
+                Uploaded::Stored => {
+                    state = mark_uploaded(&state, ids);
+                    report.uploaded += 1;
+                }
+                Uploaded::Deleted => {
+                    self.remove_blobs(ids)?;
+                    state = forget_blobs(&state, ids);
+                }
+            }
+            self.save_state(&state)?;
+        }
+
         Ok(report)
+    }
+
+    /// Saves a finished recording as a new note: the file becomes the
+    /// blob `blobs/<id>`, then the note that names it is written, so a
+    /// sync never sees the note without its recording. `text` may be empty.
+    pub fn add_memo(
+        &mut self,
+        text: &str,
+        id: &str,
+        file: &std::path::Path,
+        media_type: &str,
+        duration: std::time::Duration,
+    ) -> Result<Note, String> {
+        let size = match std::fs::metadata(file) {
+            Ok(m) => m.len(),
+            Err(_) => return Err("The recorder wrote no file, so nothing was saved.".into()),
+        };
+        if size == 0 {
+            let _ = std::fs::remove_file(file);
+            return Err("The recording is empty, so nothing was saved.".into());
+        }
+        let attachment = qot_core::Attachment {
+            id: id.to_string(),
+            kind: qot_core::AUDIO.to_string(),
+            media_type: media_type.to_string(),
+            size,
+            duration_ms: Some(duration.as_millis() as u64),
+            // Nothing here transcribes it.
+            text: qot_core::AttachmentText::None,
+        };
+        let note = qot_core::Note::with_attachment(text, &attachment).map_err(|e| e.to_string())?;
+        let io = |e: std::io::Error| format!("Can't keep the recording: {e}");
+        std::fs::create_dir_all(self.dir.join("blobs")).map_err(io)?;
+        std::fs::rename(file, self.blob_path(id)).map_err(io)?;
+        self.save(&note)?;
+        Ok(view(&note))
+    }
+
+    /// Where a recording is written while it is being made: outside
+    /// `blobs/`, so no sync takes it for a finished one.
+    pub fn new_recording_path(&self, id: &str, extension: &str) -> Result<PathBuf, String> {
+        let dir = self.dir.join("recordings");
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| format!("Can't write to {}: {e}", dir.display()))?;
+        Ok(dir.join(format!("{id}.{extension}")))
+    }
+
+    fn blob_path(&self, id: &str) -> PathBuf {
+        self.dir.join("blobs").join(id)
+    }
+
+    /// The ids of the blob files on this device: recordings made here.
+    fn local_blobs(&self) -> Result<Vec<String>, String> {
+        let entries = match std::fs::read_dir(self.dir.join("blobs")) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(e.to_string()),
+        };
+        let mut ids = Vec::new();
+        for entry in entries {
+            let name = entry.map_err(|e| e.to_string())?.file_name();
+            if let Some(name) = name.to_str() {
+                ids.push(name.to_string());
+            }
+        }
+        ids.sort();
+        Ok(ids)
+    }
+
+    fn remove_blobs(&self, ids: &[String]) -> Result<(), String> {
+        for id in ids {
+            match std::fs::remove_file(self.blob_path(id)) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// Removes blob files no live note has: after a delete, signed in or
+    /// not. (A sync does the same, and also tells the sync state.)
+    fn sweep_blobs(&self) -> Result<(), String> {
+        let live: std::collections::BTreeSet<String> = self
+            .load_all()?
+            .iter()
+            .filter(|n| !n.is_deleted())
+            .flat_map(|n| n.attachments())
+            .map(|a| a.id)
+            .collect();
+        let gone: Vec<String> = self
+            .local_blobs()?
+            .into_iter()
+            .filter(|id| !live.contains(id))
+            .collect();
+        self.remove_blobs(&gone)
     }
 
     /// Deletes the account on the server and forgets this device's sync
@@ -263,6 +389,7 @@ impl NoteService {
         let note = self.live_note(index)?;
         let deleted = note.delete().map_err(|e| e.to_string())?;
         self.save(&deleted)?;
+        self.sweep_blobs()?;
         Ok(view(&note).line())
     }
 
@@ -292,7 +419,12 @@ impl NoteService {
         Ok((note, recordings))
     }
 
-    /// A recording's bytes, from the server: the CLI keeps none.
+    /// A recording's bytes if this device has them: it made the recording.
+    pub fn local_recording(&self, recording: &qot_core::Attachment) -> Option<Vec<u8>> {
+        std::fs::read(self.blob_path(&recording.id)).ok()
+    }
+
+    /// A recording's bytes from the server, for one made on another device.
     pub fn recording_bytes(
         &self,
         recording: &qot_core::Attachment,
