@@ -24,3 +24,6 @@ qot-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# The NIF (qot_nif), compiled from core_nif/ by Rustler.
+/priv/native/

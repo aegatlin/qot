@@ -5,6 +5,7 @@
 !core
 !core_ffi
 !core_wasm
+!core_nif
 !client_cli
 !scripts/build-wasm-core
 !client_web

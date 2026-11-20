@@ -192,6 +192,20 @@ impl Note {
         Ok(note)
     }
 
+    /// The note a change log holds: its changes in the order they were
+    /// pushed, the first being a whole note (a device's first push of a
+    /// note always is). How the server, which keeps only the log, gets a
+    /// note to work on.
+    pub fn from_changes(changes: &[&[u8]]) -> NoteResult<Note> {
+        let Some((first, rest)) = changes.split_first() else {
+            return Err(NoteError("a note needs at least one change".into()));
+        };
+        rest.iter()
+            .try_fold(Note::from_bytes(first)?, |note, change| {
+                note.apply_changes(change)
+            })
+    }
+
     /// The note's current heads as hex hashes. A sync peer stores these to
     /// ask for only what is new next time.
     pub fn heads(&self) -> Vec<String> {
@@ -235,6 +249,26 @@ impl Note {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_note_is_rebuilt_from_its_change_log() {
+        let v1 = Note::new("milk");
+        let v2 = v1.update("oat milk").unwrap();
+        let v3 = v2.update("oat milk, eggs").unwrap();
+        let log = [
+            v1.to_bytes(),
+            v2.changes_since(v1.heads()).unwrap(),
+            v3.changes_since(v2.heads()).unwrap(),
+        ];
+        let log: Vec<&[u8]> = log.iter().map(Vec::as_slice).collect();
+        let note = Note::from_changes(&log).unwrap();
+        assert_eq!(note.content(), "oat milk, eggs");
+        assert_eq!(note.heads(), v3.heads());
+        // The same change twice (a device pushed it again) is harmless.
+        let twice = [log[0], log[1], log[1], log[2]];
+        assert_eq!(Note::from_changes(&twice).unwrap().heads(), v3.heads());
+        assert!(Note::from_changes(&[]).is_err());
+    }
 
     #[test]
     fn new_note_has_uuid_v7_id_and_content() {

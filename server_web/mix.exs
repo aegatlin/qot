@@ -42,6 +42,7 @@ defmodule Qot.MixProject do
       {:phoenix, "~> 1.8"},
       {:postgrex, "~> 0.22"},
       {:req, "~> 0.5"},
+      {:rustler, "~> 0.38.0", runtime: false},
       {:swoosh, "~> 1.29"}
     ]
   end

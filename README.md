@@ -9,6 +9,7 @@ other devices by the time you look, even if you took it offline.
 | `core/` | `qot_core`: the note model and its sync primitives, shared by every client | Rust, Automerge |
 | `core_ffi/` | `qot_ffi`: `qot_core` for Swift (and later Kotlin) through UniFFI | Rust |
 | `core_wasm/` | `qot_wasm`: `qot_core` for the browser through wasm-bindgen | Rust |
+| `core_nif/` | `qot_core` for the server (Elixir, Rustler) | Rust |
 | `client_cli/` | `qot`, the command-line client (`qot get milk`) | Rust |
 | `client_apple/` | The iPhone app, its widgets and the Watch app (Mac later), plus `QotKit`, the Swift package they share | Swift, SwiftUI |
 | `client_web/` | The web app (`app.quantumofthought.com`) | TypeScript, Preact, `qot_core` as WASM |

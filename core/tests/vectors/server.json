@@ -1,0 +1,154 @@
+{
+  "about": "Test vectors for the server's binding; see core/tests/server_vectors.rs. Generated, do not edit.",
+  "cases": [
+    {
+      "name": "a text note, edited once",
+      "log": [
+        "hW9Kg3MBdNEAygEBEPoYYpC5xuZzvgJGrMPMuaQBQbcPGF6dVKNorB7V27rs45we0NFvzQQNh+cAY2ksi1MGAQIDAhMCIwZAAlYCDAEEAgQRBBMHFQ4hAiMGNAJCBFYGVyiAAQJ/AH8BfwZ/psyA2AZ/AH8HAAIEAAACBAIAAwMAAAJ+AAMCAX4HY29udGVudAJpZAAEBgB9An8CAwECBH8EBQF+AMYEBBYwMWExZjg5NS0wNzIzLTcyNWUtYjYxOS00ZmE1MWNiMDJmYmJtaWxrBgAA",
+        "hW9Kg6dGJ3sBeAFBtw8YXp1Uo2isHtXbuuzjnB7Q0W/NBA2H5wBjaSyLUxDzy3mnTQSSI22U1NTEPKtzAQemzIDYBgABEPoYYpC5xuZzvgJGrMPMuaQJAQICAhEEEwU0AkICVgJXBHACBAEEAgABAwB+AAcCAQAEBAEEFm9hdCAEAA=="
+      ],
+      "read": {
+        "id": "01a1f895-0723-725e-b619-4fa51cb02fbb",
+        "content": "oat milk",
+        "deleted": false,
+        "attachments": []
+      },
+      "fill": null
+    },
+    {
+      "name": "a deleted note is a tombstone",
+      "log": [
+        "hW9Kg3MBdNEAygEBEPoYYpC5xuZzvgJGrMPMuaQBQbcPGF6dVKNorB7V27rs45we0NFvzQQNh+cAY2ksi1MGAQIDAhMCIwZAAlYCDAEEAgQRBBMHFQ4hAiMGNAJCBFYGVyiAAQJ/AH8BfwZ/psyA2AZ/AH8HAAIEAAACBAIAAwMAAAJ+AAMCAX4HY29udGVudAJpZAAEBgB9An8CAwECBH8EBQF+AMYEBBYwMWExZjg5NS0wNzIzLTcyNWUtYjYxOS00ZmE1MWNiMDJmYmJtaWxrBgAA",
+        "hW9Kg6dGJ3sBeAFBtw8YXp1Uo2isHtXbuuzjnB7Q0W/NBA2H5wBjaSyLUxDzy3mnTQSSI22U1NTEPKtzAQemzIDYBgABEPoYYpC5xuZzvgJGrMPMuaQJAQICAhEEEwU0AkICVgJXBHACBAEEAgABAwB+AAcCAQAEBAEEFm9hdCAEAA==",
+        "hW9Kgy3bgKgBVgGnRid7MCVJlve3a1Iu6z3GLXT8qJJpdYofq3BqNReSBhDGKH0t0dkoB1PTk9FRAm1AAQumzIDYBgAABRUJNAFCAlYCcAJ/B2RlbGV0ZWQBfwF/An8A"
+      ],
+      "read": {
+        "id": "01a1f895-0723-725e-b619-4fa51cb02fbb",
+        "content": "oat milk",
+        "deleted": true,
+        "attachments": []
+      },
+      "fill": null
+    },
+    {
+      "name": "a memo waiting for its text gets it",
+      "log": [
+        "hW9Kg5FMavoAzgICEF1Q1CF12GAuIjf8IZufgIMQxG4rGmjzuRrpxvrer/yqaAHntPDeCTMLRpER498uokpTwpvNJpjqoBhY4iOqbm9T7wcBAwMDEwMjB0ADQwJWAgoBBAIEFWIhBiMLNAFCBVYLVz+AAQJ+AAF+AQB+AgZ+psyA2AYAfgABfwACBwADBQEAAwUDeC9hdHRhY2htZW50OjAxYTFmODk1LTA3MjktNzdlYy05YmE3LTVlYTIzNmVmMWZmYwdjb250ZW50AmlkC2R1cmF0aW9uX21zBGtpbmQKbWVkaWFfdHlwZQRzaXplBHRleHR/AQIABQF/AwJ/fgZ9AgF/Agh+AAQGAQIAesYEM1aWATN2MDFhMWY4OTUtMDcyOS03N2VjLTliYTctNWVhMzEzZjE0MzFjhMwCYXVkaW9hdWRpby9tcDSg4BRwZW5kaW5nCAAB"
+      ],
+      "read": {
+        "id": "01a1f895-0729-77ec-9ba7-5ea313f1431c",
+        "content": "",
+        "deleted": false,
+        "attachments": [
+          {
+            "id": "01a1f895-0729-77ec-9ba7-5ea236ef1ffc",
+            "kind": "audio",
+            "media_type": "audio/mp4",
+            "size": 340000,
+            "duration_ms": 42500,
+            "text": "pending"
+          }
+        ]
+      },
+      "fill": {
+        "attachment": "01a1f895-0729-77ec-9ba7-5ea236ef1ffc",
+        "text": " call the plumber\n",
+        "changes": true,
+        "content": "call the plumber",
+        "meanwhile": null,
+        "content_with_both": null
+      }
+    },
+    {
+      "name": "text typed meanwhile merges with the transcript",
+      "log": [
+        "hW9KgwuBPeYA9wICEMcLgIE805PvBBwY3ZG+RDcQ8S2Fe/lOYC/X12khYII6iwHS1nM/av3a/CimgAm6+xDqlTVRnrKrAHSAi2AVCXq+DAcBAwMDEwMjB0ADQwJWAgwBBgIGEQYTCRVlIQYjDjQDQgVWDldGgAECfgABfgEAfgkGfqbMgNgGAH4AAX8AAgcAAwcABQEAAwcCBQoABAYAAAUAA34AAwUBAAV9L2F0dGFjaG1lbnQ6MDFhMWY4OTUtMDcyYi03NjI4LTk3YzQtMTEwNWNiZmY2ZmYyB2NvbnRlbnQCaWQAB3sLZHVyYXRpb25fbXMEa2luZAptZWRpYV90eXBlBHNpemUEdGV4dH8BCQAFAXwKeH8CBgF+BX0CAX8CAwcFfgAEDQECAH/GBAcWezNWlgEzdjAxYTFmODk1LTA3MmItNzYyOC05N2M0LTExMDYxOGRmMzAzYnBsdW1iZXKEzAJhdWRpb2F1ZGlvL21wNKDgFHBlbmRpbmcPAAE="
+      ],
+      "read": {
+        "id": "01a1f895-072b-7628-97c4-110618df303b",
+        "content": "plumber",
+        "deleted": false,
+        "attachments": [
+          {
+            "id": "01a1f895-072b-7628-97c4-1105cbff6ff2",
+            "kind": "audio",
+            "media_type": "audio/mp4",
+            "size": 340000,
+            "duration_ms": 42500,
+            "text": "pending"
+          }
+        ]
+      },
+      "fill": {
+        "attachment": "01a1f895-072b-7628-97c4-1105cbff6ff2",
+        "text": "on Tuesday at nine",
+        "changes": true,
+        "content": "plumber\non Tuesday at nine",
+        "meanwhile": "hW9Kg1qIhJoBeAHS1nM/av3a/CimgAm6+xDqlTVRnrKrAHSAi2AVCXq+DBAGEy8BIOeG8e08Pc0TS5R1ARCmzIDYBgABEMcLgIE805PvBBwY3ZG+RDcJAQICAhEEEwU0AkICVgJXBHACBAEEAgABAwB+ABACAQAEBAEEFnRoZSAEAA==",
+        "content_with_both": [
+          "the plumber\non Tuesday at nine"
+        ]
+      }
+    },
+    {
+      "name": "a transcript deleted by hand is not written again",
+      "log": [
+        "hW9Kg8z6N8IAzgICEJeeNFHVYhATh9s5/WtF/BwQ3L7Xpkl1Qac1IhKfcdx5vAHXSr3XFPp0tJNKHJVpbXR3FwHT/LdCFsslwJx1wVenRQcBAwMDEwMjB0ADQwJWAgoBBAIEFWIhBiMLNAFCBVYLVz+AAQJ+AAF+AQB+AgZ+psyA2AYAfgABfwACBwADBQEAAwUDeC9hdHRhY2htZW50OjAxYTFmODk1LTA3MmQtNzFlYy1iNzg2LTU4YjMyNDgwYzBkOQdjb250ZW50AmlkC2R1cmF0aW9uX21zBGtpbmQKbWVkaWFfdHlwZQRzaXplBHRleHR/AQIABQF/AwJ/fgZ9AgF/Agh+AAQGAQIAesYEM1aWATN2MDFhMWY4OTUtMDcyZC03MWVjLWI3ODYtNThiNGQ2NzBhYWIyhMwCYXVkaW9hdWRpby9tcDSg4BRwZW5kaW5nCAAB",
+        "hW9Kg3apEygBuAEB10q91xT6dLSTShyVaW10dxcB0/y3QhbLJcCcdcFXp0UQkpYEwh/eofV5gdch1Dw1JAEJpsyA2AYAAhCXnjRR1WIQE4fbOf1rRfwcENy+16ZJdUGnNSISn3HcebwMAQQCBBEGEwcVCDQDQgJWBFcUcARxAnMCEAF/AhACfwMAAQ8AAAF+AAkOAQABABB/BHRleHQAEAERARAWf0ZjYWxsIHRoZSBwbHVtYmVyZG9uZRAAfwF/An8I",
+        "hW9Kg7wKuaEBiQEBdqkTKCvGsvqmoc5kozJFB2eqkkPVWJBCxCKAgSTM7MsQcT9BNgnBvBklPDfpOK6zqgEapsyA2AYAAhCSlgTCH96h9XmB1yHUPDUkEJeeNFHVYhATh9s5/WtF/BwKAQICAhECEwQ0AUICVgJwAnECcwQQAhACEAF/CQ8BEBADEAAQARABfwkPAQ=="
+      ],
+      "read": {
+        "id": "01a1f895-072d-71ec-b786-58b4d670aab2",
+        "content": "",
+        "deleted": false,
+        "attachments": [
+          {
+            "id": "01a1f895-072d-71ec-b786-58b32480c0d9",
+            "kind": "audio",
+            "media_type": "audio/mp4",
+            "size": 340000,
+            "duration_ms": 42500,
+            "text": "done"
+          }
+        ]
+      },
+      "fill": {
+        "attachment": "01a1f895-072d-71ec-b786-58b32480c0d9",
+        "text": "call the plumber",
+        "changes": false,
+        "content": "",
+        "meanwhile": null,
+        "content_with_both": null
+      }
+    },
+    {
+      "name": "a recording nobody asked text for is left alone",
+      "log": [
+        "hW9Kg6tCS90A7wICEC5J4JA1ENYTUpkaTjuxxrsQm7OqOfqudfP7nQaDaNmOPgFCWLKb0dMM/xQAKLEWckJOZV4E08KIsD1Haf6eOGEXewcBAwMDEwMjB0ADQwJWAgwBBgIGEQYTCRVgIQYjDDQDQgVWDVdGgAECfgEAfgEAfhAFfqbMgNgGAH4AAX8AAgcAAw4BBAAAAw4CBBEABA0BAAQAA34AAwwBAAR9L2F0dGFjaG1lbnQ6MDFhMWY4OTUtMDczMC03MTBlLTlmOTItM2ExNGQ5Y2I1ZDBhB2NvbnRlbnQCaWQADnwLZHVyYXRpb25fbXMEa2luZAptZWRpYV90eXBlBHNpemV/ABABBAB8EXF/Ag0BfgV9AgEDDgR+AAQTAQIAf8YEDhZ8M1aWATMwMWExZjg5NS0wNzMwLTcxMGUtOWY5Mi0zYTE1ZjFlMjY5ZWJubyB0ZXh0IHdhbnRlZITMAmF1ZGlvYXVkaW8vbXA0oOAUFQAB"
+      ],
+      "read": {
+        "id": "01a1f895-0730-710e-9f92-3a15f1e269eb",
+        "content": "no text wanted",
+        "deleted": false,
+        "attachments": [
+          {
+            "id": "01a1f895-0730-710e-9f92-3a14d9cb5d0a",
+            "kind": "audio",
+            "media_type": "audio/mp4",
+            "size": 340000,
+            "duration_ms": 42500,
+            "text": "none"
+          }
+        ]
+      },
+      "fill": {
+        "attachment": "01a1f895-0730-710e-9f92-3a14d9cb5d0a",
+        "text": "call the plumber",
+        "changes": false,
+        "content": "no text wanted",
+        "meanwhile": null,
+        "content_with_both": null
+      }
+    }
+  ]
+}

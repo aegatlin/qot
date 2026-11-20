@@ -1,0 +1,18 @@
+[package]
+name = "qot_nif"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+description = "qot_core for the server (Elixir), through Rustler"
+
+# Built into server_web, not released on its own.
+[package.metadata.dist]
+dist = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+qot_core = { path = "../core" }
+rustler = "0.38"

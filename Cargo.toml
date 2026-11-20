@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["core", "core_ffi", "core_wasm", "client_cli"]
+members = ["core", "core_ffi", "core_wasm", "core_nif", "client_cli"]
 
 [workspace.package]
 license = "AGPL-3.0-only"

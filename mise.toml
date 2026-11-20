@@ -32,7 +32,7 @@ description = "Test the Rust workspace (core + CLI)"
 run = "cargo test --workspace"
 
 [tasks."test:server"]
-description = "Test the Phoenix server"
+description = "Test the Phoenix server (compiles the NIF, core_nif/, with the local Rust)"
 dir = "server_web"
 run = "mix test"
 

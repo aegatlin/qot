@@ -24,6 +24,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY core core
 COPY core_ffi core_ffi
 COPY core_wasm core_wasm
+COPY core_nif core_nif
 COPY client_cli client_cli
 COPY scripts/build-wasm-core scripts/
 RUN mkdir client_web && scripts/build-wasm-core --release
