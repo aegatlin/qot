@@ -1,9 +1,16 @@
 # Cloud transcription, and the paid tier it starts
 
-Status: direction decided (the owner, 2026-11-20); the details below are proposed, and the ones marked **open** wait for the owner
+Status: direction decided (the owner, 2026-11-20; answer 1 superseded in part by 2026-11-20-pipelines-before-encryption.md); the details below are proposed, and the ones marked **open** wait for the owner
 Date: 2026-11-20
 Question: How does a recording get its text on a client that can't
 transcribe (the CLI, the PWA), and what does qot charge for?
+
+> **Since then:** the same day the owner decided the server may read and
+> edit notes (`2026-11-20-pipelines-before-encryption.md`). Transcription
+> is to become a server pipeline that writes the text into the note
+> itself (#114); the client-sends-audio endpoint in answer 1 is built and
+> stays as a second path. The plan, allowance, provider and billing
+> parts stand.
 
 ## Answer
 

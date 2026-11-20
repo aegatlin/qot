@@ -206,17 +206,22 @@ mise run xcode         # builds the Apple core, opens the Xcode project
 
 ## Sync and end-to-end encryption
 
-End-to-end encryption is the intended default, so **the server never reads
-note content**. It keeps a per-user, append-only log of opaque change blobs
-and relays them; clients do all merging with `qot_core`. Encryption is then a
-client-only addition (encrypt each blob before pushing), with no server
-change. Key management (how a new device gets the key) is not designed yet
-(#72); it has to give each account a keypair, so a party that can't read an
-account (a capture-only device, an opt-in server pipeline) can still write
-to it.
-Anything that needs the server to read notes (e.g. future note pipelines,
-or transcribing a recording for a client that can't) must be an explicit
-opt-in and must not weaken this default.
+**Direction changed 2026-11-20**
+(`docs/records/2026-11-20-pipelines-before-encryption.md`): the server is
+to become a peer that reads and **edits** notes, for pipelines a person
+sets up (triggers such as a leading `#appidea` send a note to a service
+that adds to it; cloud transcription is the first). That vision ranks
+above end-to-end encryption, which is still wanted but must be designed
+around pipelines (#72). Not built: the server will run `qot_core`
+(proposed: a Rustler NIF, `core_nif/`, #113) and write to the change log
+like any device.
+
+**What the code does today**: the server doesn't read note content. It
+keeps a per-user, append-only log of opaque change blobs and relays them;
+clients do all merging with `qot_core`. The privacy policy says nothing we
+run reads notes, so it changes before any pipeline runs in production
+(#116). A
+pipeline runs only because the person set it up or turned it on.
 
 - `POST /api/sync/push` `{changes: [{note_id, data}]}` (data base64) appends
   and returns `{cursor}`. Optional `deleted_blobs: [id]` deletes those blobs

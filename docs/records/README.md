@@ -52,4 +52,5 @@ was considered and turned down.
 | 2026-11-19 | [Attachments in notes, and voice memos first](2026-11-19-attachments-and-voice-memos.md) | decided |
 | 2026-11-19 | [Agents may release when the owner has authorized it](2026-11-19-agents-may-release.md) | decided |
 | 2026-11-19 | [The app icon: two bubbles on ink](2026-11-19-app-icon-design.md) | decided |
-| 2026-11-20 | [Cloud transcription, and the paid tier it starts](2026-11-20-paid-transcription.md) | direction decided; details proposed |
+| 2026-11-20 | [Cloud transcription, and the paid tier it starts](2026-11-20-paid-transcription.md) | direction decided (answer 1 superseded in part, same day); details proposed |
+| 2026-11-20 | [Pipelines first: the server may read and edit notes](2026-11-20-pipelines-before-encryption.md) | direction decided; build proposed |
