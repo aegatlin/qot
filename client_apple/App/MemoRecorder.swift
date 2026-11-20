@@ -8,9 +8,11 @@ import WidgetKit
 enum MemoError: Error, LocalizedError, CustomLocalizedStringResourceConvertible {
     case microphone
     case couldNotStart
+    case session(String)
 
     var errorDescription: String? {
         switch self {
+        case .session(let why): "qot couldn't take the microphone: \(why)"
         case .microphone:
             "qot needs the microphone. Open qot and record a memo there once, or allow it in Settings."
         case .couldNotStart: "qot couldn't start recording."
@@ -98,16 +100,26 @@ final class MemoRecorder: NSObject, AVAudioRecorderDelegate {
         // app in the background, iOS lets the app take the microphone only
         // while one is showing.
         let now = Date.now
-        _ = try? Activity.request(
-            attributes: MemoAttributes(),
-            content: .init(state: .init(startedAt: now), staleDate: now + Self.limit + 60))
+        var activityProblem: String?
+        do {
+            _ = try Activity.request(
+                attributes: MemoAttributes(),
+                content: .init(state: .init(startedAt: now), staleDate: now + Self.limit + 60))
+        } catch {
+            activityProblem = "\(error)"
+        }
         let file: URL
         let recorder: AVAudioRecorder
         do {
             file = try AppGroup.store().newRecordingURL()
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .default)
-            try session.setActive(true)
+            do {
+                try Self.activateSession()
+            } catch {
+                // Say everything known: this can only be read off a phone.
+                let live = activityProblem.map { "no Live Activity: \($0)" } ?? "Live Activity started"
+                let state = UIApplication.shared.applicationState == .active ? "in front" : "in the background"
+                throw MemoError.session("\(error.localizedDescription) (\((error as NSError).code); \(state); \(live))")
+            }
             recorder = try AVAudioRecorder(
                 url: file,
                 settings: [
@@ -120,7 +132,7 @@ final class MemoRecorder: NSObject, AVAudioRecorderDelegate {
             recorder.delegate = self
             guard recorder.record(forDuration: Self.limit) else {
                 try? FileManager.default.removeItem(at: file)
-                try? session.setActive(false, options: .notifyOthersOnDeactivation)
+                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
                 throw MemoError.couldNotStart
             }
         } catch {
@@ -139,6 +151,21 @@ final class MemoRecorder: NSObject, AVAudioRecorderDelegate {
                 note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
                 == AVAudioSession.InterruptionType.began.rawValue
             if began { Task { @MainActor in await self?.stop() } }
+        }
+    }
+
+    /// Takes the microphone. A recording-only session first; started in the
+    /// background iOS can refuse that one (`cannotInterruptOthers`, seen on
+    /// a phone 2026-11-20 from the Control Center control), so then one
+    /// that mixes with other audio, which may be activated there.
+    private static func activateSession() throws {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.record, mode: .default)
+            try session.setActive(true)
+        } catch {
+            try session.setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
         }
     }
 

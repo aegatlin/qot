@@ -439,9 +439,12 @@ the rules the CLI is tested with:
   it in the background; they reach the recorder through
   `MemoRecording.set`, which only the app sets. The control's state is a
   flag in the App Group's `UserDefaults`. `start()` requests the Live
-  Activity before it takes the microphone (on a phone, 2026-11-20, the
-  control failed within a second when it was the other way round; not yet
-  confirmed as the cause). An intent that fails can show nothing in
+  Activity before it takes the microphone. **Starting in the background
+  is not working on a phone yet** (2026-11-20, build 28: with qot not in
+  front, the control fails with `cannotInterruptOthers`, 560557684, at
+  `setActive`; in front it works). `activateSession` now tries a
+  recording-only session, then a mixable `playAndRecord` one, and the
+  error says whether the Live Activity started; untested. An intent that fails can show nothing in
   Control Center, so `MemoRecording.run` keeps why (`lastFailure`, App
   Group) and the app shows it when next opened. The microphone question can only
   be asked with the app in front, so the first memo must be recorded in
@@ -474,7 +477,10 @@ the rules the CLI is tested with:
   read the App Group store; the app reloads widget timelines whenever its
   notes change. `qot://capture` opens the app ready to type. Dictation
   (`Dictation.swift`) transcribes on the device (`requiresOnDeviceRecognition`)
-  into the draft for the person to check; audio is never kept or sent. A
+  into the draft for the person to check; audio is never kept or sent.
+  Its callbacks run off the main thread, so they are made in `nonisolated`
+  functions: a closure written in a main-actor method crashes there
+  (Swift 6 checks it). A
   voice memo (above) is the separate gesture that keeps its recording.
 - The app syncs on launch and foreground, after every capture and delete
   (in the background; capture never waits), on pull-to-refresh, on the
