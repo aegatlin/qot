@@ -8,8 +8,10 @@ workflow files?
 
 ## Answer
 
-**An agent may cut a release when the repo owner has authorized it**, in
-that session or in the agent's memory: push `cli/v*`, `server/v*`, `web/v*`
+**An agent on the owner's own machine may cut a release when the repo
+owner has authorized it**, in that session or in the agent's memory (cloud
+sessions never release: they can't push tags, and that is fine; clarified
+by the owner 2026-11-20): push `cli/v*`, `server/v*`, `web/v*`
 and `site/v*` tags, and move `production`, `production-web` and
 `production-site` (force-push included). Without that authorization the
 old rule holds: agents don't push tags or deploy production. The owner

@@ -318,11 +318,13 @@ the rules the CLI is tested with:
 - **Releasing** is [dist](https://axodotdev.github.io/cargo-dist/): bump
   `version` in `client_cli/Cargo.toml`, merge, then push a `cli/vX.Y.Z`
   tag on that merge commit. **Who pushes release tags** (every component:
-  `cli/v*`, `server/v*`, `web/v*`, `site/v*`): a person, or an agent the
-  repo owner has authorized to release, in that session or in memory
+  `cli/v*`, `server/v*`, `web/v*`, `site/v*`): a person, or an agent on
+  the owner's own machine that the repo owner has authorized to release,
+  in that session or in memory
   (`docs/records/2026-11-19-agents-may-release.md`); without that, agents
-  don't push tags or move the production branches. Cloud sessions can't
-  push tags at all: Anthropic's GitHub proxy allows branch pushes only.
+  don't push tags or move the production branches. **Cloud sessions never
+  release**: Anthropic's GitHub proxy allows branch pushes only, so they
+  can't push tags, and they don't move the production branches either.
   Check the tag
   matches the version, since dist fails on a mismatch (dist parses `cli/`,
   not `cli-`; the namespace keeps `server/v*` tags from triggering it).
@@ -356,8 +358,13 @@ the rules the CLI is tested with:
   `Qot` scheme is shared and archives. Signing: `Config/Signing.xcconfig`
   sets the team; a gitignored `Config/Local.xcconfig` overrides it. New
   targets (Mac, more extensions) come from File > New Target.
-- **Xcode Cloud** builds for TestFlight on every push to `main`, and is how
-  iOS releases are made (no `ios/v*` tags or Actions uploads).
+- **Xcode Cloud** builds for TestFlight on pushes to `main`, and is how
+  iOS releases are made (no `ios/v*` tags or Actions uploads). Its start
+  condition is "any file in `client_apple/`, `core/` or `core_ffi/`", and
+  a push of several commits started no build when only an earlier commit
+  touched them (2026-11-19: `54d9699` got none), so check that a build of
+  an Apple change arrived (`asc xcode-cloud build-runs`) and, if not,
+  start one in Xcode or push an Apple commit on its own.
   `ci_scripts/ci_post_clone.sh` stays minimal: rustup at the Rust version
   pinned in `mise.toml` (no mise there), then `scripts/build-apple-core
   --release`.

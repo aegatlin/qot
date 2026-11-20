@@ -131,7 +131,7 @@ public struct Syncer: Sendable {
         guard let data = try await authed(api, &creds, { try await api.getBlob(token: $0, id: id) })
         else { throw BlobError.notOnServerYet }
         // The sync state is a sync's to write, so this waits for one running.
-        return try await FileLock.withLock(at: store.directory.appendingPathComponent("sync.lock")) {
+        return try FileLock.withLock(at: store.directory.appendingPathComponent("sync.lock")) {
             let file = try store.saveBlob(id, data)
             try store.saveSyncState(markUploaded(state: try store.loadSyncState(), ids: [id]))
             return file
