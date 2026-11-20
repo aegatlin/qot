@@ -165,6 +165,12 @@ final class AppModel {
 
     /// While the app is in front: sync, and listen for the server's nudges.
     func becameActive() {
+        // A recording started outside the app (Control Center, Siri) that
+        // failed could say so nowhere: say it now.
+        if let failure = MemoRecording.lastFailure {
+            MemoRecording.lastFailure = nil
+            recorder.problem = failure
+        }
         syncInBackground()
         guard live == nil, session != nil, let credentials = account?.credentialStore else { return }
         live = LiveNudges(credentials: credentials) { [weak self] in

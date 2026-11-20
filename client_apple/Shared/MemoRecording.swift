@@ -36,8 +36,28 @@ enum MemoRecording {
     }
 
     @MainActor static func run(_ on: Bool) async throws {
-        guard let set else { throw MemoIntentError.notInApp }
-        try await set(on)
+        do {
+            guard let set else { throw MemoIntentError.notInApp }
+            try await set(on)
+        } catch {
+            // Control Center shows nothing when an intent fails: keep why,
+            // for the app to show when it is next opened.
+            let underlying = error as NSError
+            lastFailure =
+                "The voice memo didn't \(on ? "start" : "stop"): \(error.localizedDescription) "
+                + "(\(underlying.domain) \(underlying.code))"
+            throw error
+        }
+    }
+
+    private static let failureKey = "memo.lastFailure"
+
+    /// Why the last recording intent failed, if one has since the app last
+    /// showed it. Written wherever the intent ran (the app, or by mistake
+    /// the widget extension), so it is in the App Group.
+    static var lastFailure: String? {
+        get { defaults?.string(forKey: failureKey) }
+        set { defaults?.set(newValue, forKey: failureKey) }
     }
 }
 

@@ -94,36 +94,46 @@ final class MemoRecorder: NSObject, AVAudioRecorderDelegate {
         default: throw MemoError.microphone
         }
 
-        let file = try AppGroup.store().newRecordingURL()
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .default)
-        try session.setActive(true)
-        let recorder = try AVAudioRecorder(
-            url: file,
-            settings: [
-                AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: 44_100,
-                AVNumberOfChannelsKey: 1,
-                AVEncoderBitRateKey: 64_000,
-                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
-            ])
-        recorder.delegate = self
-        guard recorder.record(forDuration: Self.limit) else {
-            try? FileManager.default.removeItem(at: file)
-            try? session.setActive(false, options: .notifyOthersOnDeactivation)
-            throw MemoError.couldNotStart
-        }
-        self.recorder = recorder
-        self.file = file
+        // The Live Activity comes first: started from an intent with the
+        // app in the background, iOS lets the app take the microphone only
+        // while one is showing.
         let now = Date.now
-        startedAt = now
-        MemoRecording.isRecording = true
         _ = try? Activity.request(
             attributes: MemoAttributes(),
             content: .init(state: .init(startedAt: now), staleDate: now + Self.limit + 60))
+        let file: URL
+        let recorder: AVAudioRecorder
+        do {
+            file = try AppGroup.store().newRecordingURL()
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .default)
+            try session.setActive(true)
+            recorder = try AVAudioRecorder(
+                url: file,
+                settings: [
+                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+                    AVSampleRateKey: 44_100,
+                    AVNumberOfChannelsKey: 1,
+                    AVEncoderBitRateKey: 64_000,
+                    AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+                ])
+            recorder.delegate = self
+            guard recorder.record(forDuration: Self.limit) else {
+                try? FileManager.default.removeItem(at: file)
+                try? session.setActive(false, options: .notifyOthersOnDeactivation)
+                throw MemoError.couldNotStart
+            }
+        } catch {
+            await Self.endActivities()
+            throw error
+        }
+        self.recorder = recorder
+        self.file = file
+        startedAt = now
+        MemoRecording.isRecording = true
         // A phone call or Siri takes the microphone: keep what was said.
         interruptions = NotificationCenter.default.addObserver(
-            forName: AVAudioSession.interruptionNotification, object: session, queue: .main
+            forName: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(), queue: .main
         ) { [weak self] note in
             let began =
                 note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt

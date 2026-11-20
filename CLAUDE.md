@@ -424,7 +424,12 @@ the rules the CLI is tested with:
   `AudioRecordingIntent`s, which iOS runs in the app's process, launching
   it in the background; they reach the recorder through
   `MemoRecording.set`, which only the app sets. The control's state is a
-  flag in the App Group's `UserDefaults`. The microphone question can only
+  flag in the App Group's `UserDefaults`. `start()` requests the Live
+  Activity before it takes the microphone (on a phone, 2026-11-20, the
+  control failed within a second when it was the other way round; not yet
+  confirmed as the cause). An intent that fails can show nothing in
+  Control Center, so `MemoRecording.run` keeps why (`lastFailure`, App
+  Group) and the app shows it when next opened. The microphone question can only
   be asked with the app in front, so the first memo must be recorded in
   the app. In the app: the list's microphone button (`RecordButton`), and
   in the editor a player above the text (`AttachmentList`, `RecordingRow`:
