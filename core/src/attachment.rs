@@ -441,6 +441,73 @@ mod tests {
         );
     }
 
+    /// The server (or any other party) transcribing while the person types.
+    fn typed_while_transcribing(before: &str, typed: &str, transcript: &str) -> String {
+        let audio = memo(AttachmentText::Pending);
+        let device = Note::with_attachment(before, &audio).unwrap();
+        let server = Note::from_bytes(&device.to_bytes()).unwrap();
+        let device = device.update(typed).unwrap();
+        let server = server.fill_text(&audio.id, transcript).unwrap();
+        let (a, b) = (
+            device.merge(&server).unwrap(),
+            server.merge(&device).unwrap(),
+        );
+        assert_eq!(a.content(), b.content());
+        assert_eq!(a.attachment(&audio.id).unwrap().text, AttachmentText::Done);
+        a.content()
+    }
+
+    #[test]
+    fn text_typed_while_a_transcript_was_made_is_kept_with_it() {
+        // Both were written at the same place in an empty note, so which
+        // comes first is the merge's choice, and nothing puts a line break
+        // between them: neither side knew of the other. Nothing is lost.
+        let content = typed_while_transcribing("", "more thoughts", "the transcript");
+        assert!(
+            ["more thoughtsthe transcript", "the transcriptmore thoughts"]
+                .contains(&content.as_str()),
+            "{content:?}"
+        );
+    }
+
+    #[test]
+    fn text_added_under_a_title_while_a_transcript_was_made_is_kept() {
+        let content =
+            typed_while_transcribing("plumber", "plumber\nmore thoughts", "the transcript");
+        assert!(
+            [
+                "plumber\nmore thoughts\nthe transcript",
+                "plumber\nthe transcript\nmore thoughts"
+            ]
+            .contains(&content.as_str()),
+            "{content:?}"
+        );
+    }
+
+    #[test]
+    fn typing_elsewhere_in_the_note_never_meets_the_transcript() {
+        let content = typed_while_transcribing(
+            "plumber\nfor Sam",
+            "call the plumber\nfor Sam",
+            "the transcript",
+        );
+        assert_eq!(content, "call the plumber\nfor Sam\nthe transcript");
+    }
+
+    #[test]
+    fn a_transcript_deleted_by_hand_is_not_written_again() {
+        let audio = memo(AttachmentText::Pending);
+        let note = Note::with_attachment("", &audio).unwrap();
+        let filled = note.fill_text(&audio.id, "the transcript").unwrap();
+        let cleared = filled.update("").unwrap();
+        let again = cleared.fill_text(&audio.id, "the transcript").unwrap();
+        assert_eq!(again.content(), "");
+        assert_eq!(
+            again.attachment(&audio.id).unwrap().text,
+            AttachmentText::Done
+        );
+    }
+
     #[test]
     fn filling_in_a_missing_attachment_is_an_error() {
         assert!(
