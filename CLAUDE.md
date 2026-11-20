@@ -19,6 +19,11 @@ The current goal is dogfooding (the developer and a few friends using it
 daily), not a public launch. Work that only matters for strangers or at
 real user volume (backups, pricing, error reporting) is deferred: those
 issues are closed as not planned, to reopen when a launch makes them matter.
+One exception, decided 2026-11-20: **cloud transcription is the first paid
+feature** (the server transcribes a recording a client sends, for clients
+that can't; opt-in, gated by a plan, billed with Stripe), because qot
+presumes nothing about which clients someone has. Not built yet:
+`docs/records/2026-11-20-paid-transcription.md`, #111, #112.
 
 **qot does not launch without voice memos that sync**: one gesture on the
 iPhone records a memo, and both the recording and its text reach every

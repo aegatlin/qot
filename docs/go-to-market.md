@@ -3,8 +3,11 @@
 Not marketing; the question is what's free, what's paid, and why someone
 would pay. Nothing here is decided except self-hosting (question 2).
 
-> **Parked while dogfooding.** Pricing and billing are deferred (#16, closed as
-> not planned, to reopen at launch). Nothing here is a current todo.
+> **Mostly parked while dogfooding** (#16, closed as not planned). One part
+> moved on 2026-11-20: the first paid feature is cloud transcription of
+> voice memos, billed with Stripe
+> (`records/2026-11-20-paid-transcription.md`, #111, #112). Whether sync
+> itself is paid, and the price, are still open.
 
 ## The shape being considered
 
