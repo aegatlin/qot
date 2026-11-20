@@ -164,6 +164,7 @@ impl NoteService {
         file: &std::path::Path,
         media_type: &str,
         duration: std::time::Duration,
+        text_status: qot_core::AttachmentText,
     ) -> Result<Note, String> {
         let size = match std::fs::metadata(file) {
             Ok(m) => m.len(),
@@ -179,8 +180,7 @@ impl NoteService {
             media_type: media_type.to_string(),
             size,
             duration_ms: Some(duration.as_millis() as u64),
-            // Nothing here transcribes it.
-            text: qot_core::AttachmentText::None,
+            text: text_status,
         };
         let note = qot_core::Note::with_attachment(text, &attachment).map_err(|e| e.to_string())?;
         let io = |e: std::io::Error| format!("Can't keep the recording: {e}");
@@ -188,6 +188,41 @@ impl NoteService {
         std::fs::rename(file, self.blob_path(id)).map_err(io)?;
         self.save(&note)?;
         Ok(view(&note))
+    }
+
+    /// Asks the server for the text of a recording made here and writes
+    /// it into its note (`fill_text`: under any text the note has, once).
+    /// A refusal still marks the recording as no longer waiting for text,
+    /// and is returned.
+    pub fn transcribe(
+        &mut self,
+        note_id: &str,
+        recording: &qot_core::Attachment,
+        api: &Api,
+        creds: &mut Credentials,
+    ) -> Result<String, String> {
+        let bytes = self
+            .local_recording(recording)
+            .ok_or("the recording isn't on this device")?;
+        let asked = authed(api, creds, &self.dir, |token| {
+            api.transcribe(
+                token,
+                &bytes,
+                &recording.media_type,
+                recording.duration_ms.unwrap_or(0),
+            )
+        });
+        let text = asked.as_deref().unwrap_or("");
+        let current = match self.storage.get(note_id).map_err(|e| e.to_string())? {
+            Some(bytes) => qot_core::Note::from_bytes(&bytes)
+                .map_err(|e| format!("note {note_id} is unreadable: {e}"))?,
+            None => return Err("the note is gone".into()),
+        };
+        let filled = current
+            .fill_text(&recording.id, text)
+            .map_err(|e| e.to_string())?;
+        self.save(&filled)?;
+        asked.map(|text| text.trim().to_string())
     }
 
     /// Where a recording is written while it is being made: outside

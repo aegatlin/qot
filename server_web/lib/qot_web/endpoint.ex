@@ -23,5 +23,10 @@ defmodule QotWeb.Endpoint do
     conn |> Plug.Conn.fetch_query_params() |> Map.put(:body_params, %{})
   end
 
+  # The same for a recording sent to be transcribed (TranscriptionController).
+  defp parse_body(%Plug.Conn{path_info: ["api", "transcriptions"]} = conn, _opts) do
+    conn |> Plug.Conn.fetch_query_params() |> Map.put(:body_params, %{})
+  end
+
   defp parse_body(conn, _opts), do: Plug.Parsers.call(conn, @parsers)
 end

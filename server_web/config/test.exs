@@ -39,3 +39,7 @@ config :qot, :apple_tokens_api, Qot.AppleTestTokens
 
 # Small blob limits, so tests of them stay small (Qot.BlobsTest).
 config :qot, :blob_limits, %{max_bytes: 1000, quota_bytes: 2500}
+
+# Cloud transcription against test/support/test_transcriber.ex, with a
+# small monthly allowance.
+config :qot, :transcription, %{api: Qot.TestTranscriber, monthly_seconds: 60}

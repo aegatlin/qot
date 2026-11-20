@@ -21,6 +21,13 @@ defmodule Qot.Release do
     {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
   end
 
+  @doc """
+  Puts an account on a plan by hand, until billing does it:
+
+      bin/qot rpc 'Qot.Release.set_plan("me@example.com", "plus")'
+  """
+  def set_plan(email, plan), do: Qot.Accounts.set_plan(email, plan)
+
   defp repos, do: Application.fetch_env!(@app, :ecto_repos)
 
   # SSL is needed to reach a database over TLS before the app starts.

@@ -57,6 +57,25 @@ defmodule Qot.Accounts do
   end
 
   @doc """
+  Puts the account with this email (any case) on `plan`. Billing's job;
+  until there is billing, done by hand (`Qot.Release.set_plan/2`).
+  """
+  def set_plan(email, plan) when is_binary(email) and is_binary(plan) do
+    email = email |> String.trim() |> String.downcase()
+
+    cond do
+      plan not in User.plans() ->
+        {:error, :unknown_plan}
+
+      true ->
+        case Repo.one(from(u in User, where: fragment("lower(?)", u.email) == ^email)) do
+          nil -> {:error, :not_found}
+          user -> user |> Ecto.Changeset.change(plan: plan) |> Repo.update()
+        end
+    end
+  end
+
+  @doc """
   Creates a new user with the given email.
   Returns {:ok, user} or {:error, changeset}
   """

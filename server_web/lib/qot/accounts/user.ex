@@ -13,6 +13,9 @@ defmodule Qot.Accounts.User do
     # revoke Sign in with Apple when the account is deleted (#88).
     field(:apple_refresh_token, :string, redact: true)
     field(:apple_client_id, :string)
+    # What the account pays for: "free", or "plus" (cloud transcription).
+    # Set by billing, never by the account's own requests.
+    field(:plan, :string, default: "free")
 
     timestamps(type: :utc_datetime)
   end
@@ -32,6 +35,14 @@ defmodule Qot.Accounts.User do
     |> cast(attrs, [:apple_refresh_token, :apple_client_id])
     |> validate_required([:apple_refresh_token, :apple_client_id])
   end
+
+  @plans ["free", "plus"]
+
+  @doc "The plans an account can be on."
+  def plans, do: @plans
+
+  @doc "Whether an account on `plan` may use cloud transcription."
+  def transcribes?(plan), do: plan == "plus"
 
   @doc false
   def changeset(user, attrs) do

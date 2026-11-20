@@ -22,8 +22,10 @@ issues are closed as not planned, to reopen when a launch makes them matter.
 One exception, decided 2026-11-20: **cloud transcription is the first paid
 feature** (the server transcribes a recording a client sends, for clients
 that can't; opt-in, gated by a plan, billed with Stripe), because qot
-presumes nothing about which clients someone has. Not built yet:
-`docs/records/2026-11-20-paid-transcription.md`, #111, #112.
+presumes nothing about which clients someone has
+(`docs/records/2026-11-20-paid-transcription.md`). The endpoint and `qot
+record --transcribe` are built (#111) but no provider is configured
+anywhere; billing is not built (#112).
 
 **qot does not launch without voice memos that sync**: one gesture on the
 iPhone records a memo, and both the recording and its text reach every
@@ -334,7 +336,14 @@ the rules the CLI is tested with:
   else the first installed of `afplay` (macOS), `ffplay` and `mpv`. No
   audio library is linked: it would need the system's sound libraries,
   which the musl builds don't have. Rules in `record.rs` and `play.rs`
-  (pure), tests in `tests/record_test.rs`. No transcription in the CLI.
+  (pure), tests in `tests/record_test.rs`. The CLI doesn't transcribe;
+  `qot record --transcribe` (`-t`, or `$QOT_TRANSCRIBE=1`; never
+  otherwise) sends the recording to the server's `POST
+  /api/transcriptions` after the sync and writes the text into the note
+  (`fill_text`, under any words given), then syncs again. The attachment
+  is `pending` meanwhile; a refusal (no paid plan, allowance used, a
+  server that doesn't transcribe) is printed as `(no text: …)` and marks
+  it done, the memo kept.
   A note's line (`qot list`, and what `edit` and `delete` print) starts
   with a marker per attachment, `[audio 0:42]`, from the core's `label()`,
   so kinds it doesn't know show too. Deleting a note that has a recording
@@ -730,8 +739,27 @@ the rules the CLI is tested with:
   `Qot.Accounts.AppleTokens`, faked in tests by `Qot.AppleTestTokens`. Both
   are best effort: a failed exchange or revoke is logged, never blocking a
   sign-in or a deletion.
+- **Cloud transcription** (`Qot.Transcription`; #111,
+  `docs/records/2026-11-20-paid-transcription.md`): `POST
+  /api/transcriptions[?duration_ms=]`, one recording as the raw body
+  (read like a blob, under the blob size limit; `content-type` only picks
+  the file name the provider sees), answers `{text}`. The server keeps
+  neither the audio nor the text, only seconds used per account and month
+  (`transcription_usage`), and never touches notes: the client writes the
+  text in. Refusals: 402 `plan_required` (`users.plan` must be `plus`;
+  set by hand with `Qot.Release.set_plan/2` until billing exists, #112),
+  429 `allowance_used` (seconds are reserved under the user row's lock
+  before the provider is asked, given back if it fails; a recording
+  counts for what the client states but at least its size at 128
+  kbit/s), 503 `transcription_unavailable` (no provider configured), 502
+  `provider_failed`. The provider is `Qot.Transcription.Provider`: any
+  service with OpenAI's `/v1/audio/transcriptions` shape, by Req; tests
+  use `Qot.TestTranscriber`. **No environment has a provider key yet, and
+  none may get one before the privacy policy names the provider and says
+  that it and the server hear a recording sent this way.** No real
+  provider has been called.
 - **Account deletion**: `DELETE /api/account {confirm: <the account's
-  email>}` removes the user, refresh tokens, change log, blobs and sign-ins
+  email>}` removes the user, refresh tokens, change log, blobs, transcription usage and sign-ins
   (`Qot.Accounts.delete_user/1`), revokes its Apple token if it has one, and
   closes the user's sockets. A
   server-side export would only be opaque change blobs, so export is the
@@ -804,6 +832,9 @@ the rules the CLI is tested with:
   neither, in fnox; without them deleting can't revoke Apple tokens),
   `APPLE_TEAM_ID` (default `H88537CLVC`),
   `BLOB_MAX_BYTES` and `BLOB_QUOTA_BYTES` (the blob limits),
+  `STT_API_KEY` with `STT_API_URL` and `STT_MODEL` (the transcription
+  provider; all three or none) and `STT_MONTHLY_SECONDS` (each account's
+  allowance, default 18000),
   `CLIENT_IP_HEADER` (default `x-real-ip`), `DATABASE_SSL=false` (a database on the host's private network; TLS with
   certificate verification is the default), `ECTO_IPV6=true`, `POOL_SIZE`,
   `PORT`. Dev and test need none.

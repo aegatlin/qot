@@ -32,6 +32,7 @@ impl Qot {
         cmd.env("QOT_DATA_DIR", self.data())
             .env("QOT_RECORDER", self.recorder(RECORDS))
             .env_remove("QOT_PLAYER")
+            .env_remove("QOT_TRANSCRIBE")
             .env_remove("QOT_SERVER");
         cmd
     }
@@ -319,4 +320,133 @@ fn deleting_the_note_removes_the_recording_from_this_device() {
 
     qot.cmd().args(["delete", "1"]).assert().success();
     assert!(!qot.blob(&audio.id).exists());
+}
+
+fn transcriber(server: &MockServer, status: u16, body: serde_json::Value) -> httpmock::Mock<'_> {
+    server.mock(|when, then| {
+        when.method(POST)
+            .path("/api/transcriptions")
+            .query_param_exists("duration_ms")
+            .header("authorization", "Bearer good")
+            .header("content-type", "audio/mp4")
+            .body("fake audio");
+        then.status(status).json_body(body);
+    })
+}
+
+fn uploads(server: &MockServer) {
+    server.mock(|when, then| {
+        when.method(PUT).path_includes("/api/blobs/");
+        then.status(204);
+    });
+}
+
+#[test]
+fn asked_to_transcribe_the_servers_text_becomes_the_notes() {
+    let server = MockServer::start();
+    pull_and_push(&server);
+    uploads(&server);
+    let asked = transcriber(&server, 200, json!({ "text": "call the plumber" }));
+    let qot = Qot::new();
+    qot.sign_in(&server);
+
+    qot.cmd()
+        .args(["record", "--transcribe"])
+        .write_stdin("\n")
+        .assert()
+        .success()
+        .stderr("")
+        .stdout(predicate::str::contains("Text: call the plumber"));
+
+    asked.assert();
+    let note = &qot.notes()[0];
+    assert_eq!(note.content(), "call the plumber");
+    assert_eq!(note.attachments()[0].text, AttachmentText::Done);
+}
+
+#[test]
+fn the_text_is_added_under_words_given_with_the_command() {
+    let server = MockServer::start();
+    pull_and_push(&server);
+    uploads(&server);
+    transcriber(&server, 200, json!({ "text": "on Tuesday at nine" }));
+    let qot = Qot::new();
+    qot.sign_in(&server);
+
+    qot.cmd()
+        .args(["record", "-t", "plumber"])
+        .write_stdin("\n")
+        .assert()
+        .success();
+    assert_eq!(qot.notes()[0].content(), "plumber\non Tuesday at nine");
+}
+
+#[test]
+fn the_environment_can_ask_for_text_every_time() {
+    let server = MockServer::start();
+    pull_and_push(&server);
+    uploads(&server);
+    let asked = transcriber(&server, 200, json!({ "text": "hello" }));
+    let qot = Qot::new();
+    qot.sign_in(&server);
+
+    qot.cmd()
+        .env("QOT_TRANSCRIBE", "1")
+        .arg("record")
+        .write_stdin("\n")
+        .assert()
+        .success();
+    asked.assert();
+}
+
+#[test]
+fn nothing_is_sent_to_be_transcribed_unless_asked() {
+    let server = MockServer::start();
+    pull_and_push(&server);
+    uploads(&server);
+    let asked = transcriber(&server, 200, json!({ "text": "hello" }));
+    let qot = Qot::new();
+    qot.sign_in(&server);
+
+    qot.cmd()
+        .env_remove("QOT_TRANSCRIBE")
+        .arg("record")
+        .write_stdin("\n")
+        .assert()
+        .success();
+    asked.assert_calls(0);
+    assert_eq!(qot.notes()[0].attachments()[0].text, AttachmentText::None);
+}
+
+#[test]
+fn an_account_without_the_plan_keeps_the_memo_and_is_told_why_there_is_no_text() {
+    let server = MockServer::start();
+    pull_and_push(&server);
+    uploads(&server);
+    transcriber(&server, 402, json!({ "error": "plan_required" }));
+    let qot = Qot::new();
+    qot.sign_in(&server);
+
+    qot.cmd()
+        .args(["record", "--transcribe"])
+        .write_stdin("\n")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("paid plan"));
+    let note = &qot.notes()[0];
+    assert_eq!(note.content(), "");
+    // Not left waiting for a text that isn't coming.
+    assert_eq!(note.attachments()[0].text, AttachmentText::Done);
+}
+
+#[test]
+fn signed_out_there_is_no_one_to_ask_for_text() {
+    let qot = Qot::new();
+    qot.cmd()
+        .args(["record", "--transcribe"])
+        .write_stdin("\n")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("qot login"));
+    assert_eq!(qot.notes()[0].attachments()[0].text, AttachmentText::None);
 }

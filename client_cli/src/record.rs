@@ -12,6 +12,20 @@ use std::time::{Duration, Instant};
 
 pub const RECORDER_ENV: &str = "QOT_RECORDER";
 
+/// Set to 1 (or true, on, yes) to ask for text after every recording.
+pub const TRANSCRIBE_ENV: &str = "QOT_TRANSCRIBE";
+
+/// Whether a recording should be sent to the server for its text: only
+/// when asked, by the flag or the environment.
+pub fn wants_text(flag: bool, env: Option<String>) -> bool {
+    flag || env.is_some_and(|v| {
+        matches!(
+            v.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "on" | "yes"
+        )
+    })
+}
+
 /// What every client plays: AAC in an .m4a, as the iPhone records.
 pub const MEDIA_TYPE: &str = "audio/mp4";
 pub const EXTENSION: &str = "m4a";
@@ -190,6 +204,16 @@ fn interrupt(child: &Child) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn text_is_asked_for_only_by_the_flag_or_the_environment() {
+        assert!(!wants_text(false, None));
+        assert!(wants_text(true, None));
+        assert!(wants_text(false, Some("1".into())));
+        assert!(wants_text(false, Some(" On ".into())));
+        assert!(!wants_text(false, Some("0".into())));
+        assert!(!wants_text(false, Some("".into())));
+    }
 
     #[test]
     fn the_environment_names_the_recorder() {

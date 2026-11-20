@@ -70,6 +70,10 @@ enum Commands {
     /// Record a voice memo as a new note (with $QOT_RECORDER, else ffmpeg)
     #[command(visible_alias = "r")]
     Record {
+        /// Send the recording to the server for its text (paid plan; also
+        /// $QOT_TRANSCRIBE=1). Off unless asked.
+        #[arg(long, short = 't')]
+        transcribe: bool,
         /// Text for the note, if any (e.g., qot record call the plumber)
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         content: Vec<String>,
@@ -127,7 +131,14 @@ fn main() {
             list_notes(&mut notes);
         }
         Some(Commands::Edit { index }) => edit_note(&mut notes, index),
-        Some(Commands::Record { content }) => record_memo(&mut notes, &content),
+        Some(Commands::Record {
+            transcribe,
+            content,
+        }) => {
+            let transcribe =
+                record::wants_text(transcribe, std::env::var(record::TRANSCRIBE_ENV).ok());
+            record_memo(&mut notes, &content, transcribe)
+        }
         Some(Commands::Play { index }) => play_note(&mut notes, index),
         Some(Commands::Delete { index }) => {
             delete_note(&mut notes, index);
@@ -218,7 +229,7 @@ fn save_edit(notes: &mut NoteService, base: &qot_core::Note, text: &str) {
 /// `qot record`: the machine's recorder writes a file until Enter or
 /// Ctrl-C, which becomes a new note with that recording; then a sync that
 /// may take as long as the upload does.
-fn record_memo(notes: &mut NoteService, words: &[String]) {
+fn record_memo(notes: &mut NoteService, words: &[String], transcribe: bool) {
     let os = std::env::consts::OS;
     let command = record::recorder_command(
         std::env::var(record::RECORDER_ENV).ok(),
@@ -235,11 +246,45 @@ fn record_memo(notes: &mut NoteService, words: &[String]) {
         let _ = std::fs::remove_file(&file);
         fail(&e)
     });
-    match notes.add_memo(&words.join(" "), &id, &file, record::MEDIA_TYPE, length) {
-        Ok(note) => println!("Recorded: {}", note.line()),
-        Err(e) => fail(&e),
-    }
+    // Text is expected only when there is a server to ask for it.
+    let ask = transcribe && signed_in(notes).is_some();
+    let status = if ask {
+        qot_core::AttachmentText::Pending
+    } else {
+        qot_core::AttachmentText::None
+    };
+    let note = notes
+        .add_memo(
+            &words.join(" "),
+            &id,
+            &file,
+            record::MEDIA_TYPE,
+            length,
+            status,
+        )
+        .unwrap_or_else(|e| fail(&e));
+    println!("Recorded: {}", note.line());
     sync_within(notes, UPLOAD_SYNC);
+    if ask {
+        transcribe_memo(notes, &note);
+    } else if transcribe {
+        eprintln!("(no text: sign in to have recordings transcribed: qot login <email>)");
+    }
+}
+
+/// Sends the memo just recorded to the server for its text, and syncs the
+/// text. Without text the memo is as good as it was.
+fn transcribe_memo(notes: &mut NoteService, note: &service::Note) {
+    let Some(mut creds) = signed_in(notes) else {
+        return;
+    };
+    let api = Api::new(&creds.server, UPLOAD_SYNC);
+    match notes.transcribe(&note.id, &note.attachments[0], &api, &mut creds) {
+        Ok(text) if text.is_empty() => println!("No speech was heard."),
+        Ok(text) => println!("Text: {text}"),
+        Err(e) => eprintln!("(no text: {e})"),
+    }
+    quick_sync(notes);
 }
 
 /// `qot play`: plays the note's recordings one after another, waiting

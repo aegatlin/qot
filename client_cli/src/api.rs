@@ -255,6 +255,43 @@ impl Api {
         }
     }
 
+    /// Sends a recording to the server to be transcribed, and returns its
+    /// text. The server keeps neither. Only called when the person asked.
+    pub fn transcribe(
+        &self,
+        token: &str,
+        bytes: &[u8],
+        media_type: &str,
+        duration_ms: u64,
+    ) -> Result<String, ApiError> {
+        let mut res = self
+            .agent
+            .post(format!(
+                "{}/api/transcriptions?duration_ms={duration_ms}",
+                self.base
+            ))
+            .header("authorization", format!("Bearer {token}"))
+            .header("content-type", media_type)
+            .send(bytes)
+            .map_err(net)?;
+        let status = res.status().as_u16();
+        let body = res.body_mut().read_json::<Value>().unwrap_or(Value::Null);
+        let refused = |why: &str| Err(ApiError::Other(why.to_string()));
+        match status {
+            200 => body["text"]
+                .as_str()
+                .map(String::from)
+                .ok_or_else(|| ApiError::Other("no text in reply".into())),
+            401 => Err(ApiError::Unauthorized),
+            402 => refused("cloud transcription is part of the paid plan"),
+            413 => refused("the recording is larger than the server takes"),
+            429 => refused("this month's transcription allowance is used up"),
+            404 | 503 => refused("this server doesn't transcribe"),
+            502 => refused("the transcription service failed; the recording is kept"),
+            _ => Err(ApiError::Other(error_text(&body))),
+        }
+    }
+
     pub fn pull(&self, token: &str, since: u64) -> Result<Page, ApiError> {
         match self.get(&format!("/api/sync/pull?since={since}"), token)? {
             (200, body) => parse_page(&body).map_err(ApiError::Other),

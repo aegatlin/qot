@@ -13,7 +13,7 @@ defmodule QotWeb.Router do
     plug(:put_secure_browser_headers)
   end
 
-  # Blobs are raw bytes both ways, so there is no content negotiation: any
+  # Blobs (and a recording sent to be transcribed) are raw bytes, so there is no content negotiation: any
   # `accept` will do, and errors are JSON.
   pipeline :bytes do
     plug(:put_format, "json")
@@ -59,5 +59,6 @@ defmodule QotWeb.Router do
 
     put("/blobs/:id", BlobController, :put)
     get("/blobs/:id", BlobController, :show)
+    post("/transcriptions", TranscriptionController, :create)
   end
 end

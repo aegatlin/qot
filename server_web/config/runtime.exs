@@ -48,6 +48,30 @@ config :qot, :blob_limits, %{
   quota_bytes: blob_limit.("BLOB_QUOTA_BYTES", blob_limits.quota_bytes)
 }
 
+# Cloud transcription (Qot.Transcription): on only when a provider's key is
+# set. STT_API_URL is an endpoint with OpenAI's /v1/audio/transcriptions
+# shape; STT_MONTHLY_SECONDS is each account's allowance (default 5 hours).
+case System.get_env("STT_API_KEY") do
+  key when key in [nil, ""] ->
+    :ok
+
+  key ->
+    monthly =
+      case Integer.parse(System.get_env("STT_MONTHLY_SECONDS", "18000")) do
+        {n, ""} when n > 0 -> n
+        _ -> raise "STT_MONTHLY_SECONDS must be a positive whole number of seconds"
+      end
+
+    config :qot, :transcription, %{
+      api: Qot.Transcription.Provider,
+      url:
+        System.get_env("STT_API_URL") || raise("STT_API_KEY is set, so STT_API_URL must be too"),
+      model: System.get_env("STT_MODEL") || raise("STT_API_KEY is set, so STT_MODEL must be too"),
+      key: key,
+      monthly_seconds: monthly
+    }
+end
+
 # Sign in with Apple: the client ids an identity token may be for, comma
 # separated. Optional; config.exs has the iOS app's bundle id.
 case System.get_env("APPLE_CLIENT_IDS") do
