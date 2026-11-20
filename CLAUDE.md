@@ -302,6 +302,12 @@ the rules the CLI is tested with:
   `qot delete`'s job) unless the note has an attachment, which is then
   kept without text; a failing editor leaves the note alone. Rules in
   `edit.rs` (pure), tests in `tests/edit_test.rs`.
+- `qot web` (alias `w`) opens the web app: the `app_url` the server gave
+  at sign-in (kept in `credentials.json`), else the known app for qot's
+  own servers (production, staging, local), signed out included; another
+  server signed in to before 0.4.0 says to sign in again. It prints the
+  address, then runs `$BROWSER`, else `open` (macOS) or `xdg-open`. Rules
+  in `web.rs` (pure), tests in `tests/web_test.rs`.
 - **Attachments**: the CLI can't record, and keeps no blob files. `qot
   play <n>` (alias `p`) fetches note `n`'s recordings from the server (so
   it needs a sign-in; one not uploaded yet says so), writes each to a

@@ -4,6 +4,7 @@ mod edit;
 mod play;
 mod service;
 mod storage;
+mod web;
 
 use api::{Api, Poll};
 use clap::{CommandFactory, Parser, Subcommand};
@@ -27,6 +28,7 @@ const QUICK_SYNC: Duration = Duration::from_secs(3);
     qot list              # Show all notes\n  \
     qot edit 2            # Edit note #2 in $VISUAL / $EDITOR\n  \
     qot play 2            # Play note #2's recording\n  \
+    qot web               # Open your notes in the web app\n  \
     qot delete 2          # Delete note #2\n  \
     qot login me@x.com    # Sign in to sync between devices\n  \
     qot sync              # Sync now\n  \
@@ -92,6 +94,9 @@ enum Commands {
         #[arg(long)]
         dir: Option<std::path::PathBuf>,
     },
+    /// Open your notes in the web app
+    #[command(visible_alias = "w")]
+    Web,
     /// Show the account, server and notes on this device (no network)
     Status,
     /// Delete your account and synced notes on the server (notes on this device stay)
@@ -132,6 +137,7 @@ fn main() {
         }
         Some(Commands::DeleteAccount) => delete_account(&notes),
         Some(Commands::Status) => status(&notes),
+        Some(Commands::Web) => open_web(&notes),
         None if cli.content.is_empty() => {
             Cli::command().print_help().unwrap();
         }
@@ -330,6 +336,7 @@ fn login(notes: &mut NoteService, email: &str, server: Option<String>) {
     let mut creds = Credentials {
         server,
         email: email.to_string(),
+        app_url: start.app_url.clone(),
         tokens,
     };
     // A different account must not inherit this device's sync position.
@@ -389,6 +396,25 @@ fn status(notes: &NoteService) {
     );
 }
 
+/// `qot web`: opens the web app that goes with the server this device
+/// syncs with (signed out: the one it would sign in to).
+fn open_web(notes: &NoteService) {
+    let creds = signed_in(notes);
+    let server = match &creds {
+        Some(c) => c.server.clone(),
+        None => resolve_server(None, std::env::var(SERVER_ENV).ok()),
+    };
+    let saved = creds.as_ref().and_then(|c| c.app_url.as_deref());
+    let url = web::app_url(server_label(&server), saved).unwrap_or_else(|| {
+        fail(&format!(
+            "This sign-in doesn't know the web app for {server}.              Sign in again to learn it: qot login <email> --server {server}"
+        ))
+    });
+    println!("Opening {url}");
+    let command = web::opener(std::env::var("BROWSER").ok(), std::env::consts::OS);
+    web::open(&command, &url).unwrap_or_else(|e| fail(&e));
+}
+
 /// A name for the server, so production and staging can't be mistaken for
 /// each other at a glance.
 fn server_label(url: &str) -> &'static str {
@@ -445,6 +471,7 @@ mod tests {
         Credentials {
             server: server.into(),
             email: "me@example.com".into(),
+            app_url: None,
             tokens: api::Tokens {
                 access_token: "secret-access".into(),
                 refresh_token: "secret-refresh".into(),

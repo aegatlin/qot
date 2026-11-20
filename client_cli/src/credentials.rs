@@ -9,6 +9,10 @@ use std::path::{Path, PathBuf};
 pub struct Credentials {
     pub server: String,
     pub email: String,
+    /// The web app that goes with the server, as it said at sign-in
+    /// (`qot web` opens it). Absent in sign-ins made before it was kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub app_url: Option<String>,
     #[serde(flatten)]
     pub tokens: Tokens,
 }
@@ -66,6 +70,7 @@ mod tests {
         Credentials {
             server: "http://localhost:4000".into(),
             email: "me@example.com".into(),
+            app_url: None,
             tokens: Tokens {
                 access_token: "a".into(),
                 refresh_token: "r".into(),
